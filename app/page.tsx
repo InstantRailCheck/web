@@ -19,17 +19,19 @@ export default async function Home() {
   const bankOptions = (banks ?? []) as Bank[];
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-      <div className="w-full max-w-4xl px-6 py-16 text-center">
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-6 pt-6 pb-16">
         <Hero />
 
-        {error ? (
-          <p className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-left text-red-200">
-            Supabase error: {error.message}
-          </p>
-        ) : (
-          <RouteSearch banks={bankOptions} />
-        )}
+        <div id="search" className="mt-8 w-full max-w-4xl">
+          {error ? (
+            <p className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">
+              Supabase error: {error.message}
+            </p>
+          ) : (
+            <RouteSearch banks={bankOptions} />
+          )}
+        </div>
       </div>
     </main>
   );
