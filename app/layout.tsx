@@ -16,7 +16,7 @@ export const metadata = {
   title: "InstantRailCheck",
   description: "Know before you transfer.",
   icons: {
-    icon: "/favicon.png?v=3",
+    icon: "/favicon.png",
   },
 };
 
