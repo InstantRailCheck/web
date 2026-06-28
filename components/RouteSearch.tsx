@@ -52,9 +52,6 @@ export function RouteSearch({ banks }: RouteSearchProps) {
             Choose a sending bank and receiving bank.
           </p>
         </div>
-        <span className="rounded-full bg-blue-500/10 px-3 py-1 text-sm text-blue-300">
-          Live from Supabase
-        </span>
       </div>
 
       <form className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
