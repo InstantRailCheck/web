@@ -20,7 +20,8 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
-              maxAge: 60 * 10, // 10 minutes
+              maxAge: undefined,
+              expires: undefined,
             })
           );
         },
