@@ -27,12 +27,19 @@ function getRailStyle(rail: string) {
   return RAIL_STYLES[rail] ?? { border: "border-slate-700", bg: "bg-slate-900", text: "text-slate-300", icon: "" };
 }
 
-function RailMeta({ rail }: { rail: { lastTested: string | null; isStale: boolean } }) {
-  if (!rail.lastTested) return null;
+function RailMeta({ rail }: { rail: { lastTested: string | null; isStale: boolean; directions: ("push" | "pull")[] } }) {
+  const dirLabel =
+    rail.directions.length === 2 ? "Push & Pull" :
+    rail.directions[0] === "push" ? "Push only" :
+    rail.directions[0] === "pull" ? "Pull only" : null;
+
+  if (!rail.lastTested && !dirLabel) return null;
+
   return (
-    <div className="mt-1 flex items-center gap-1 text-xs opacity-70">
-      {rail.isStale && <span className="text-yellow-400">⚠ Stale ·</span>}
-      <span>Last tested {rail.lastTested}</span>
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs opacity-70">
+      {rail.isStale && <span className="text-yellow-400">⚠ Stale</span>}
+      {dirLabel && <span>{dirLabel}</span>}
+      {rail.lastTested && <span>Last tested {rail.lastTested}</span>}
     </div>
   );
 }

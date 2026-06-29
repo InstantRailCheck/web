@@ -9,6 +9,7 @@ type RailStats = {
   avgTime: number | null;
   lastTested: string | null;
   isStale: boolean;
+  directions: ("push" | "pull")[];
 };
 
 export type RouteIntelligence = {
@@ -70,6 +71,11 @@ export async function getRouteIntelligence(
       ? daysBetween(lastTested, new Date().toISOString().split("T")[0]) > STALE_DAYS
       : false;
 
+    const directionSet = new Set(
+      rows.map((d) => d.direction as string | null).filter((d): d is "push" | "pull" => d === "push" || d === "pull")
+    );
+    const directions = Array.from(directionSet) as ("push" | "pull")[];
+
     return {
       rail: r.rail,
       count: r.count,
@@ -77,6 +83,7 @@ export async function getRouteIntelligence(
       avgTime,
       lastTested,
       isStale,
+      directions,
     };
   });
 
