@@ -13,11 +13,17 @@ type Props = {
   banks: Bank[];
 };
 
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
+
 export function SubmitRouteReport({ banks }: Props) {
   const [fromBankId, setFromBankId] = useState("");
   const [toBankId, setToBankId] = useState("");
   const [railUsed, setRailUsed] = useState("");
+  const [direction, setDirection] = useState("");
   const [status, setStatus] = useState("");
+  const [testedAt, setTestedAt] = useState(today());
   const [settlementTime, setSettlementTime] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,8 +36,8 @@ export function SubmitRouteReport({ banks }: Props) {
     setError(null);
 
     try {
-      if (!fromBankId || !toBankId || !railUsed || !status) {
-        throw new Error("Missing required fields");
+      if (!fromBankId || !toBankId || !railUsed || !direction || !status) {
+        throw new Error("Please fill in all required fields");
       }
 
       const fromBank = banks.find((b) => b.id === fromBankId);
@@ -47,10 +53,10 @@ export function SubmitRouteReport({ banks }: Props) {
           from_bank_name: fromBank.name,
           to_bank_name: toBank.name,
           rail_used: railUsed,
+          direction,
           status,
-          settlement_time_minutes: settlementTime
-            ? parseInt(settlementTime)
-            : null,
+          tested_at: testedAt,
+          settlement_time_minutes: settlementTime ? parseInt(settlementTime) : null,
           notes,
         });
 
@@ -59,7 +65,9 @@ export function SubmitRouteReport({ banks }: Props) {
       setFromBankId("");
       setToBankId("");
       setRailUsed("");
+      setDirection("");
       setStatus("");
+      setTestedAt(today());
       setSettlementTime("");
       setNotes("");
       setSuccess(true);
@@ -95,41 +103,77 @@ export function SubmitRouteReport({ banks }: Props) {
           onChange={setToBankId}
         />
 
-        <select
-          value={railUsed}
-          onChange={(e) => setRailUsed(e.target.value)}
-          className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
-        >
-          <option value="">Select rail</option>
-          <option value="RTP">RTP</option>
-          <option value="FedNow">FedNow</option>
-          <option value="ACH">ACH</option>
-          <option value="Wire">Wire</option>
-        </select>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-300">Rail used</label>
+          <select
+            value={railUsed}
+            onChange={(e) => setRailUsed(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+          >
+            <option value="">Select rail</option>
+            <option value="RTP">RTP</option>
+            <option value="FedNow">FedNow</option>
+            <option value="ACH">ACH</option>
+            <option value="Wire">Wire</option>
+            <option value="Zelle">Zelle</option>
+            <option value="Other">Other</option>
+            <option value="Unknown">Unknown</option>
+          </select>
+        </div>
 
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
-        >
-          <option value="">Status</option>
-          <option value="success">Success</option>
-          <option value="failed">Failed</option>
-          <option value="delayed">Delayed</option>
-        </select>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-300">Direction</label>
+          <select
+            value={direction}
+            onChange={(e) => setDirection(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+          >
+            <option value="">Select direction</option>
+            <option value="push">Push (I sent money out)</option>
+            <option value="pull">Pull (money was pulled in)</option>
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-300">Status</label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+          >
+            <option value="">Select status</option>
+            <option value="success">Success</option>
+            <option value="failed">Failed</option>
+            <option value="delayed">Delayed</option>
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-300">Date tested</label>
+          <input
+            type="date"
+            value={testedAt}
+            max={today()}
+            onChange={(e) => setTestedAt(e.target.value)}
+            className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+          />
+        </div>
 
         <input
           value={settlementTime}
           onChange={(e) => setSettlementTime(e.target.value)}
-          placeholder="Settlement time (minutes)"
-          className="rounded-lg border border-slate-700 bg-slate-950 p-3 md:col-span-2"
+          placeholder="Settlement time (minutes, optional)"
+          type="number"
+          min="0"
+          className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white md:col-span-2"
         />
 
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Notes (optional)"
-          className="rounded-lg border border-slate-700 bg-slate-950 p-3 md:col-span-2"
+          className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white md:col-span-2"
+          rows={3}
         />
 
         <button
@@ -142,14 +186,12 @@ export function SubmitRouteReport({ banks }: Props) {
 
         {success && (
           <p className="text-sm text-green-400 md:col-span-2">
-            Report submitted successfully ✔
+            Report submitted — thank you!
           </p>
         )}
 
         {error && (
-          <p className="text-sm text-red-400 md:col-span-2">
-            {error}
-          </p>
+          <p className="text-sm text-red-400 md:col-span-2">{error}</p>
         )}
       </div>
     </div>
