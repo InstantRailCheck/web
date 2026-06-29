@@ -1,10 +1,14 @@
 import { supabase } from "@/lib/supabase";
 
+const STALE_DAYS = 180;
+
 type RailStats = {
   rail: string;
   count: number;
   successRate: number;
   avgTime: number | null;
+  lastTested: string | null;
+  isStale: boolean;
 };
 
 export type RouteIntelligence = {
@@ -32,12 +36,12 @@ export async function getRouteIntelligence(
     };
   }
 
-  const railsMap: Record<string, RailStats> = {};
+  const railsMap: Record<string, { rail: string; count: number }> = {};
 
   for (const row of data) {
     const rail = row.rail_used || "unknown";
     if (!railsMap[rail]) {
-      railsMap[rail] = { rail, count: 0, successRate: 0, avgTime: null };
+      railsMap[rail] = { rail, count: 0 };
     }
     railsMap[rail].count += 1;
   }
@@ -45,6 +49,7 @@ export async function getRouteIntelligence(
   const rails: RailStats[] = Object.values(railsMap).map((r) => {
     const rows = data.filter((d) => (d.rail_used || "unknown") === r.rail);
     const successCount = rows.filter((d) => d.status === "success").length;
+
     const timingRows = rows.filter((d) => d.settlement_time_minutes != null);
     const avgTime =
       timingRows.length > 0
@@ -54,11 +59,24 @@ export async function getRouteIntelligence(
           )
         : null;
 
+    const dates = rows
+      .map((d) => d.tested_at as string | null)
+      .filter((d): d is string => !!d)
+      .sort()
+      .reverse();
+
+    const lastTested = dates[0] ?? null;
+    const isStale = lastTested
+      ? daysBetween(lastTested, new Date().toISOString().split("T")[0]) > STALE_DAYS
+      : false;
+
     return {
       rail: r.rail,
       count: r.count,
       successRate: successCount / rows.length,
       avgTime,
+      lastTested,
+      isStale,
     };
   });
 
@@ -66,4 +84,10 @@ export async function getRouteIntelligence(
   const confidence = total > 50 ? "HIGH" : total > 10 ? "MEDIUM" : "LOW";
 
   return { rails, confidence, sampleSize: total };
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.abs(
+    (new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24)
+  );
 }

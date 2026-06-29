@@ -27,6 +27,16 @@ function getRailStyle(rail: string) {
   return RAIL_STYLES[rail] ?? { border: "border-slate-700", bg: "bg-slate-900", text: "text-slate-300", icon: "" };
 }
 
+function RailMeta({ rail }: { rail: { lastTested: string | null; isStale: boolean } }) {
+  if (!rail.lastTested) return null;
+  return (
+    <div className="mt-1 flex items-center gap-1 text-xs opacity-70">
+      {rail.isStale && <span className="text-yellow-400">⚠ Stale ·</span>}
+      <span>Last tested {rail.lastTested}</span>
+    </div>
+  );
+}
+
 export function RouteSearch({ banks }: RouteSearchProps) {
   const [fromBankId, setFromBankId] = useState("");
   const [toBankId, setToBankId] = useState("");
@@ -142,8 +152,8 @@ export function RouteSearch({ banks }: RouteSearchProps) {
                       const s = getRailStyle(rail.rail);
                       return (
                         <div key={rail.rail} className={`rounded-lg border ${s.border} ${s.bg} p-3 ${s.text}`}>
-                          {s.icon && `${s.icon} `}{rail.rail}: {Math.round(rail.successRate * 100)}% success
-                          {rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}
+                          <div>{s.icon && `${s.icon} `}{rail.rail}: {Math.round(rail.successRate * 100)}% success{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <RailMeta rail={rail} />
                         </div>
                       );
                     })}
@@ -161,8 +171,8 @@ export function RouteSearch({ banks }: RouteSearchProps) {
                       const s = getRailStyle(rail.rail);
                       return (
                         <div key={rail.rail} className={`rounded-lg border ${s.border} ${s.bg} p-3 ${s.text}`}>
-                          {rail.rail}: {Math.round(rail.successRate * 100)}% success
-                          {rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}
+                          <div>{rail.rail}: {Math.round(rail.successRate * 100)}% success{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <RailMeta rail={rail} />
                         </div>
                       );
                     })}
