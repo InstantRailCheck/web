@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { Hero } from "@/components/Hero";
 import { RouteSearch } from "@/components/RouteSearch";
 import { supabase } from "@/lib/supabase";
+import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 
 type Bank = {
   id: string;
@@ -30,7 +31,10 @@ export default async function Home() {
               Supabase error: {error.message}
             </p>
           ) : (
-            <RouteSearch banks={bankOptions} />
+            <>
+              <RouteSearch banks={bankOptions} />
+              <SubmitRouteReport banks={bankOptions} />
+            </>
           )}
         </div>
 
