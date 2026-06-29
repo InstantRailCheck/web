@@ -41,7 +41,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
   }
 
   async function handleVerifyOtp() {
-    if (otp.length !== 6) return;
+    if (otp.length < 6) return;
     setLoading(true);
     setError(null);
     const supabase = createClient();
