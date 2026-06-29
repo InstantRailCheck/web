@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { Hero } from "@/components/Hero";
 import { RouteSearch } from "@/components/RouteSearch";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 
 type Bank = {
@@ -12,6 +12,7 @@ type Bank = {
 };
 
 export default async function Home() {
+  const supabase = await createClient();
   const { data: banks, error } = await supabase
     .from("banks")
     .select("id, name, website")
