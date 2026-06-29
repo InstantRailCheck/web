@@ -10,15 +10,25 @@ InstantRailCheck answers one core question:
 
 Can Bank A send money instantly to Bank B?
 
-## Version 1 Features
+## Version 1 Features (v1.0.0 — shipped June 28 2026)
 
-- Search sender bank to receiver bank
-- View route result
-- Submit transfer report
-- Track rail used: RTP, FedNow, ACH, Wire, Zelle, Other, Unknown
-- Track direction: Push or Pull
-- Track date tested
-- Track confidence based on reports
+**Route search**
+- Select any two banks (sender + receiver) via searchable combobox
+- Rails categorized as Primary (RTP, FedNow) or Fallback (ACH, Wire, Zelle, Other, Unknown)
+- Per-rail stats: success rate, average settlement time, direction (Push / Pull / Both), last tested date
+- Stale warning shown when last report is older than 180 days
+- Confidence level: HIGH (>50 reports), MEDIUM (>10), LOW otherwise
+- Shows "no data yet" state for unknown routes
+
+**Submit route report**
+- Requires a signed-in account
+- Fields: from bank, to bank, rail used, direction, status (success / failed / delayed), date tested, settlement time (optional), notes (optional)
+- Users can add a bank inline if it doesn't exist yet
+- Reports attributed to user account
+
+**Accounts**
+- Magic link + 8-digit OTP via email — no password required
+- Session expires when browser is closed
 
 ## Data Principles
 
