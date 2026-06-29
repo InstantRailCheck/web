@@ -115,7 +115,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
               inputMode="numeric"
               value={otp}
               onChange={(e) =>
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))
               }
               onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
               placeholder="000000"
@@ -125,7 +125,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
             {error && <p className="text-sm text-red-400">{error}</p>}
             <button
               onClick={handleVerifyOtp}
-              disabled={otp.length !== 6 || loading}
+              disabled={otp.length < 6 || loading}
               className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
             >
               {loading ? "Verifying..." : "Verify code"}
