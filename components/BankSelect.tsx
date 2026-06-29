@@ -30,6 +30,7 @@ type BankSelectProps = {
   banks: Bank[];
   value?: string;
   onChange?: (bankId: string) => void;
+  onAdd?: (name: string) => Promise<string>;
 };
 
 export function BankSelect({
@@ -38,13 +39,30 @@ export function BankSelect({
   banks,
   value = "",
   onChange,
+  onAdd,
 }: BankSelectProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState(false);
   const selectedBank = banks.find((bank) => bank.id === value);
 
   function handleSelect(bankId: string) {
     onChange?.(bankId === value ? "" : bankId);
     setOpen(false);
+    setSearch("");
+  }
+
+  async function handleAdd() {
+    if (!onAdd || !search.trim()) return;
+    setAdding(true);
+    try {
+      const newId = await onAdd(search.trim());
+      onChange?.(newId);
+      setOpen(false);
+      setSearch("");
+    } finally {
+      setAdding(false);
+    }
   }
 
   return (
@@ -69,9 +87,21 @@ export function BankSelect({
 
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] border-slate-800 bg-slate-950 p-0 text-white">
           <Command className="bg-slate-950 text-white">
-            <CommandInput placeholder="Search banks..." />
+            <CommandInput placeholder="Search banks..." onValueChange={setSearch} />
             <CommandList>
-              <CommandEmpty>No bank found.</CommandEmpty>
+              <CommandEmpty>
+                {onAdd && search.trim() ? (
+                  <button
+                    onClick={handleAdd}
+                    disabled={adding}
+                    className="flex w-full items-center gap-2 px-2 py-1.5 text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                  >
+                    {adding ? "Adding..." : `+ Add "${search.trim()}"`}
+                  </button>
+                ) : (
+                  "No bank found."
+                )}
+              </CommandEmpty>
               <CommandGroup>
                 {banks.map((bank) => (
                   <CommandItem

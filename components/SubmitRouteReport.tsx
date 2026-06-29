@@ -21,6 +21,7 @@ function today() {
 
 export function SubmitRouteReport({ banks }: Props) {
   const [user, setUser] = useState<User | null>(null);
+  const [allBanks, setAllBanks] = useState<Bank[]>(banks);
   const [authOpen, setAuthOpen] = useState(false);
   const [fromBankId, setFromBankId] = useState("");
   const [toBankId, setToBankId] = useState("");
@@ -46,6 +47,32 @@ export function SubmitRouteReport({ banks }: Props) {
     return () => subscription.unsubscribe();
   }, []);
 
+  async function handleAddBank(name: string): Promise<string> {
+    const supabase = createClient();
+    const { data: existing } = await supabase
+      .from("banks")
+      .select("id, name")
+      .ilike("name", name.trim())
+      .maybeSingle();
+
+    if (existing) {
+      if (!allBanks.find((b) => b.id === existing.id)) {
+        setAllBanks((prev) => [...prev, existing]);
+      }
+      return existing.id;
+    }
+
+    const { data, error } = await supabase
+      .from("banks")
+      .insert({ name: name.trim() })
+      .select("id, name")
+      .single();
+
+    if (error) throw error;
+    setAllBanks((prev) => [...prev, data]);
+    return data.id;
+  }
+
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -66,8 +93,8 @@ export function SubmitRouteReport({ banks }: Props) {
         throw new Error("Please fill in all required fields");
       }
 
-      const fromBank = banks.find((b) => b.id === fromBankId);
-      const toBank = banks.find((b) => b.id === toBankId);
+      const fromBank = allBanks.find((b) => b.id === fromBankId);
+      const toBank = allBanks.find((b) => b.id === toBankId);
 
       if (!fromBank || !toBank) throw new Error("Selected bank not found");
 
@@ -147,17 +174,19 @@ export function SubmitRouteReport({ banks }: Props) {
             <BankSelect
               label="From bank"
               placeholder="Sender bank"
-              banks={banks}
+              banks={allBanks}
               value={fromBankId}
               onChange={setFromBankId}
+              onAdd={handleAddBank}
             />
 
             <BankSelect
               label="To bank"
               placeholder="Receiver bank"
-              banks={banks}
+              banks={allBanks}
               value={toBankId}
               onChange={setToBankId}
+              onAdd={handleAddBank}
             />
 
             <div className="flex flex-col gap-1">
