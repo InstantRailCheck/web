@@ -12,7 +12,7 @@ type RailStats = {
 };
 
 export type BankProfile = {
-  bank: { id: string; name: string; website: string | null } | null;
+  bank: { id: string; name: string; website: string | null; address: string | null; phone: string | null } | null;
   sending: RailStats[];
   receiving: RailStats[];
 };
@@ -21,7 +21,7 @@ export async function getBankProfile(bankId: string): Promise<BankProfile> {
   const supabase = await createClient();
 
   const [{ data: bank }, { data: reports }] = await Promise.all([
-    supabase.from("banks").select("id, name, website").eq("id", bankId).maybeSingle(),
+    supabase.from("banks").select("id, name, website, address, phone").eq("id", bankId).maybeSingle(),
     supabase
       .from("route_reports")
       .select("*")
