@@ -101,6 +101,48 @@ async function lookupNcuaCreditUnion(name) {
   return null;
 }
 
+async function searchFinra(name) {
+  const url = `https://api.brokercheck.finra.org/search/firm?query=${encodeURIComponent(
+    name
+  )}&filter=active=true&includePrevious=true&hl=true&nrows=1&start=0&r=25&wt=json`;
+
+  const res = await fetch(url);
+  if (!res.ok) return null;
+
+  const json = await res.json();
+  const hit = json.hits?.hits?.[0]?._source;
+  if (!hit) return null;
+
+  let details;
+  try {
+    details = JSON.parse(hit.firm_address_details);
+  } catch {
+    return null;
+  }
+
+  const office = details?.officeAddress;
+  const address = office
+    ? [office.street1, office.city, office.state, office.postalCode].filter(Boolean).join(", ")
+    : null;
+  const phone = details?.businessPhoneNumber ?? null;
+
+  if (!address && !phone) return null;
+
+  return { website: null, address, phone };
+}
+
+async function lookupFinraBroker(name) {
+  const words = name.trim().split(/\s+/);
+  const floor = Math.min(2, words.length);
+
+  for (let i = words.length; i >= floor; i--) {
+    const match = await searchFinra(words.slice(0, i).join(" "));
+    if (match) return match;
+  }
+
+  return null;
+}
+
 async function main() {
   const force = process.argv.includes("--force");
   const forceNames = process.argv
@@ -121,11 +163,13 @@ async function main() {
 
   for (const bank of banks) {
     const fdicMatch = await lookupFdicBank(bank.name);
-    const match = fdicMatch ?? (await lookupNcuaCreditUnion(bank.name));
-    const source = fdicMatch ? "FDIC" : match ? "NCUA" : null;
+    const ncuaMatch = fdicMatch ? null : await lookupNcuaCreditUnion(bank.name);
+    const finraMatch = fdicMatch || ncuaMatch ? null : await lookupFinraBroker(bank.name);
+    const match = fdicMatch ?? ncuaMatch ?? finraMatch;
+    const source = fdicMatch ? "FDIC" : ncuaMatch ? "NCUA" : finraMatch ? "FINRA" : null;
 
     if (!match) {
-      console.log(`- ${bank.name}: no match in FDIC or NCUA — skipped`);
+      console.log(`- ${bank.name}: no match in FDIC, NCUA, or FINRA — skipped`);
       continue;
     }
 
