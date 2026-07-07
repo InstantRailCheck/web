@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { BankSelect } from "@/components/BankSelect";
 import { getRouteIntelligence, RouteIntelligence } from "@/lib/routingEngine";
 
@@ -139,7 +140,13 @@ export function RouteSearch({ banks }: RouteSearchProps) {
               Route Intelligence Report
             </p>
             <h3 className="mt-2 text-2xl font-semibold">
-              {fromBank?.name} → {toBank?.name}
+              <Link href={`/banks/${fromBank?.id}`} className="hover:text-blue-300 transition">
+                {fromBank?.name}
+              </Link>
+              {" → "}
+              <Link href={`/banks/${toBank?.id}`} className="hover:text-blue-300 transition">
+                {toBank?.name}
+              </Link>
             </h3>
           </div>
 
