@@ -108,7 +108,10 @@ export function RouteSearch({ banks }: RouteSearchProps) {
       </form>
 
       <p className="mt-5 text-sm text-slate-500">
-        {banks.length} banks currently available.
+        {banks.length} banks currently available.{" "}
+        <Link href="/banks" className="text-blue-400 hover:text-blue-300 transition">
+          Browse all →
+        </Link>
       </p>
 
       {fromBankId && toBankId && fromBankId === toBankId && (
