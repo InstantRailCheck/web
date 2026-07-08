@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SITE_URL, API_URL } from "@/lib/siteConfig";
+import { API_URL } from "@/lib/siteConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -42,10 +42,6 @@ export default function DevelopersPage() {
         <p className="mt-1 text-sm text-slate-400">
           Read-only, unauthenticated, and CORS-enabled — free to use in your own tools.
           Responses are JSON by default; list endpoints also support <code>&amp;format=csv</code>.
-        </p>
-        <p className="mt-2 text-xs text-slate-500">
-          The old <code>{SITE_URL}/api/...</code> paths still work — they redirect here — for
-          anything already integrated against them.
         </p>
 
         <div className="mt-8 space-y-6">
