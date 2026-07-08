@@ -181,6 +181,12 @@ Can Bank A send money instantly to Bank B?
 - Reassurance line under "Continue with Google" clarifying it only verifies identity — no Gmail/Drive/other Google data is ever requested (accurate: no `scopes` option is passed to `signInWithOAuth`)
 - Disclaimer under "Sign in with a passkey" explaining the account prerequisite — passkey registration requires an existing signed-in session, so first-time users need to sign in via Google or email first, then add a passkey from `/account`
 
+## Version 4.0.2 (v4.0.2 — shipped July 8 2026)
+
+**Sign-in modal icons**
+- Added Google's official multi-color G logomark to the "Continue with Google" button
+- Added a generic key icon (lucide-react's `KeyRound`) to the passkey button — deliberately not a vendor-specific logo like YubiKey, since passkeys are a broad WebAuthn standard satisfied by many things (Face ID, Touch ID, Windows Hello, or a physical security key), and most sign-ins won't involve a YubiKey specifically
+
 ## Data Principles
 
 - Real-world reports only
