@@ -112,6 +112,10 @@ export function RouteSearch({ banks }: RouteSearchProps) {
         <Link href="/banks" className="text-blue-400 hover:text-blue-300 transition">
           Browse all →
         </Link>
+        {" · "}
+        <Link href="/timing" className="text-blue-400 hover:text-blue-300 transition">
+          Settlement time leaderboard →
+        </Link>
       </p>
 
       {fromBankId && toBankId && fromBankId === toBankId && (
