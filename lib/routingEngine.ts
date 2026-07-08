@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const STALE_DAYS = 180;
 
@@ -21,9 +22,10 @@ export type RouteIntelligence = {
 
 export async function getRouteIntelligence(
   fromBankId: string,
-  toBankId: string
+  toBankId: string,
+  supabaseClient?: SupabaseClient
 ): Promise<RouteIntelligence> {
-  const supabase = createClient();
+  const supabase = supabaseClient ?? createClient();
   const { data, error } = await supabase
     .from("route_reports")
     .select("*")
