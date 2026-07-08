@@ -20,6 +20,17 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      // RFC 9116 requires the file to live under /.well-known/, but
+      // recommends redirecting the legacy top-level path for older scanners.
+      {
+        source: "/security.txt",
+        destination: "/.well-known/security.txt",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
