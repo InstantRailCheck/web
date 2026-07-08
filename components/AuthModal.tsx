@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -141,8 +142,9 @@ export function AuthModal({ open, onOpenChange }: Props) {
             <button
               onClick={handlePasskeySignIn}
               disabled={passkeyLoading}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
             >
+              {!passkeyLoading && <KeyRound className="h-[18px] w-[18px]" />}
               {passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey"}
             </button>
             <p className="text-center text-xs text-slate-500">
