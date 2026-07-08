@@ -31,6 +31,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return {
+      // Must run in beforeFiles: the clean API paths ("/banks", "/changelog")
+      // are identical in shape to real pages (app/banks, app/changelog), and
+      // the default afterFiles phase checks real routes first — the existing
+      // page would always win before this rewrite ever got a chance to apply.
+      beforeFiles: [
+        // api.instantrailcheck.com/banks -> /api/banks, same deployment,
+        // same routes. Purely additive — the original /api/* paths on the
+        // main domain keep working, so nothing already integrated breaks.
+        {
+          source: "/:path*",
+          has: [{ type: "host", value: "api.instantrailcheck.com" }],
+          destination: "/api/:path*",
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;

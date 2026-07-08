@@ -1,32 +1,32 @@
 import Link from "next/link";
-import { SITE_URL } from "@/lib/siteConfig";
+import { SITE_URL, API_URL } from "@/lib/siteConfig";
 
 export const dynamic = "force-dynamic";
 
 const ENDPOINTS = [
   {
     method: "GET",
-    path: "/api/banks",
+    path: "/banks",
     description: "List all banks. Optional ?q= to search by name. Add &format=csv for CSV instead of JSON.",
-    example: "/api/banks?q=chase",
+    example: "/banks?q=chase",
   },
   {
     method: "GET",
-    path: "/api/banks/:id",
+    path: "/banks/:id",
     description: "Full profile for one bank: contact info, network participation, and rail stats sending/receiving.",
-    example: "/api/banks/c681154f-c3c4-4f50-9031-a05c79b2d152",
+    example: "/banks/c681154f-c3c4-4f50-9031-a05c79b2d152",
   },
   {
     method: "GET",
-    path: "/api/routes",
+    path: "/routes",
     description: "Route intelligence between two banks. Requires ?from= and ?to= bank ids.",
-    example: "/api/routes?from=<bank-id>&to=<bank-id>",
+    example: "/routes?from=<bank-id>&to=<bank-id>",
   },
   {
     method: "GET",
-    path: "/api/changelog",
+    path: "/changelog",
     description: "Recent activity feed — banks added and route reports submitted. Optional ?limit= (max 200, default 50). Add &format=csv for CSV instead of JSON.",
-    example: "/api/changelog?limit=10",
+    example: "/changelog?limit=10",
   },
 ];
 
@@ -43,6 +43,10 @@ export default function DevelopersPage() {
           Read-only, unauthenticated, and CORS-enabled — free to use in your own tools.
           Responses are JSON by default; list endpoints also support <code>&amp;format=csv</code>.
         </p>
+        <p className="mt-2 text-xs text-slate-500">
+          Also reachable at <code>{SITE_URL}/api/...</code> for existing integrations — both
+          point at the same routes.
+        </p>
 
         <div className="mt-8 space-y-6">
           {ENDPOINTS.map((ep) => (
@@ -55,7 +59,7 @@ export default function DevelopersPage() {
               </div>
               <p className="mt-2 text-sm text-slate-400">{ep.description}</p>
               <code className="mt-3 block rounded-lg bg-slate-950 p-3 text-xs text-slate-500">
-                GET {SITE_URL}{ep.example}
+                GET {API_URL}{ep.example}
               </code>
             </div>
           ))}
