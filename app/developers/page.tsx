@@ -64,7 +64,7 @@ export default function DevelopersPage() {
         <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
           <h2 className="text-lg font-semibold">Webhooks</h2>
           <p className="mt-2 text-sm text-slate-400">
-            Rather than polling <code>/api/changelog</code>, register a URL at{" "}
+            Rather than polling <code>{API_URL}/changelog</code>, register a URL at{" "}
             <Link href="/webhooks" className="text-blue-400 hover:text-blue-300 transition">
               /webhooks
             </Link>{" "}
