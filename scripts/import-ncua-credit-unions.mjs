@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const TOP_N = Number(process.argv[2]) || 500;
+const LIMIT = Number(process.argv[2]) || Infinity;
 
 function slugify(name) {
   return name
@@ -13,6 +13,14 @@ function slugify(name) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function titleCase(name) {
+  return name
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function normalizeWebsite(url) {
@@ -30,10 +38,8 @@ function escapeRegex(s) {
 }
 
 async function matchesTable(table, name) {
-  // Strip commas/periods before splitting — legal names like "Capital One,
-  // National Association" otherwise leave a trailing comma stuck to the
-  // last word of a truncated candidate ("capital one,"), which matches
-  // neither an exact nor an ilike lookup against a clean "capital one" row.
+  // Strip commas/periods before splitting — see the FDIC import script for
+  // why (legal-name commas otherwise stick to a truncated candidate word).
   const words = name.replace(/[.,]/g, "").trim().split(/\s+/);
   const floor = Math.min(2, words.length);
   for (let i = words.length; i >= floor; i--) {
@@ -57,14 +63,14 @@ async function matchesTable(table, name) {
 }
 
 async function main() {
-  console.log(`Fetching top ${TOP_N} active FDIC banks by asset size...`);
-  const res = await fetch(
-    `https://api.fdic.gov/banks/institutions?filters=ACTIVE:1&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET&sort_by=ASSET&sort_order=DESC&limit=${TOP_N}&offset=0`
-  );
-  if (!res.ok) throw new Error(`FDIC fetch failed: ${res.status}`);
-  const json = await res.json();
-  const candidates = (json.data ?? []).map((d) => d.data);
-  console.log(`Fetched ${candidates.length} candidates.`);
+  console.log("Loading synced NCUA credit unions...");
+  const { data: creditUnions, error: cuError } = await supabase
+    .from("ncua_credit_unions")
+    .select("charter_number, name, website, address, phone")
+    .order("charter_number", { ascending: true });
+  if (cuError) throw cuError;
+  const candidates = creditUnions.slice(0, LIMIT);
+  console.log(`Loaded ${candidates.length} credit unions.`);
 
   console.log("Loading existing banks for dedup and slug collision checks...");
   const { data: existingBanks, error: existingError } = await supabase.from("banks").select("id, name, website, slug");
@@ -81,26 +87,32 @@ async function main() {
   let skippedNameCollisions = 0;
 
   for (const c of candidates) {
-    const website = c.WEBADDR ? (c.WEBADDR.startsWith("http") ? c.WEBADDR : `https://${c.WEBADDR}`) : null;
-    const normalized = normalizeWebsite(website);
+    const normalized = normalizeWebsite(c.website);
 
     if (normalized && existingWebsites.has(normalized)) {
       skippedDupes++;
       continue;
     }
 
-    // banks.name has a unique constraint, and the FDIC data itself has
-    // distinct institutions that legally share the same name (e.g. two
-    // separate charters both named "FirstBank"). Keep the higher-asset
-    // one (candidates are already sorted by asset descending) and drop
-    // the rest rather than fail the batch.
-    if (usedNames.has(c.NAME)) {
+    // NCUA's raw name field is the bare trade name with no institutional
+    // suffix ("WOODMEN", "CAMPUS") for the vast majority of charters — only
+    // ~2% already say "credit union" anywhere. Keep the pre-suffix, title-cased
+    // name for rail-participation matching (matchesTable's floor stops at 2
+    // words, so a mechanically-appended 2-word suffix on an already-short name
+    // would push the true distinguishing word out of reach — the same class of
+    // bug the FDIC-import comma fix addressed), and only add the suffix for display.
+    const baseName = titleCase(c.name.trim());
+    const displayName = /credit union/i.test(baseName) ? baseName : `${baseName} Credit Union`;
+
+    // banks.name has a unique constraint; keep the first-seen charter and
+    // drop subsequent collisions rather than fail the batch.
+    if (usedNames.has(displayName)) {
       skippedNameCollisions++;
       continue;
     }
-    usedNames.add(c.NAME);
+    usedNames.add(displayName);
 
-    const baseSlug = slugify(c.NAME);
+    const baseSlug = slugify(displayName);
     let slug = baseSlug;
     let suffix = 2;
     while (usedSlugs.has(slug)) {
@@ -110,50 +122,50 @@ async function main() {
     usedSlugs.add(slug);
     if (normalized) existingWebsites.add(normalized);
 
-    const address = c.ADDRESS ? [c.ADDRESS, c.CITY, c.STALP, c.ZIP].filter(Boolean).join(", ") : null;
-
     toInsert.push({
-      name: c.NAME,
+      name: displayName,
+      matchName: baseName,
       slug,
-      website,
-      address,
-      phone: null,
+      website: c.website,
+      address: c.address,
+      phone: c.phone,
     });
   }
 
-  console.log(`Skipped ${skippedDupes} already-present banks (matched by website).`);
-  console.log(`Skipped ${skippedNameCollisions} banks with a duplicate legal name (kept the higher-asset one).`);
-  console.log(`Inserting ${toInsert.length} new banks...`);
+  console.log(`Skipped ${skippedDupes} already-present credit unions (matched by website).`);
+  console.log(`Skipped ${skippedNameCollisions} credit unions with a duplicate display name (kept the first charter seen).`);
+  console.log(`Inserting ${toInsert.length} new credit unions...`);
 
   const inserted = [];
   const chunkSize = 100;
   for (let i = 0; i < toInsert.length; i += chunkSize) {
-    const chunk = toInsert.slice(i, i + chunkSize);
+    const chunk = toInsert.slice(i, i + chunkSize).map(({ matchName, ...row }) => row);
+    const matchNames = toInsert.slice(i, i + chunkSize).map((row) => row.matchName);
     const { data, error } = await supabase.from("banks").insert(chunk).select("id, name");
     if (error) throw error;
-    inserted.push(...data);
+    data.forEach((row, idx) => inserted.push({ ...row, matchName: matchNames[idx] }));
     console.log(`  inserted ${Math.min(i + chunkSize, toInsert.length)}/${toInsert.length}`);
   }
 
-  console.log("Checking rail participation for newly inserted banks...");
+  console.log("Checking rail participation for newly inserted credit unions...");
   let processed = 0;
-  for (const bank of inserted) {
+  for (const cu of inserted) {
     const [fednow, rtp, zelle] = await Promise.all([
-      matchesTable("fednow_participants", bank.name),
-      matchesTable("rtp_participants", bank.name),
-      matchesTable("zelle_participants", bank.name),
+      matchesTable("fednow_participants", cu.matchName),
+      matchesTable("rtp_participants", cu.matchName),
+      matchesTable("zelle_participants", cu.matchName),
     ]);
 
     await supabase
       .from("banks")
       .update({ fednow_participant: fednow, rtp_participant: rtp, zelle_participant: zelle })
-      .eq("id", bank.id);
+      .eq("id", cu.id);
 
     processed++;
-    if (processed % 50 === 0) console.log(`  rail-checked ${processed}/${inserted.length}`);
+    if (processed % 100 === 0) console.log(`  rail-checked ${processed}/${inserted.length}`);
   }
 
-  console.log(`Done. Inserted ${inserted.length} banks, skipped ${skippedDupes} duplicates.`);
+  console.log(`Done. Inserted ${inserted.length} credit unions, skipped ${skippedDupes} duplicates.`);
 }
 
 main().catch((err) => {

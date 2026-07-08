@@ -5,6 +5,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function matchesTable(table, name) {
   // Strip commas/periods before splitting — legal names like "Capital One,
   // National Association" otherwise leave a trailing comma stuck to the
@@ -25,14 +29,29 @@ async function matchesTable(table, name) {
 
     if (exact) return true;
 
-    const { data: partial } = await supabase
-      .from(table)
-      .select("id")
-      .ilike("search_name", `%${candidate}%`)
-      .limit(1)
-      .maybeSingle();
+    // A substring match is only attempted on the complete, untruncated name
+    // — a truncated candidate like "New Haven" (from "New Haven Teachers")
+    // discards the part of the name that actually distinguishes the
+    // institution. Even then, require a whole-word boundary (so "chase"
+    // inside "purchase bank" doesn't count, but "chase" inside "jpmorgan
+    // chase bank" does) and exactly one distinct match — a word that's
+    // genuinely common ("farmers" in two dozen "Farmers ___ Bank" entities)
+    // resolving to many institutions is ambiguity, not a match, and per
+    // this project's "blank over wrong" rule, ambiguous means no match.
+    if (i === words.length) {
+      const { data: partial } = await supabase
+        .from(table)
+        .select("search_name")
+        .ilike("search_name", `%${candidate}%`);
 
-    if (partial) return true;
+      if (partial && partial.length > 0) {
+        const boundary = new RegExp(`\\b${escapeRegex(candidate)}\\b`, "i");
+        const distinct = new Set(
+          partial.filter((row) => boundary.test(row.search_name)).map((row) => row.search_name)
+        );
+        if (distinct.size === 1) return true;
+      }
+    }
   }
 
   return false;
