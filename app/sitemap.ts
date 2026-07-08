@@ -1,13 +1,14 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllBanks } from "@/lib/allBanks";
 import { SITE_URL } from "@/lib/siteConfig";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient();
-  const { data: banks } = await supabase
-    .from("banks")
-    .select("slug, created_at")
-    .order("name");
+  const banks = await fetchAllBanks<{ slug: string; created_at: string | null }>(
+    supabase,
+    "slug, created_at"
+  );
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: "daily", priority: 1 },
