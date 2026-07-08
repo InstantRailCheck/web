@@ -57,6 +57,20 @@ export default function DevelopersPage() {
             </div>
           ))}
         </div>
+
+        <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold">Webhooks</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Rather than polling <code>/api/changelog</code>, register a URL at{" "}
+            <Link href="/webhooks" className="text-blue-400 hover:text-blue-300 transition">
+              /webhooks
+            </Link>{" "}
+            (requires signing in) to get a signed POST whenever a new bank is added. Each
+            delivery includes an <code>X-InstantRailCheck-Signature</code> header — HMAC-SHA256
+            of the raw request body using the secret shown when you register. Deliveries are
+            fire-and-forget with no retry, so your endpoint should respond quickly with a 2xx.
+          </p>
+        </div>
       </div>
     </main>
   );

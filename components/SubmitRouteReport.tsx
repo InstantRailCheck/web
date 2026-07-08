@@ -5,6 +5,7 @@ import { BankSelect } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
 import { enrichBank } from "@/lib/actions/enrichBank";
+import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
 import type { User } from "@supabase/supabase-js";
 
 type Bank = {
@@ -73,6 +74,7 @@ export function SubmitRouteReport({ banks }: Props) {
     if (error) throw error;
     setAllBanks((prev) => [...prev, data]);
     enrichBank(data.id, data.name).catch(() => {});
+    triggerWebhooks("bank_added", { bankId: data.id, bankName: data.name }).catch(() => {});
     return data.id;
   }
 
