@@ -4,17 +4,23 @@ import { getCommunityReportedBanks, type CommunityRailEntry } from "@/lib/commun
 
 export const dynamic = "force-dynamic";
 
+const DISPLAY_LIMIT = 50;
+
 type Bank = { id: string; slug: string; name: string };
 
 function RailColumn({
   icon,
   label,
   banks,
+  total,
+  viewAllHref,
   footnote,
 }: {
   icon: string;
   label: string;
   banks: Bank[];
+  total: number;
+  viewAllHref: string;
   footnote?: string;
 }) {
   return (
@@ -22,7 +28,7 @@ function RailColumn({
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <span>{icon}</span> {label}
       </h2>
-      <p className="mt-1 text-xs text-slate-500">{banks.length} banks</p>
+      <p className="mt-1 text-xs text-slate-500">{total} banks</p>
       {footnote && <p className="mt-1 text-xs text-yellow-500/80">{footnote}</p>}
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {banks.length === 0 ? (
@@ -39,11 +45,17 @@ function RailColumn({
           ))
         )}
       </div>
+      {total > banks.length && (
+        <Link href={viewAllHref} className="mt-2 block text-xs text-blue-400 hover:text-blue-300 transition">
+          View all {total} →
+        </Link>
+      )}
     </section>
   );
 }
 
 function CommunityRailColumn({ icon, label, entries }: { icon: string; label: string; entries: CommunityRailEntry[] }) {
+  const shown = entries.slice(0, DISPLAY_LIMIT);
   return (
     <section>
       <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -51,10 +63,10 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
       </h2>
       <p className="mt-1 text-xs text-slate-500">{entries.length} banks</p>
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
-        {entries.length === 0 ? (
+        {shown.length === 0 ? (
           <p className="px-5 py-4 text-sm text-slate-500">No reports yet.</p>
         ) : (
-          entries.map((entry) => (
+          shown.map((entry) => (
             <Link
               key={entry.bankId}
               href={`/banks/${entry.bankSlug}`}
@@ -75,13 +87,29 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
 export default async function RailsExplorerPage() {
   const supabase = await createClient();
 
-  const [{ data: fednow }, { data: rtp }, { data: zelle }, visaDirect, mastercardSend] = await Promise.all([
-    supabase.from("banks").select("id, slug, name").eq("fednow_participant", true).order("name"),
-    supabase.from("banks").select("id, slug, name").eq("rtp_participant", true).order("name"),
-    supabase.from("banks").select("id, slug, name").eq("zelle_participant", true).order("name"),
-    getCommunityReportedBanks("Visa Direct"),
-    getCommunityReportedBanks("Mastercard Send"),
-  ]);
+  const [{ data: fednow, count: fednowCount }, { data: rtp, count: rtpCount }, { data: zelle, count: zelleCount }, visaDirect, mastercardSend] =
+    await Promise.all([
+      supabase
+        .from("banks")
+        .select("id, slug, name", { count: "exact" })
+        .eq("fednow_participant", true)
+        .order("name")
+        .limit(DISPLAY_LIMIT),
+      supabase
+        .from("banks")
+        .select("id, slug, name", { count: "exact" })
+        .eq("rtp_participant", true)
+        .order("name")
+        .limit(DISPLAY_LIMIT),
+      supabase
+        .from("banks")
+        .select("id, slug, name", { count: "exact" })
+        .eq("zelle_participant", true)
+        .order("name")
+        .limit(DISPLAY_LIMIT),
+      getCommunityReportedBanks("Visa Direct"),
+      getCommunityReportedBanks("Mastercard Send"),
+    ]);
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -98,12 +126,14 @@ export default async function RailsExplorerPage() {
         </p>
 
         <div className="mt-8 grid gap-8 sm:grid-cols-3">
-          <RailColumn icon="🏦" label="FedNow" banks={fednow ?? []} />
-          <RailColumn icon="⚡" label="RTP" banks={rtp ?? []} />
+          <RailColumn icon="🏦" label="FedNow" banks={fednow ?? []} total={fednowCount ?? 0} viewAllHref="/banks?fednow=true" />
+          <RailColumn icon="⚡" label="RTP" banks={rtp ?? []} total={rtpCount ?? 0} viewAllHref="/banks?rtp=true" />
           <RailColumn
             icon="💸"
             label="Zelle"
             banks={zelle ?? []}
+            total={zelleCount ?? 0}
+            viewAllHref="/banks?zelle=true"
             footnote="Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks Zelle support, only that it isn't listed there."
           />
         </div>

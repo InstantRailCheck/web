@@ -3,17 +3,31 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
+
+function buildPageUrl(params: Record<string, string | undefined>, page: number) {
+  const usp = new URLSearchParams();
+  if (params.q) usp.set("q", params.q);
+  if (params.fednow) usp.set("fednow", params.fednow);
+  if (params.rtp) usp.set("rtp", params.rtp);
+  if (params.zelle) usp.set("zelle", params.zelle);
+  if (page > 1) usp.set("page", String(page));
+  const qs = usp.toString();
+  return qs ? `/banks?${qs}` : "/banks";
+}
+
 export default async function BanksDirectoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; fednow?: string; rtp?: string; zelle?: string }>;
+  searchParams: Promise<{ q?: string; fednow?: string; rtp?: string; zelle?: string; page?: string }>;
 }) {
-  const { q, fednow, rtp, zelle } = await searchParams;
+  const { q, fednow, rtp, zelle, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
 
   const supabase = await createClient();
   let query = supabase
     .from("banks")
-    .select("id, slug, name, fednow_participant, rtp_participant, zelle_participant")
+    .select("id, slug, name, fednow_participant, rtp_participant, zelle_participant", { count: "exact" })
     .order("name", { ascending: true });
 
   if (q) query = query.ilike("name", `%${q}%`);
@@ -21,7 +35,11 @@ export default async function BanksDirectoryPage({
   if (rtp === "true") query = query.eq("rtp_participant", true);
   if (zelle === "true") query = query.eq("zelle_participant", true);
 
-  const { data: banks } = await query;
+  query = query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+  const { data: banks, count } = await query;
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -32,7 +50,7 @@ export default async function BanksDirectoryPage({
 
         <h1 className="mt-4 text-3xl font-bold">All banks</h1>
         <p className="mt-1 text-sm text-slate-400">
-          {banks?.length ?? 0} bank{banks?.length !== 1 ? "s" : ""} matching your filters.
+          {total} bank{total !== 1 ? "s" : ""} matching your filters.
         </p>
 
         <form method="GET" className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
@@ -88,6 +106,28 @@ export default async function BanksDirectoryPage({
             ))
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-center gap-4 text-sm">
+            {page > 1 ? (
+              <Link href={buildPageUrl({ q, fednow, rtp, zelle }, page - 1)} className="text-blue-400 hover:text-blue-300 transition">
+                ← Previous
+              </Link>
+            ) : (
+              <span className="text-slate-700">← Previous</span>
+            )}
+            <span className="text-slate-500">
+              Page {page} of {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link href={buildPageUrl({ q, fednow, rtp, zelle }, page + 1)} className="text-blue-400 hover:text-blue-300 transition">
+                Next →
+              </Link>
+            ) : (
+              <span className="text-slate-700">Next →</span>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );
