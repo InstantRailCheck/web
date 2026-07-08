@@ -175,6 +175,12 @@ Can Bank A send money instantly to Bank B?
 **Privacy Policy and Terms of Service**
 - New `/privacy` and `/terms` pages, written to reflect what the app actually does (Supabase/Vercel/Google/Cloudflare as data processors, no ad tracking, cookie-free analytics) — required for the Google OAuth consent screen branding above
 
+## Version 4.0.1 (v4.0.1 — shipped July 8 2026)
+
+**Sign-in modal copy**
+- Reassurance line under "Continue with Google" clarifying it only verifies identity — no Gmail/Drive/other Google data is ever requested (accurate: no `scopes` option is passed to `signInWithOAuth`)
+- Disclaimer under "Sign in with a passkey" explaining the account prerequisite — passkey registration requires an existing signed-in session, so first-time users need to sign in via Google or email first, then add a passkey from `/account`
+
 ## Data Principles
 
 - Real-world reports only
