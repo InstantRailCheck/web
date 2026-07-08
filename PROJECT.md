@@ -187,6 +187,12 @@ Can Bank A send money instantly to Bank B?
 - Added Google's official multi-color G logomark to the "Continue with Google" button
 - Added a generic key icon (lucide-react's `KeyRound`) to the passkey button — deliberately not a vendor-specific logo like YubiKey, since passkeys are a broad WebAuthn standard satisfied by many things (Face ID, Touch ID, Windows Hello, or a physical security key), and most sign-ins won't involve a YubiKey specifically
 
+## Version 4.0.3 (v4.0.3 — shipped July 8 2026)
+
+**Zelle visual consistency**
+- Standardized Zelle's icon (💸) and color (violet, its signature brand color) across every page it appears — RouteSearch's rail badges were missing an icon for Zelle entirely, and `/banks` used blue while every other page already used violet
+- Deliberately generic/non-trademarked treatment, not Zelle's actual stylized logo — their trademark guidelines only extend fair use to plain-text references, not logos, and InstantRailCheck isn't a licensed Zelle partner
+
 ## Data Principles
 
 - Real-world reports only
