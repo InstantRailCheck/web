@@ -164,6 +164,17 @@ Can Bank A send money instantly to Bank B?
 - Removed the "old paths still work" disclaimer from `/developers` — no known usage of the legacy paths yet, so nothing to reassure (the redirect itself stays in place regardless, as a harmless safety net)
 - Fixed a stray `/api/changelog` reference in the webhooks section that got missed when the rest of the page moved to the `api.instantrailcheck.com` style
 
+## Version 4.0 Features (v4.0.0 — shipped July 8 2026)
+
+**Google sign-in**
+- "Continue with Google" as a third sign-in option alongside passkeys and email OTP, via Supabase Auth's OAuth flow
+- New `/auth/callback` route exchanges the OAuth code for a session; verified the installed auth-js version (2.108.2) isn't affected by a since-fixed upstream bug where a deferred `SIGNED_IN` event could cause cookie loss in SSR/serverless (supabase-js#2037)
+- Failed exchanges redirect home with a visible error banner instead of failing silently
+- Requires Google OAuth credentials configured in both Google Cloud Console and the Supabase dashboard, plus an OAuth consent screen with an app name/logo and Privacy Policy/Terms links to avoid showing Supabase's raw project URL to users
+
+**Privacy Policy and Terms of Service**
+- New `/privacy` and `/terms` pages, written to reflect what the app actually does (Supabase/Vercel/Google/Cloudflare as data processors, no ad tracking, cookie-free analytics) — required for the Google OAuth consent screen branding above
+
 ## Data Principles
 
 - Real-world reports only
