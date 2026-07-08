@@ -17,7 +17,9 @@ Live at [instantrailcheck.com](https://www.instantrailcheck.com)
 - Visa Direct and Mastercard Send tracked as community-reported (no official directory exists for either)
 - Compare two banks side by side
 - Settlement time leaderboard and a changelog of recent activity
-- Public read-only API — see [/developers](https://www.instantrailcheck.com/developers)
+- SEO-friendly bank URLs (`/banks/chase`, not a UUID) with automatic redirects from old links
+- Suggest a correction to a bank's website/phone — auto-verified against official sources before applying
+- Public read-only API with CSV export and webhooks — see [/developers](https://www.instantrailcheck.com/developers)
 
 ## Stack
 
@@ -44,6 +46,6 @@ Also uses `SUPABASE_SERVICE_ROLE_KEY` server-side for enrichment and rate limiti
 
 ## Database
 
-Supabase tables: `banks`, `route_reports`, `ncua_credit_unions`, `fednow_participants`, `rtp_participants`, `zelle_participants`, `api_rate_limits`
+Supabase tables: `banks`, `route_reports`, `ncua_credit_unions`, `fednow_participants`, `rtp_participants`, `zelle_participants`, `api_rate_limits`, `bank_corrections`, `webhooks`, `webhook_deliveries`
 
 Migrations live in `supabase/migrations/`. Reference tables (`ncua_credit_unions`, `fednow_participants`, `rtp_participants`, `zelle_participants`) are synced periodically from official/semi-official sources via the scripts in `scripts/`, not queried live.

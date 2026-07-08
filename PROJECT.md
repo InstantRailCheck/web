@@ -71,6 +71,28 @@ Can Bank A send money instantly to Bank B?
 - Added as self-reportable rail types instead, same as every rail before official verification existed
 - Shown on `/rails` in a separate "Community-reported" section, clearly distinguished from the three officially-verified columns (min. 2 successful reports to appear)
 
+## Version 2.0 Features (v2.0.0 — shipped July 8 2026)
+
+**Bank URLs: UUIDs → SEO-friendly slugs (breaking URL change)**
+- `/banks/[id]` is now `/banks/[slug]` (e.g. `/banks/chase`, not `/banks/c681154f-...`)
+- Old UUID links redirect (308) to the slug URL rather than 404ing, so nothing already shared or indexed breaks
+- The public API's `/api/banks/:id` contract is untouched (still ID-based for machine consumers), now also returns `slug` in responses
+- Reasoning: UUIDs carry no search-relevant keywords; long-tail pages like individual bank profiles are the actual SEO surface area for a site like this, more so than homepage copy
+
+**Correction workflow**
+- Signed-in users can suggest a fix to a bank's website/phone; it's re-verified against the same FDIC/NCUA/FINRA sources used for enrichment before being applied — a match auto-applies, a mismatch is flagged for review instead of trusted blindly
+
+**Webhooks (v1: `bank_added` event only)**
+- Register a URL at `/webhooks` to get a signed POST (HMAC-SHA256) instead of polling `/api/changelog`
+- Delivery-time SSRF protection: resolves the hostname and rejects loopback/private/link-local/cloud-metadata/CGNAT addresses, re-checked on every delivery (not just registration) to guard against DNS rebinding; redirects aren't followed
+- No retries (fire once, log the result); max 5 webhooks per account
+
+**Other additions**
+- Same-Day ACH tracked as a report attribute (not a separate rail) — surfaces as "Same-Day ACH in N reports" within existing ACH stats
+- CSV export (`&format=csv`) on `/api/banks` and `/api/changelog`
+- `robots.txt` and a dynamic `sitemap.xml` covering every bank page
+- Updated page title/meta description and homepage subheading for search relevance
+
 ## Data Principles
 
 - Real-world reports only
