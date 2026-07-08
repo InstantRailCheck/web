@@ -13,7 +13,12 @@ type Bank = {
   website: string | null;
 };
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ auth_error?: string }>;
+}) {
+  const { auth_error } = await searchParams;
   const supabase = await createClient();
   let bankOptions: Bank[] = [];
   let error: { message: string } | null = null;
@@ -30,6 +35,11 @@ export default async function Home() {
         <Hero />
 
         <div id="search" className="mt-8 w-full max-w-4xl">
+          {auth_error && (
+            <p className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+              Sign-in failed. Please try again.
+            </p>
+          )}
           {error ? (
             <p className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">
               Supabase error: {error.message}

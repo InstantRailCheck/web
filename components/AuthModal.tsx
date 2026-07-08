@@ -22,7 +22,23 @@ export function AuthModal({ open, onOpenChange }: Props) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      setGoogleLoading(false);
+      setError(error.message);
+    }
+    // On success the browser navigates to Google — no further state to set.
+  }
 
   async function handlePasskeySignIn() {
     setPasskeyLoading(true);
@@ -99,6 +115,13 @@ export function AuthModal({ open, onOpenChange }: Props) {
 
         {step === "email" ? (
           <div className="space-y-4">
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+            >
+              {googleLoading ? "Redirecting..." : "Continue with Google"}
+            </button>
             <button
               onClick={handlePasskeySignIn}
               disabled={passkeyLoading}
