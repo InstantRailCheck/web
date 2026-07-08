@@ -158,6 +158,12 @@ Can Bank A send money instantly to Bank B?
 - The subdomain is a separate origin and doesn't inherit the main domain's `robots.txt` — added a dedicated disallow-all for it, plus `X-Robots-Tag: noindex` on every API response regardless of hostname
 - The old `www.instantrailcheck.com/api/*` paths now 308-redirect to the subdomain (retired without breaking existing integrations) — scoped to the known legacy hosts only, so the subdomain's own rewrite, localhost, and preview deployments aren't caught in a redirect loop. CORS preflight (OPTIONS) requests are always answered directly, never redirected, since some browsers refuse to follow a redirected preflight
 
+## Version 3.0.3 (v3.0.3 — shipped July 8 2026)
+
+**Docs cleanup**
+- Removed the "old paths still work" disclaimer from `/developers` — no known usage of the legacy paths yet, so nothing to reassure (the redirect itself stays in place regardless, as a harmless safety net)
+- Fixed a stray `/api/changelog` reference in the webhooks section that got missed when the rest of the page moved to the `api.instantrailcheck.com` style
+
 ## Data Principles
 
 - Real-world reports only
