@@ -123,6 +123,13 @@ Can Bank A send money instantly to Bank B?
 **Reliability fix**
 - Bulk scripts reading the full `banks` table were silently truncated at Supabase's 1000-row default cap once the table crossed that threshold mid-import (caught when the first NCUA import run reported "Loaded 1000 credit unions" instead of 4,336); added proper `.range()` pagination
 
+## Version 2.2.1 (v2.2.1 — shipped July 8 2026)
+
+**Homepage/Compare search dropdown fixes** (user-reported, post-NCUA-import fallout)
+- The homepage's route-search dropdown and the Compare page hit the same 1000-row Supabase cap as the backend scripts — ~3,600 banks past the first 1000 alphabetically silently never appeared as selectable options
+- Separately, the dropdown never visibly highlighted an item while typing or arrow-navigating: cmdk sets `data-selected` to the literal string `"true"`/`"false"` (always present), but Tailwind's bare `data-selected:` variant matches on attribute presence, not value — fixed to `data-[selected=true]:`
+- That CSS fix alone wasn't sufficient at scale — cmdk was still handed all 4,671 banks as raw DOM nodes (hidden via CSS, not removed), which made its own keyboard-highlight tracking unreliable. Now pre-filters client-side and caps the dropdown to 50 results before anything reaches cmdk
+
 ## Data Principles
 
 - Real-world reports only
