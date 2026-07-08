@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBankProfile } from "@/lib/bankProfile";
 import { formatPhone } from "@/lib/utils";
+import { SuggestCorrection } from "@/components/SuggestCorrection";
 
 const RAIL_STYLES: Record<string, { border: string; bg: string; text: string }> = {
   RTP: { border: "border-green-500/30", bg: "bg-green-500/10", text: "text-green-300" },
@@ -108,6 +109,8 @@ export default async function BankProfilePage({
             )}
           </div>
         )}
+
+        <SuggestCorrection bankId={profile.bank.id} />
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
           <h2 className="text-lg font-semibold">Sending from {profile.bank.name}</h2>
