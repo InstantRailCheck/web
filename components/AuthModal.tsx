@@ -122,6 +122,10 @@ export function AuthModal({ open, onOpenChange }: Props) {
             >
               {googleLoading ? "Redirecting..." : "Continue with Google"}
             </button>
+            <p className="text-center text-xs text-slate-500">
+              We only use your Google account to verify your identity — we never access your
+              Gmail, Drive, or other Google data.
+            </p>
             <button
               onClick={handlePasskeySignIn}
               disabled={passkeyLoading}
