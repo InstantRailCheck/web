@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "InstantRailCheck",
-  description: "Know before you transfer.",
+  title: "InstantRailCheck | Check RTP, FedNow & Bank Transfer Compatibility",
+  description:
+    "Check whether banks and credit unions support RTP, FedNow, ACH, wire transfers, and other payment rails before sending money.",
   icons: {
     icon: "/favicon.png",
   },
