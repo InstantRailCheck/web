@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
+import { Banknote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCommunityReportedBanks, type CommunityRailEntry } from "@/lib/communityRails";
 
@@ -16,7 +18,7 @@ function RailColumn({
   viewAllHref,
   footnote,
 }: {
-  icon: string;
+  icon: ReactNode;
   label: string;
   banks: Bank[];
   total: number;
@@ -129,7 +131,7 @@ export default async function RailsExplorerPage() {
           <RailColumn icon="🏦" label="FedNow" banks={fednow ?? []} total={fednowCount ?? 0} viewAllHref="/banks?fednow=true" />
           <RailColumn icon="⚡" label="RTP" banks={rtp ?? []} total={rtpCount ?? 0} viewAllHref="/banks?rtp=true" />
           <RailColumn
-            icon="💸"
+            icon={<Banknote className="h-[18px] w-[18px] text-violet-400" />}
             label="Zelle"
             banks={zelle ?? []}
             total={zelleCount ?? 0}

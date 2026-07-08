@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
+import { Banknote } from "lucide-react";
 import { getBankProfileBySlug, getBankSlugById } from "@/lib/bankProfile";
 import { formatPhone } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
@@ -114,10 +115,10 @@ export default async function BankProfilePage({
             )}
             {profile.bank.zelle_participant && (
               <span
-                className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-300"
+                className="flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs text-violet-300"
                 title="Confirmed via Zelle's own partner directory. Note: that directory is known to be incomplete, so the absence of this badge on other banks doesn't necessarily mean they lack Zelle support."
               >
-                💸 Zelle participant
+                <Banknote className="h-3.5 w-3.5" /> Zelle participant
               </span>
             )}
           </div>

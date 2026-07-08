@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Banknote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -100,7 +101,7 @@ export default async function BanksDirectoryPage({
                 <span className="flex gap-1 text-xs">
                   {bank.fednow_participant && <span className="text-purple-400">🏦</span>}
                   {bank.rtp_participant && <span className="text-green-400">⚡</span>}
-                  {bank.zelle_participant && <span className="text-violet-400">💸</span>}
+                  {bank.zelle_participant && <Banknote className="h-4 w-4 text-violet-400" />}
                 </span>
               </Link>
             ))
