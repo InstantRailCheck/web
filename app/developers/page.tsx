@@ -44,8 +44,8 @@ export default function DevelopersPage() {
           Responses are JSON by default; list endpoints also support <code>&amp;format=csv</code>.
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          Also reachable at <code>{SITE_URL}/api/...</code> for existing integrations — both
-          point at the same routes.
+          The old <code>{SITE_URL}/api/...</code> paths still work — they redirect here — for
+          anything already integrated against them.
         </p>
 
         <div className="mt-8 space-y-6">

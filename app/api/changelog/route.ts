@@ -1,10 +1,17 @@
 import { NextRequest } from "next/server";
 import { getActivityFeed } from "@/lib/activityFeed";
-import { apiJson, apiError, apiCsv } from "@/lib/apiResponse";
+import { apiJson, apiError, apiCsv, apiCorsPreflight, legacyApiRedirect } from "@/lib/apiResponse";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 import { toCsv } from "@/lib/csv";
 
+export function OPTIONS() {
+  return apiCorsPreflight();
+}
+
 export async function GET(request: NextRequest) {
+  const redirect = legacyApiRedirect(request);
+  if (redirect) return redirect;
+
   if (await isRateLimited(getClientIp(request))) {
     return apiError("Rate limit exceeded. Try again shortly.", 429);
   }
