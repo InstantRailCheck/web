@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { WebhooksManager } from "@/components/WebhooksManager";
 
+export const dynamic = "force-dynamic";
+
 export default function WebhooksPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">

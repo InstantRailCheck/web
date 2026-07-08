@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { SITE_URL } from "@/lib/siteConfig";
 
+export const dynamic = "force-dynamic";
+
 const ENDPOINTS = [
   {
     method: "GET",
