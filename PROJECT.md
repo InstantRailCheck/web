@@ -130,6 +130,17 @@ Can Bank A send money instantly to Bank B?
 - Separately, the dropdown never visibly highlighted an item while typing or arrow-navigating: cmdk sets `data-selected` to the literal string `"true"`/`"false"` (always present), but Tailwind's bare `data-selected:` variant matches on attribute presence, not value — fixed to `data-[selected=true]:`
 - That CSS fix alone wasn't sufficient at scale — cmdk was still handed all 4,671 banks as raw DOM nodes (hidden via CSS, not removed), which made its own keyboard-highlight tracking unreliable. Now pre-filters client-side and caps the dropdown to 50 results before anything reaches cmdk
 
+## Version 3.0 Features (v3.0.0 — shipped July 8 2026)
+
+**Passkey sign-in**
+- Sign-in modal now offers "Sign in with a passkey" as the primary option (native WebAuthn picker, no email needed), with the existing email-OTP flow as a fallback
+- New `/account` page lets a signed-in user register, rename, and delete passkeys
+- Built on Supabase Auth's passkey API (officially supported, explicitly experimental — the API may change without notice per Supabase's own docs); requires the Relying Party ID/origins configured in the Supabase dashboard
+- Registering a passkey requires an existing signed-in session (add-a-passkey-to-your-account, not create-account-via-passkey-alone), matching the existing email-OTP-first auth model
+
+**Researched and declined**
+- ABA/routing-number bulk import: unlike every other source used so far (FDIC, NCUA, FedNow, RTP, Zelle), the Fed's E-Payments Routing Directory requires FedLine-connected institution status or a paid banking-partner download code, and its terms prohibit commercial use — no clean free alternative found. Wire transfers stay self-reported (verification wouldn't meaningfully differentiate banks anyway, since Fedwire eligibility is near-universal for regulated US banks)
+
 ## Data Principles
 
 - Real-world reports only
