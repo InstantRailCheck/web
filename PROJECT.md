@@ -151,6 +151,13 @@ Can Bank A send money instantly to Bank B?
 - Added `security.txt` (RFC 9116) at `/.well-known/security.txt` with a redirect from the legacy `/security.txt` path; expires July 2027 and needs refreshing by then
 - Added a web app manifest (`/manifest.webmanifest`, auto-linked by Next.js) — enables "Add to Home Screen" with the site's name, dark theme color, and icon
 
+## Version 3.0.2 (v3.0.2 — shipped July 8 2026)
+
+**API subdomain**
+- Added `api.instantrailcheck.com` as a cleaner alias for the public API — same deployment, same routes, via a `beforeFiles` rewrite mapping `api.instantrailcheck.com/banks` to `/api/banks` internally (had to be `beforeFiles` specifically, since the clean paths collide with real pages like `/banks`/`/changelog` that the default `afterFiles` phase would resolve first)
+- The subdomain is a separate origin and doesn't inherit the main domain's `robots.txt` — added a dedicated disallow-all for it, plus `X-Robots-Tag: noindex` on every API response regardless of hostname
+- The old `www.instantrailcheck.com/api/*` paths now 308-redirect to the subdomain (retired without breaking existing integrations) — scoped to the known legacy hosts only, so the subdomain's own rewrite, localhost, and preview deployments aren't caught in a redirect loop. CORS preflight (OPTIONS) requests are always answered directly, never redirected, since some browsers refuse to follow a redirected preflight
+
 ## Data Principles
 
 - Real-world reports only
