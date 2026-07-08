@@ -6,7 +6,11 @@ const supabase = createClient(
 );
 
 async function matchesTable(table, name) {
-  const words = name.trim().split(/\s+/);
+  // Strip commas/periods before splitting — legal names like "Capital One,
+  // National Association" otherwise leave a trailing comma stuck to the
+  // last word of a truncated candidate ("capital one,"), which matches
+  // neither an exact nor an ilike lookup against a clean "capital one" row.
+  const words = name.replace(/[.,]/g, "").trim().split(/\s+/);
   const floor = Math.min(2, words.length);
 
   for (let i = words.length; i >= floor; i--) {
