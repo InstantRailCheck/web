@@ -1,7 +1,13 @@
+import { NextRequest } from "next/server";
 import { getBankProfile } from "@/lib/bankProfile";
 import { apiJson, apiError } from "@/lib/apiResponse";
+import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (await isRateLimited(getClientIp(request))) {
+    return apiError("Rate limit exceeded. Try again shortly.", 429);
+  }
+
   const { id } = await params;
   const profile = await getBankProfile(id);
 

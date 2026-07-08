@@ -1,8 +1,13 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { apiJson } from "@/lib/apiResponse";
+import { apiJson, apiError } from "@/lib/apiResponse";
+import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 export async function GET(request: NextRequest) {
+  if (await isRateLimited(getClientIp(request))) {
+    return apiError("Rate limit exceeded. Try again shortly.", 429);
+  }
+
   const q = request.nextUrl.searchParams.get("q");
 
   const supabase = await createClient();
