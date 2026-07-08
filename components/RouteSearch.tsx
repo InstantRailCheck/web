@@ -117,6 +117,10 @@ export function RouteSearch({ banks }: RouteSearchProps) {
           Settlement time leaderboard →
         </Link>
         {" · "}
+        <Link href="/rails" className="text-blue-400 hover:text-blue-300 transition">
+          Rail explorer →
+        </Link>
+        {" · "}
         <Link href="/changelog" className="text-blue-400 hover:text-blue-300 transition">
           Changelog →
         </Link>

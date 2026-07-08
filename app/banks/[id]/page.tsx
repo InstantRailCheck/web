@@ -79,6 +79,21 @@ export default async function BankProfilePage({
           <p className="mt-1 text-sm text-slate-400">{formatPhone(profile.bank.phone)}</p>
         )}
 
+        {(profile.bank.fednow_participant || profile.bank.rtp_participant) && (
+          <div className="mt-3 flex gap-2">
+            {profile.bank.fednow_participant && (
+              <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-300">
+                🏦 FedNow participant
+              </span>
+            )}
+            {profile.bank.rtp_participant && (
+              <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs text-green-300">
+                ⚡ RTP participant
+              </span>
+            )}
+          </div>
+        )}
+
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
           <h2 className="text-lg font-semibold">Sending from {profile.bank.name}</h2>
           <p className="mt-1 text-sm text-slate-400">
