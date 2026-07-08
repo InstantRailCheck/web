@@ -13,7 +13,7 @@ export default async function BanksDirectoryPage({
   const supabase = await createClient();
   let query = supabase
     .from("banks")
-    .select("id, name, fednow_participant, rtp_participant, zelle_participant")
+    .select("id, slug, name, fednow_participant, rtp_participant, zelle_participant")
     .order("name", { ascending: true });
 
   if (q) query = query.ilike("name", `%${q}%`);
@@ -75,7 +75,7 @@ export default async function BanksDirectoryPage({
             (banks ?? []).map((bank) => (
               <Link
                 key={bank.id}
-                href={`/banks/${bank.id}`}
+                href={`/banks/${bank.slug}`}
                 className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-200 hover:border-blue-500/40 hover:text-white transition"
               >
                 <span>{bank.name}</span>

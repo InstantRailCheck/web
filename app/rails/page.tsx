@@ -4,7 +4,7 @@ import { getCommunityReportedBanks, type CommunityRailEntry } from "@/lib/commun
 
 export const dynamic = "force-dynamic";
 
-type Bank = { id: string; name: string };
+type Bank = { id: string; slug: string; name: string };
 
 function RailColumn({
   icon,
@@ -31,7 +31,7 @@ function RailColumn({
           banks.map((bank) => (
             <Link
               key={bank.id}
-              href={`/banks/${bank.id}`}
+              href={`/banks/${bank.slug}`}
               className="block px-5 py-3 text-sm text-slate-200 hover:bg-slate-900 hover:text-white transition"
             >
               {bank.name}
@@ -57,7 +57,7 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
           entries.map((entry) => (
             <Link
               key={entry.bankId}
-              href={`/banks/${entry.bankId}`}
+              href={`/banks/${entry.bankSlug}`}
               className="flex items-center justify-between px-5 py-3 text-sm text-slate-200 hover:bg-slate-900 hover:text-white transition"
             >
               <span>{entry.bankName}</span>
@@ -76,9 +76,9 @@ export default async function RailsExplorerPage() {
   const supabase = await createClient();
 
   const [{ data: fednow }, { data: rtp }, { data: zelle }, visaDirect, mastercardSend] = await Promise.all([
-    supabase.from("banks").select("id, name").eq("fednow_participant", true).order("name"),
-    supabase.from("banks").select("id, name").eq("rtp_participant", true).order("name"),
-    supabase.from("banks").select("id, name").eq("zelle_participant", true).order("name"),
+    supabase.from("banks").select("id, slug, name").eq("fednow_participant", true).order("name"),
+    supabase.from("banks").select("id, slug, name").eq("rtp_participant", true).order("name"),
+    supabase.from("banks").select("id, slug, name").eq("zelle_participant", true).order("name"),
     getCommunityReportedBanks("Visa Direct"),
     getCommunityReportedBanks("Mastercard Send"),
   ]);

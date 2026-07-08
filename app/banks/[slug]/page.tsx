@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getBankProfile } from "@/lib/bankProfile";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getBankProfileBySlug, getBankSlugById } from "@/lib/bankProfile";
 import { formatPhone } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const RAIL_STYLES: Record<string, { border: string; bg: string; text: string }> = {
   RTP: { border: "border-green-500/30", bg: "bg-green-500/10", text: "text-green-300" },
@@ -18,7 +20,7 @@ function getRailStyle(rail: string) {
   return RAIL_STYLES[rail] ?? { border: "border-slate-700", bg: "bg-slate-900", text: "text-slate-300" };
 }
 
-function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfile>>["sending"] }) {
+function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"] }) {
   if (rails.length === 0) {
     return <p className="text-sm text-slate-500">No reports yet.</p>;
   }
@@ -53,10 +55,21 @@ function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfile>>
 export default async function BankProfilePage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = await params;
-  const profile = await getBankProfile(id);
+  const { slug } = await params;
+
+  // Old links used the bank's UUID directly — redirect those to the slug URL
+  // instead of 404ing, so anything already shared/indexed keeps working.
+  if (UUID_PATTERN.test(slug)) {
+    const actualSlug = await getBankSlugById(slug);
+    if (actualSlug) {
+      permanentRedirect(`/banks/${actualSlug}`);
+    }
+    notFound();
+  }
+
+  const profile = await getBankProfileBySlug(slug);
 
   if (!profile.bank) {
     notFound();

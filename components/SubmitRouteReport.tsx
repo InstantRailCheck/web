@@ -6,10 +6,12 @@ import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
 import { enrichBank } from "@/lib/actions/enrichBank";
 import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
+import { slugify } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
 type Bank = {
   id: string;
+  slug: string;
   name: string;
 };
 
@@ -54,7 +56,7 @@ export function SubmitRouteReport({ banks }: Props) {
     const supabase = createClient();
     const { data: existing } = await supabase
       .from("banks")
-      .select("id, name")
+      .select("id, slug, name")
       .ilike("name", name.trim())
       .maybeSingle();
 
@@ -65,10 +67,24 @@ export function SubmitRouteReport({ banks }: Props) {
       return existing.id;
     }
 
+    const baseSlug = slugify(name.trim());
+    const { data: similarSlugs } = await supabase
+      .from("banks")
+      .select("slug")
+      .ilike("slug", `${baseSlug}%`);
+
+    const usedSlugs = new Set((similarSlugs ?? []).map((b) => b.slug));
+    let slug = baseSlug;
+    let suffix = 2;
+    while (usedSlugs.has(slug)) {
+      slug = `${baseSlug}-${suffix}`;
+      suffix++;
+    }
+
     const { data, error } = await supabase
       .from("banks")
-      .insert({ name: name.trim() })
-      .select("id, name")
+      .insert({ name: name.trim(), slug })
+      .select("id, slug, name")
       .single();
 
     if (error) throw error;

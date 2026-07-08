@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getBankProfile } from "@/lib/bankProfile";
+import { getBankProfileBySlug } from "@/lib/bankProfile";
 import { ComparePicker } from "@/components/ComparePicker";
 import { formatPhone } from "@/lib/utils";
 
@@ -27,12 +27,12 @@ export default async function ComparePage({
   searchParams: Promise<{ banks?: string }>;
 }) {
   const { banks: banksParam } = await searchParams;
-  const ids = (banksParam ?? "").split(",").filter(Boolean).slice(0, 2);
+  const slugs = (banksParam ?? "").split(",").filter(Boolean).slice(0, 2);
 
   const supabase = await createClient();
-  const { data: allBanks } = await supabase.from("banks").select("id, name").order("name");
+  const { data: allBanks } = await supabase.from("banks").select("id, slug, name").order("name");
 
-  const profiles = ids.length === 2 ? await Promise.all(ids.map((id) => getBankProfile(id))) : null;
+  const profiles = slugs.length === 2 ? await Promise.all(slugs.map((slug) => getBankProfileBySlug(slug))) : null;
   const [a, b] = profiles ?? [null, null];
 
   const rails =
@@ -53,7 +53,7 @@ export default async function ComparePage({
         </p>
 
         <div className="mt-6">
-          <ComparePicker banks={allBanks ?? []} initialIds={ids} />
+          <ComparePicker banks={allBanks ?? []} initialSlugs={slugs} />
         </div>
 
         {a?.bank && b?.bank && (
@@ -63,12 +63,12 @@ export default async function ComparePage({
                 <tr className="border-b border-slate-800">
                   <th className="px-5 py-3 text-slate-500">Feature</th>
                   <th className="px-5 py-3">
-                    <Link href={`/banks/${a.bank.id}`} className="text-blue-400 hover:text-blue-300 transition">
+                    <Link href={`/banks/${a.bank.slug}`} className="text-blue-400 hover:text-blue-300 transition">
                       {a.bank.name}
                     </Link>
                   </th>
                   <th className="px-5 py-3">
-                    <Link href={`/banks/${b.bank.id}`} className="text-blue-400 hover:text-blue-300 transition">
+                    <Link href={`/banks/${b.bank.slug}`} className="text-blue-400 hover:text-blue-300 transition">
                       {b.bank.name}
                     </Link>
                   </th>

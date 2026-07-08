@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getBankProfile } from "@/lib/bankProfile";
+import { getBankProfileById } from "@/lib/bankProfile";
 import { apiJson, apiError } from "@/lib/apiResponse";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params;
-  const profile = await getBankProfile(id);
+  const profile = await getBankProfileById(id);
 
   if (!profile.bank) {
     return apiError("Bank not found", 404);

@@ -6,7 +6,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient();
   const { data: banks } = await supabase
     .from("banks")
-    .select("id, created_at")
+    .select("slug, created_at")
     .order("name");
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -20,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const bankRoutes: MetadataRoute.Sitemap = (banks ?? []).map((bank) => ({
-    url: `${SITE_URL}/banks/${bank.id}`,
+    url: `${SITE_URL}/banks/${bank.slug}`,
     lastModified: bank.created_at ?? undefined,
     changeFrequency: "weekly",
     priority: 0.6,

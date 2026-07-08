@@ -36,7 +36,7 @@ export default async function TimingLeaderboardPage() {
                   {leaderboard[rail].map((entry, i) => (
                     <Link
                       key={entry.bankId}
-                      href={`/banks/${entry.bankId}`}
+                      href={`/banks/${entry.bankSlug}`}
                       className="flex items-center justify-between px-5 py-3 text-sm hover:bg-slate-900 transition"
                     >
                       <span className="flex items-center gap-3">

@@ -7,6 +7,7 @@ import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 
 type Bank = {
   id: string;
+  slug: string;
   name: string;
   website: string | null;
 };
@@ -15,7 +16,7 @@ export default async function Home() {
   const supabase = await createClient();
   const { data: banks, error } = await supabase
     .from("banks")
-    .select("id, name, website")
+    .select("id, slug, name, website")
     .order("name", { ascending: true });
 
   const bankOptions = (banks ?? []) as Bank[];

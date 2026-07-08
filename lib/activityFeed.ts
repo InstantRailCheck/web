@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 
 export type ActivityItem =
-  | { type: "bank_added"; id: string; bankId: string; bankName: string; createdAt: string }
+  | { type: "bank_added"; id: string; bankId: string; bankSlug: string; bankName: string; createdAt: string }
   | {
       type: "report";
       id: string;
       fromBankId: string;
+      fromBankSlug: string | null;
       fromBankName: string;
       toBankName: string;
       rail: string;
@@ -17,10 +18,10 @@ export type ActivityItem =
 export async function getActivityFeed(limit = 30): Promise<ActivityItem[]> {
   const supabase = await createClient();
 
-  const [{ data: banks }, { data: reports }, { data: allSuccess }] = await Promise.all([
+  const [{ data: banks }, { data: reports }, { data: allSuccess }, { data: allBanks }] = await Promise.all([
     supabase
       .from("banks")
-      .select("id, name, created_at")
+      .select("id, slug, name, created_at")
       .order("created_at", { ascending: false })
       .limit(limit),
     supabase
@@ -33,7 +34,12 @@ export async function getActivityFeed(limit = 30): Promise<ActivityItem[]> {
       .select("id, from_bank_id, rail_used, created_at")
       .eq("status", "success")
       .order("created_at", { ascending: true }),
+    // route_reports only stores from_bank_id/name denormalized, not slug —
+    // need a full id->slug map to link report items to their bank pages.
+    supabase.from("banks").select("id, slug"),
   ]);
+
+  const slugById = new Map((allBanks ?? []).map((b) => [b.id, b.slug]));
 
   const firstConfirmedIds = new Set<string>();
   const seenKeys = new Set<string>();
@@ -49,6 +55,7 @@ export async function getActivityFeed(limit = 30): Promise<ActivityItem[]> {
     type: "bank_added",
     id: `bank-${b.id}`,
     bankId: b.id,
+    bankSlug: b.slug,
     bankName: b.name,
     createdAt: b.created_at,
   }));
@@ -57,6 +64,7 @@ export async function getActivityFeed(limit = 30): Promise<ActivityItem[]> {
     type: "report",
     id: `report-${r.id}`,
     fromBankId: r.from_bank_id,
+    fromBankSlug: slugById.get(r.from_bank_id) ?? null,
     fromBankName: r.from_bank_name,
     toBankName: r.to_bank_name,
     rail: r.rail_used || "Unknown",

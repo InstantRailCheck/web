@@ -1,0 +1,52 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function main() {
+  const { data: banks, error } = await supabase
+    .from("banks")
+    .select("id, name, slug")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  const usedSlugs = new Set(banks.filter((b) => b.slug).map((b) => b.slug));
+
+  for (const bank of banks) {
+    if (bank.slug) {
+      console.log(`- ${bank.name}: already has slug "${bank.slug}", skipped`);
+      continue;
+    }
+
+    const base = slugify(bank.name);
+    let slug = base;
+    let suffix = 2;
+    while (usedSlugs.has(slug)) {
+      slug = `${base}-${suffix}`;
+      suffix++;
+    }
+    usedSlugs.add(slug);
+
+    const { error: updateError } = await supabase.from("banks").update({ slug }).eq("id", bank.id);
+    if (updateError) {
+      console.log(`- ${bank.name}: update failed — ${updateError.message}`);
+    } else {
+      console.log(`- ${bank.name}: assigned slug "${slug}"`);
+    }
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

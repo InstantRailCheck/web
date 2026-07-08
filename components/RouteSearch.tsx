@@ -7,6 +7,7 @@ import { getRouteIntelligence, RouteIntelligence } from "@/lib/routingEngine";
 
 type Bank = {
   id: string;
+  slug: string;
   name: string;
 };
 
@@ -179,11 +180,11 @@ export function RouteSearch({ banks }: RouteSearchProps) {
               Route Intelligence Report
             </p>
             <h3 className="mt-2 text-2xl font-semibold">
-              <Link href={`/banks/${fromBank?.id}`} className="hover:text-blue-300 transition">
+              <Link href={`/banks/${fromBank?.slug}`} className="hover:text-blue-300 transition">
                 {fromBank?.name}
               </Link>
               {" → "}
-              <Link href={`/banks/${toBank?.id}`} className="hover:text-blue-300 transition">
+              <Link href={`/banks/${toBank?.slug}`} className="hover:text-blue-300 transition">
                 {toBank?.name}
               </Link>
             </h3>

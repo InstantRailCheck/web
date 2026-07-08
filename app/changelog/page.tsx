@@ -43,7 +43,7 @@ export default async function ChangelogPage() {
                 {item.type === "bank_added" ? (
                   <p>
                     <span className="text-slate-500">+ Bank added: </span>
-                    <Link href={`/banks/${item.bankId}`} className="text-blue-400 hover:text-blue-300 transition">
+                    <Link href={`/banks/${item.bankSlug}`} className="text-blue-400 hover:text-blue-300 transition">
                       {item.bankName}
                     </Link>
                   </p>
@@ -54,7 +54,7 @@ export default async function ChangelogPage() {
                         First confirmed
                       </span>
                     )}
-                    <Link href={`/banks/${item.fromBankId}`} className="text-blue-400 hover:text-blue-300 transition">
+                    <Link href={`/banks/${item.fromBankSlug ?? item.fromBankId}`} className="text-blue-400 hover:text-blue-300 transition">
                       {item.fromBankName}
                     </Link>
                     <span className="text-slate-500"> → {item.toBankName} via </span>

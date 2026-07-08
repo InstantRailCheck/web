@@ -15,6 +15,7 @@ type RailStats = {
 export type BankProfile = {
   bank: {
     id: string;
+    slug: string;
     name: string;
     website: string | null;
     address: string | null;
@@ -27,26 +28,52 @@ export type BankProfile = {
   receiving: RailStats[];
 };
 
-export async function getBankProfile(bankId: string): Promise<BankProfile> {
+export async function getBankSlugById(id: string): Promise<string | null> {
   const supabase = await createClient();
+  const { data } = await supabase.from("banks").select("slug").eq("id", id).maybeSingle();
+  return data?.slug ?? null;
+}
 
-  const [{ data: bank }, { data: reports }] = await Promise.all([
-    supabase
-      .from("banks")
-      .select("id, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
-      .eq("id", bankId)
-      .maybeSingle(),
-    supabase
-      .from("route_reports")
-      .select("*")
-      .or(`from_bank_id.eq.${bankId},to_bank_id.eq.${bankId}`),
-  ]);
+export async function getBankProfileBySlug(slug: string): Promise<BankProfile> {
+  const supabase = await createClient();
+  const { data: bank } = await supabase
+    .from("banks")
+    .select("id, slug, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
+    .eq("slug", slug)
+    .maybeSingle();
 
-  const sendingRows = (reports ?? []).filter((r) => r.from_bank_id === bankId);
-  const receivingRows = (reports ?? []).filter((r) => r.to_bank_id === bankId);
+  return buildProfile(bank);
+}
+
+// Public API contract (/api/banks/:id) is stable and ID-based — kept
+// separate from the slug-based lookup the website itself uses.
+export async function getBankProfileById(id: string): Promise<BankProfile> {
+  const supabase = await createClient();
+  const { data: bank } = await supabase
+    .from("banks")
+    .select("id, slug, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
+    .eq("id", id)
+    .maybeSingle();
+
+  return buildProfile(bank);
+}
+
+async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
+  if (!bank) {
+    return { bank: null, sending: [], receiving: [] };
+  }
+
+  const supabase = await createClient();
+  const { data: reports } = await supabase
+    .from("route_reports")
+    .select("*")
+    .or(`from_bank_id.eq.${bank.id},to_bank_id.eq.${bank.id}`);
+
+  const sendingRows = (reports ?? []).filter((r) => r.from_bank_id === bank.id);
+  const receivingRows = (reports ?? []).filter((r) => r.to_bank_id === bank.id);
 
   return {
-    bank: bank ?? null,
+    bank,
     sending: summarizeByRail(sendingRows),
     receiving: summarizeByRail(receivingRows),
   };

@@ -6,22 +6,28 @@ import { BankSelect } from "@/components/BankSelect";
 
 type Bank = {
   id: string;
+  slug: string;
   name: string;
 };
 
 type Props = {
   banks: Bank[];
-  initialIds: string[];
+  initialSlugs: string[];
 };
 
-export function ComparePicker({ banks, initialIds }: Props) {
+export function ComparePicker({ banks, initialSlugs }: Props) {
   const router = useRouter();
-  const [aId, setAId] = useState(initialIds[0] ?? "");
-  const [bId, setBId] = useState(initialIds[1] ?? "");
+  const findIdBySlug = (slug: string | undefined) => banks.find((b) => b.slug === slug)?.id ?? "";
+
+  const [aId, setAId] = useState(findIdBySlug(initialSlugs[0]));
+  const [bId, setBId] = useState(findIdBySlug(initialSlugs[1]));
 
   function handleCompare() {
     if (!aId || !bId || aId === bId) return;
-    router.push(`/compare?banks=${aId},${bId}`);
+    const aSlug = banks.find((b) => b.id === aId)?.slug;
+    const bSlug = banks.find((b) => b.id === bId)?.slug;
+    if (!aSlug || !bSlug) return;
+    router.push(`/compare?banks=${aSlug},${bSlug}`);
   }
 
   return (
