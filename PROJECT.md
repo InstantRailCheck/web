@@ -30,6 +30,35 @@ Can Bank A send money instantly to Bank B?
 - Magic link + 8-digit OTP via email — no password required
 - Session expires when browser is closed
 
+## Version 1.1 Features (v1.1.0 — shipped July 8 2026)
+
+**Bank profile pages**
+- `/banks/[id]` shows sending/receiving rail stats, plus website, address, and phone
+- `/banks` directory with name search and FedNow/RTP filters
+
+**Official-source data enrichment**
+- Banks: website + address from FDIC BankFind
+- Credit unions: website + address + phone from NCUA's quarterly call report data (no live API exists; synced via `scripts/sync-ncua-directory.mjs`)
+- Brokerages: address + phone from FINRA BrokerCheck (no official website field exists for broker-dealers in any regulatory source checked)
+- Never guesses — a missing field beats a wrong one. Matching favors institution size/activity status to avoid mismatching common names
+
+**Payment rail explorer**
+- FedNow and RTP participation checked against the Fed's and The Clearing House's official participant lists when a bank is added
+- `/rails` browses confirmed participants; badges shown on profile pages
+
+**Compare, timing, and history**
+- `/compare` — two banks side by side
+- `/timing` — settlement time leaderboard by rail (min. 2 reports per bank+rail)
+- `/changelog` — recent banks added and reports submitted, with a "first confirmed" badge
+
+**Public API**
+- `/api/banks`, `/api/banks/:id`, `/api/routes`, `/api/changelog` — read-only, CORS-enabled, documented at `/developers`
+- Rate limited to 60 requests/minute per IP via an atomic Postgres counter; self-cleaning via `pg_cron`
+
+**Security**
+- `route_reports` inserts restricted to authenticated users, enforced to their own `user_id` (previously any anonymous client could insert and spoof `user_id`)
+- RLS audited across all tables; no client-writable access to reference tables
+
 ## Data Principles
 
 - Real-world reports only
