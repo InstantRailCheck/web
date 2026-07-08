@@ -35,15 +35,19 @@ async function matchesTable(table, name) {
 }
 
 async function main() {
-  const { data: banks, error } = await supabase.from("banks").select("id, name");
+  const { data: banks, error } = await supabase
+    .from("banks")
+    .select("id, name, fednow_participant, rtp_participant, zelle_participant");
   if (error) throw error;
 
   console.log(`Processing ${banks.length} bank(s).`);
 
   for (const bank of banks) {
-    const fednow = await matchesTable("fednow_participants", bank.name);
-    const rtp = await matchesTable("rtp_participants", bank.name);
-    const zelle = await matchesTable("zelle_participants", bank.name);
+    // Never downgrade an already-true flag — a positive confirmation (even
+    // a manual one) outweighs an absence in a source that can be incomplete.
+    const fednow = bank.fednow_participant || (await matchesTable("fednow_participants", bank.name));
+    const rtp = bank.rtp_participant || (await matchesTable("rtp_participants", bank.name));
+    const zelle = bank.zelle_participant || (await matchesTable("zelle_participants", bank.name));
 
     const { error: updateError } = await supabase
       .from("banks")

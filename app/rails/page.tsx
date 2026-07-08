@@ -5,13 +5,24 @@ export const dynamic = "force-dynamic";
 
 type Bank = { id: string; name: string };
 
-function RailColumn({ icon, label, banks }: { icon: string; label: string; banks: Bank[] }) {
+function RailColumn({
+  icon,
+  label,
+  banks,
+  footnote,
+}: {
+  icon: string;
+  label: string;
+  banks: Bank[];
+  footnote?: string;
+}) {
   return (
     <section>
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <span>{icon}</span> {label}
       </h2>
       <p className="mt-1 text-xs text-slate-500">{banks.length} banks</p>
+      {footnote && <p className="mt-1 text-xs text-yellow-500/80">{footnote}</p>}
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {banks.length === 0 ? (
           <p className="px-5 py-4 text-sm text-slate-500">None confirmed yet.</p>
@@ -57,7 +68,12 @@ export default async function RailsExplorerPage() {
         <div className="mt-8 grid gap-8 sm:grid-cols-3">
           <RailColumn icon="🏦" label="FedNow" banks={fednow ?? []} />
           <RailColumn icon="⚡" label="RTP" banks={rtp ?? []} />
-          <RailColumn icon="💸" label="Zelle" banks={zelle ?? []} />
+          <RailColumn
+            icon="💸"
+            label="Zelle"
+            banks={zelle ?? []}
+            footnote="Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks Zelle support, only that it isn't listed there."
+          />
         </div>
       </div>
     </main>
