@@ -141,6 +141,16 @@ Can Bank A send money instantly to Bank B?
 **Researched and declined**
 - ABA/routing-number bulk import: unlike every other source used so far (FDIC, NCUA, FedNow, RTP, Zelle), the Fed's E-Payments Routing Directory requires FedLine-connected institution status or a paid banking-partner download code, and its terms prohibit commercial use — no clean free alternative found. Wire transfers stay self-reported (verification wouldn't meaningfully differentiate banks anyway, since Fedwire eligibility is near-universal for regulated US banks)
 
+## Version 3.0.1 (v3.0.1 — shipped July 8 2026)
+
+**Sitemap fix**
+- `sitemap.xml` hit the same 1000-row Supabase cap as the homepage/Compare dropdowns, just discovered later — verified live on production (1007 `<url>` entries) before fixing; search engines were never seeing ~3,671 of 4,671 bank pages
+
+**Hardening/housekeeping**
+- `robots.txt` now disallows `/account` (the new passkey-management page), matching the existing `/webhooks` exclusion — no SEO value, and it can show the signed-in user's email
+- Added `security.txt` (RFC 9116) at `/.well-known/security.txt` with a redirect from the legacy `/security.txt` path; expires July 2027 and needs refreshing by then
+- Added a web app manifest (`/manifest.webmanifest`, auto-linked by Next.js) — enables "Add to Home Screen" with the site's name, dark theme color, and icon
+
 ## Data Principles
 
 - Real-world reports only
