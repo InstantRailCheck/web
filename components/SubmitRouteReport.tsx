@@ -204,6 +204,8 @@ export function SubmitRouteReport({ banks }: Props) {
                 <option value="ACH">ACH</option>
                 <option value="Wire">Wire</option>
                 <option value="Zelle">Zelle</option>
+                <option value="Visa Direct">Visa Direct</option>
+                <option value="Mastercard Send">Mastercard Send</option>
                 <option value="Other">Other</option>
                 <option value="Unknown">Unknown</option>
               </select>

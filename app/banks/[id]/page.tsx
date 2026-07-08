@@ -9,6 +9,8 @@ const RAIL_STYLES: Record<string, { border: string; bg: string; text: string }> 
   ACH: { border: "border-blue-500/30", bg: "bg-blue-500/10", text: "text-blue-300" },
   Wire: { border: "border-slate-800", bg: "bg-slate-900", text: "text-slate-300" },
   Zelle: { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300" },
+  "Visa Direct": { border: "border-sky-500/30", bg: "bg-sky-500/10", text: "text-sky-300" },
+  "Mastercard Send": { border: "border-orange-500/30", bg: "bg-orange-500/10", text: "text-orange-300" },
 };
 
 function getRailStyle(rail: string) {

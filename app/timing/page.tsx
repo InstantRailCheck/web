@@ -3,7 +3,7 @@ import { getTimingLeaderboard } from "@/lib/timingLeaderboard";
 
 export const dynamic = "force-dynamic";
 
-const RAIL_ORDER = ["RTP", "FedNow", "ACH", "Wire", "Zelle"];
+const RAIL_ORDER = ["RTP", "FedNow", "Visa Direct", "Mastercard Send", "ACH", "Wire", "Zelle"];
 
 export default async function TimingLeaderboardPage() {
   const leaderboard = await getTimingLeaderboard();
