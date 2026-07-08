@@ -59,6 +59,18 @@ Can Bank A send money instantly to Bank B?
 - `route_reports` inserts restricted to authenticated users, enforced to their own `user_id` (previously any anonymous client could insert and spoof `user_id`)
 - RLS audited across all tables; no client-writable access to reference tables
 
+## Version 1.2 Features (v1.2.0 — shipped July 8 2026)
+
+**Zelle verification**
+- No official API exists; Zelle's own "search" page turned out to be an unfiltered paginated directory of ~2,489 partner institutions, scraped via `scripts/sync-zelle-participants.mjs`
+- Known limitation, disclosed in-app: Zelle's own directory is incomplete (confirmed — SoFi genuinely supports Zelle but isn't listed), so a missing badge doesn't mean a bank lacks support the way it does for FedNow/RTP
+- Automated enrichment now never downgrades an already-`true` rail flag back to `false`, so a manual correction (like SoFi's) survives future re-syncs
+
+**Visa Direct and Mastercard Send**
+- No scrapable directory exists — both check capability per-card via BIN lookup APIs gated behind production partnership access (sandbox tiers only return synthetic test data)
+- Added as self-reportable rail types instead, same as every rail before official verification existed
+- Shown on `/rails` in a separate "Community-reported" section, clearly distinguished from the three officially-verified columns (min. 2 successful reports to appear)
+
 ## Data Principles
 
 - Real-world reports only
