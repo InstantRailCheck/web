@@ -121,6 +121,10 @@ export function RouteSearch({ banks }: RouteSearchProps) {
           Rail explorer →
         </Link>
         {" · "}
+        <Link href="/compare" className="text-blue-400 hover:text-blue-300 transition">
+          Compare banks →
+        </Link>
+        {" · "}
         <Link href="/changelog" className="text-blue-400 hover:text-blue-300 transition">
           Changelog →
         </Link>
