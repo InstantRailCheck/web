@@ -22,7 +22,7 @@ const RAIL_STYLES: Record<string, { border: string; bg: string; text: string; ic
   FedNow:           { border: "border-purple-500/30", bg: "bg-purple-500/10", text: "text-purple-300", icon: "🏦" },
   ACH:              { border: "border-blue-500/30",   bg: "bg-blue-500/10",   text: "text-blue-300",   icon: "" },
   Wire:             { border: "border-slate-800",     bg: "bg-slate-900",     text: "text-slate-300",  icon: "" },
-  Zelle:            { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300", icon: "" },
+  Zelle:            { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300", icon: "💸" },
   "Visa Direct":     { border: "border-sky-500/30",    bg: "bg-sky-500/10",    text: "text-sky-300",    icon: "" },
   "Mastercard Send": { border: "border-orange-500/30", bg: "bg-orange-500/10", text: "text-orange-300", icon: "" },
 };

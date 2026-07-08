@@ -100,7 +100,7 @@ export default async function BanksDirectoryPage({
                 <span className="flex gap-1 text-xs">
                   {bank.fednow_participant && <span className="text-purple-400">🏦</span>}
                   {bank.rtp_participant && <span className="text-green-400">⚡</span>}
-                  {bank.zelle_participant && <span className="text-blue-400">💸</span>}
+                  {bank.zelle_participant && <span className="text-violet-400">💸</span>}
                 </span>
               </Link>
             ))
