@@ -21,7 +21,24 @@ export function AuthModal({ open, onOpenChange }: Props) {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handlePasskeySignIn() {
+    setPasskeyLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPasskey();
+    setPasskeyLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      onOpenChange(false);
+      setStep("email");
+      setEmail("");
+      setOtp("");
+    }
+  }
 
   async function handleSend() {
     if (!email) return;
@@ -82,6 +99,20 @@ export function AuthModal({ open, onOpenChange }: Props) {
 
         {step === "email" ? (
           <div className="space-y-4">
+            <button
+              onClick={handlePasskeySignIn}
+              disabled={passkeyLoading}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+            >
+              {passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey"}
+            </button>
+
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <div className="h-px flex-1 bg-slate-800" />
+              or
+              <div className="h-px flex-1 bg-slate-800" />
+            </div>
+
             <p className="text-sm text-slate-400">
               Enter your email and we'll send you a sign-in link. No password needed.
             </p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { BankSelect } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
@@ -172,12 +173,18 @@ export function SubmitRouteReport({ banks }: Props) {
           {user && (
             <div className="text-right">
               <p className="text-xs text-slate-500">{user.email}</p>
-              <button
-                onClick={handleSignOut}
-                className="text-xs text-slate-400 hover:text-white transition"
-              >
-                Sign out
-              </button>
+              <div className="flex items-center justify-end gap-2 text-xs">
+                <Link href="/account" className="text-slate-400 hover:text-white transition">
+                  Account
+                </Link>
+                <span className="text-slate-700">·</span>
+                <button
+                  onClick={handleSignOut}
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           )}
         </div>
