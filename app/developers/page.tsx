@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_URL } from "@/lib/siteConfig";
 
 const ENDPOINTS = [
   {
@@ -52,7 +53,7 @@ export default function DevelopersPage() {
               </div>
               <p className="mt-2 text-sm text-slate-400">{ep.description}</p>
               <code className="mt-3 block rounded-lg bg-slate-950 p-3 text-xs text-slate-500">
-                GET https://www.instantrailcheck.com{ep.example}
+                GET {SITE_URL}{ep.example}
               </code>
             </div>
           ))}
