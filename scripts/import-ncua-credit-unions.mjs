@@ -62,19 +62,33 @@ async function matchesTable(table, name) {
   return false;
 }
 
+async function fetchAll(table, columns, orderBy) {
+  const pageSize = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .order(orderBy, { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return rows;
+}
+
 async function main() {
   console.log("Loading synced NCUA credit unions...");
-  const { data: creditUnions, error: cuError } = await supabase
-    .from("ncua_credit_unions")
-    .select("charter_number, name, website, address, phone")
-    .order("charter_number", { ascending: true });
-  if (cuError) throw cuError;
+  // Supabase caps a single select() at 1000 rows by default — the table has
+  // 4,336, so this must be paginated with .range() or it silently truncates.
+  const creditUnions = await fetchAll("ncua_credit_unions", "charter_number, name, website, address, phone", "charter_number");
   const candidates = creditUnions.slice(0, LIMIT);
   console.log(`Loaded ${candidates.length} credit unions.`);
 
   console.log("Loading existing banks for dedup and slug collision checks...");
-  const { data: existingBanks, error: existingError } = await supabase.from("banks").select("id, name, website, slug");
-  if (existingError) throw existingError;
+  // Same 1000-row cap applies here — banks now has 1000+ rows too.
+  const existingBanks = await fetchAll("banks", "id, name, website, slug", "id");
 
   const existingWebsites = new Set(
     existingBanks.filter((b) => b.website).map((b) => normalizeWebsite(b.website))

@@ -56,6 +56,24 @@ async function matchesTable(table, name) {
   return false;
 }
 
+async function fetchAllBanks() {
+  // Supabase caps a single select() at 1000 rows by default — banks now has
+  // 1000+, so this must be paginated with .range() or it silently truncates.
+  const pageSize = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("banks")
+      .select("id, name, website, slug")
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return rows;
+}
+
 async function main() {
   console.log(`Fetching top ${TOP_N} active FDIC banks by asset size...`);
   const res = await fetch(
@@ -67,8 +85,7 @@ async function main() {
   console.log(`Fetched ${candidates.length} candidates.`);
 
   console.log("Loading existing banks for dedup and slug collision checks...");
-  const { data: existingBanks, error: existingError } = await supabase.from("banks").select("id, name, website, slug");
-  if (existingError) throw existingError;
+  const existingBanks = await fetchAllBanks();
 
   const existingWebsites = new Set(
     existingBanks.filter((b) => b.website).map((b) => normalizeWebsite(b.website))

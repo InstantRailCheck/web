@@ -57,11 +57,26 @@ async function matchesTable(table, name) {
   return false;
 }
 
+async function fetchAllBanks() {
+  // Supabase caps a single select() at 1000 rows by default — banks now has
+  // 1000+, so this must be paginated with .range() or it silently truncates.
+  const pageSize = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("banks")
+      .select("id, name, fednow_participant, rtp_participant, zelle_participant")
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return rows;
+}
+
 async function main() {
-  const { data: banks, error } = await supabase
-    .from("banks")
-    .select("id, name, fednow_participant, rtp_participant, zelle_participant");
-  if (error) throw error;
+  const banks = await fetchAllBanks();
 
   console.log(`Processing ${banks.length} bank(s).`);
 
