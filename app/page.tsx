@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { Hero } from "@/components/Hero";
 import { RouteSearch } from "@/components/RouteSearch";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllBanks } from "@/lib/allBanks";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 
 type Bank = {
@@ -14,12 +15,13 @@ type Bank = {
 
 export default async function Home() {
   const supabase = await createClient();
-  const { data: banks, error } = await supabase
-    .from("banks")
-    .select("id, slug, name, website")
-    .order("name", { ascending: true });
-
-  const bankOptions = (banks ?? []) as Bank[];
+  let bankOptions: Bank[] = [];
+  let error: { message: string } | null = null;
+  try {
+    bankOptions = await fetchAllBanks<Bank>(supabase, "id, slug, name, website");
+  } catch (err) {
+    error = { message: err instanceof Error ? err.message : "Failed to load banks" };
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">

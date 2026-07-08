@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getBankProfileBySlug } from "@/lib/bankProfile";
+import { fetchAllBanks } from "@/lib/allBanks";
 import { ComparePicker } from "@/components/ComparePicker";
 import { formatPhone } from "@/lib/utils";
 
@@ -30,7 +31,7 @@ export default async function ComparePage({
   const slugs = (banksParam ?? "").split(",").filter(Boolean).slice(0, 2);
 
   const supabase = await createClient();
-  const { data: allBanks } = await supabase.from("banks").select("id, slug, name").order("name");
+  const allBanks = await fetchAllBanks<{ id: string; slug: string; name: string }>(supabase, "id, slug, name");
 
   const profiles = slugs.length === 2 ? await Promise.all(slugs.map((slug) => getBankProfileBySlug(slug))) : null;
   const [a, b] = profiles ?? [null, null];
