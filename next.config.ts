@@ -41,6 +41,10 @@ const nextConfig: NextConfig = {
         // api.instantrailcheck.com/banks -> /api/banks, same deployment,
         // same routes. Purely additive — the original /api/* paths on the
         // main domain keep working, so nothing already integrated breaks.
+        // (This also maps .../robots.txt -> /api/robots.txt, which is a real
+        // route below — a subdomain is a separate origin and doesn't inherit
+        // the main domain's robots.txt, so without one here it would default
+        // to "everything's crawlable.")
         {
           source: "/:path*",
           has: [{ type: "host", value: "api.instantrailcheck.com" }],

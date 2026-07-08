@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
+  // Belt-and-suspenders alongside robots.txt: this applies regardless of
+  // which hostname/path served the response, and works even against bots
+  // that don't bother respecting robots.txt.
+  "X-Robots-Tag": "noindex",
 };
 
 export function apiJson(data: unknown, init?: { status?: number }) {
