@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,13 @@ type BankSelectProps = {
   onAdd?: (name: string) => Promise<string>;
 };
 
+// Rendering all banks (4,000+) as raw DOM nodes at once — even with cmdk
+// hiding non-matches via CSS rather than removing them — makes cmdk's own
+// internal keyboard-highlight tracking (a DOM querySelectorAll over live
+// nodes) unreliable at that scale. Pre-filtering to a small, bounded list
+// before it ever reaches cmdk avoids that entirely.
+const RESULTS_LIMIT = 50;
+
 export function BankSelect({
   label,
   placeholder,
@@ -45,6 +52,14 @@ export function BankSelect({
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const selectedBank = banks.find((bank) => bank.id === value);
+
+  const filteredBanks = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const matches = query
+      ? banks.filter((bank) => bank.name.toLowerCase().includes(query))
+      : banks;
+    return matches.slice(0, RESULTS_LIMIT);
+  }, [banks, search]);
 
   function handleSelect(bankId: string) {
     onChange?.(bankId === value ? "" : bankId);
@@ -86,7 +101,7 @@ export function BankSelect({
         </PopoverTrigger>
 
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] border-slate-800 bg-slate-950 p-0 text-white">
-          <Command className="bg-slate-950 text-white">
+          <Command className="bg-slate-950 text-white" shouldFilter={false}>
             <CommandInput placeholder="Search banks..." onValueChange={setSearch} />
             <CommandList>
               <CommandEmpty>
@@ -103,7 +118,7 @@ export function BankSelect({
                 )}
               </CommandEmpty>
               <CommandGroup>
-                {banks.map((bank) => (
+                {filteredBanks.map((bank) => (
                   <CommandItem
                     key={bank.id}
                     value={bank.name}
