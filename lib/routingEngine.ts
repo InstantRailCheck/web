@@ -11,6 +11,7 @@ type RailStats = {
   lastTested: string | null;
   isStale: boolean;
   directions: ("push" | "pull")[];
+  sameDayCount: number | null;
 };
 
 export type RouteIntelligence = {
@@ -79,6 +80,8 @@ export async function getRouteIntelligence(
     );
     const directions = Array.from(directionSet) as ("push" | "pull")[];
 
+    const sameDayCount = r.rail === "ACH" ? rows.filter((d) => d.same_day === true).length : null;
+
     return {
       rail: r.rail,
       count: r.count,
@@ -87,6 +90,7 @@ export async function getRouteIntelligence(
       lastTested,
       isStale,
       directions,
+      sameDayCount,
     };
   });
 

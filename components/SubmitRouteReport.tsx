@@ -31,6 +31,7 @@ export function SubmitRouteReport({ banks }: Props) {
   const [status, setStatus] = useState("");
   const [testedAt, setTestedAt] = useState(today());
   const [settlementTime, setSettlementTime] = useState("");
+  const [sameDay, setSameDay] = useState(false);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -113,6 +114,7 @@ export function SubmitRouteReport({ banks }: Props) {
           status,
           tested_at: testedAt,
           settlement_time_minutes: settlementTime ? parseInt(settlementTime) : null,
+          same_day: railUsed === "ACH" ? sameDay : null,
           notes,
           user_id: user.id,
         });
@@ -126,6 +128,7 @@ export function SubmitRouteReport({ banks }: Props) {
       setStatus("");
       setTestedAt(today());
       setSettlementTime("");
+      setSameDay(false);
       setNotes("");
       setSuccess(true);
     } catch (err: any) {
@@ -257,6 +260,18 @@ export function SubmitRouteReport({ banks }: Props) {
               min="0"
               className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white md:col-span-2"
             />
+
+            {railUsed === "ACH" && (
+              <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={sameDay}
+                  onChange={(e) => setSameDay(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                This was processed as Same-Day ACH
+              </label>
+            )}
 
             <textarea
               value={notes}

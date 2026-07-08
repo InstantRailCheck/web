@@ -30,18 +30,32 @@ function getRailStyle(rail: string) {
   return RAIL_STYLES[rail] ?? { border: "border-slate-700", bg: "bg-slate-900", text: "text-slate-300", icon: "" };
 }
 
-function RailMeta({ rail }: { rail: { lastTested: string | null; isStale: boolean; directions: ("push" | "pull")[] } }) {
+function RailMeta({
+  rail,
+}: {
+  rail: {
+    lastTested: string | null;
+    isStale: boolean;
+    directions: ("push" | "pull")[];
+    sameDayCount?: number | null;
+  };
+}) {
   const dirLabel =
     rail.directions.length === 2 ? "Push & Pull" :
     rail.directions[0] === "push" ? "Push only" :
     rail.directions[0] === "pull" ? "Pull only" : null;
 
-  if (!rail.lastTested && !dirLabel) return null;
+  if (!rail.lastTested && !dirLabel && !rail.sameDayCount) return null;
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs opacity-70">
       {rail.isStale && <span className="text-yellow-400">⚠ Stale</span>}
       {dirLabel && <span>{dirLabel}</span>}
+      {!!rail.sameDayCount && (
+        <span>
+          Same-Day ACH in {rail.sameDayCount} report{rail.sameDayCount !== 1 ? "s" : ""}
+        </span>
+      )}
       {rail.lastTested && <span>Last tested {rail.lastTested}</span>}
     </div>
   );

@@ -9,6 +9,7 @@ type RailStats = {
   avgTime: number | null;
   lastTested: string | null;
   isStale: boolean;
+  sameDayCount: number | null;
 };
 
 export type BankProfile = {
@@ -78,6 +79,8 @@ function summarizeByRail(rows: any[]): RailStats[] {
       ? daysBetween(lastTested, new Date().toISOString().split("T")[0]) > STALE_DAYS
       : false;
 
+    const sameDayCount = rail === "ACH" ? railRows.filter((r) => r.same_day === true).length : null;
+
     return {
       rail,
       count: railRows.length,
@@ -85,6 +88,7 @@ function summarizeByRail(rows: any[]): RailStats[] {
       avgTime,
       lastTested,
       isStale,
+      sameDayCount,
     };
   });
 }

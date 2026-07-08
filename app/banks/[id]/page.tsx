@@ -34,6 +34,11 @@ function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfile>>
             </div>
             <div className="mt-1 flex flex-wrap gap-x-2 text-xs opacity-70">
               {rail.isStale && <span className="text-yellow-400">⚠ Stale</span>}
+              {!!rail.sameDayCount && (
+                <span>
+                  Same-Day ACH in {rail.sameDayCount} report{rail.sameDayCount !== 1 ? "s" : ""}
+                </span>
+              )}
               {rail.lastTested && <span>Last tested {rail.lastTested}</span>}
               <span>{rail.count} report{rail.count !== 1 ? "s" : ""}</span>
             </div>
