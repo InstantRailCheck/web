@@ -4,7 +4,7 @@ const ENDPOINTS = [
   {
     method: "GET",
     path: "/api/banks",
-    description: "List all banks. Optional ?q= to search by name.",
+    description: "List all banks. Optional ?q= to search by name. Add &format=csv for CSV instead of JSON.",
     example: "/api/banks?q=chase",
   },
   {
@@ -22,7 +22,7 @@ const ENDPOINTS = [
   {
     method: "GET",
     path: "/api/changelog",
-    description: "Recent activity feed — banks added and route reports submitted. Optional ?limit= (max 200, default 50).",
+    description: "Recent activity feed — banks added and route reports submitted. Optional ?limit= (max 200, default 50). Add &format=csv for CSV instead of JSON.",
     example: "/api/changelog?limit=10",
   },
 ];
@@ -38,7 +38,7 @@ export default function DevelopersPage() {
         <h1 className="mt-4 text-3xl font-bold">API</h1>
         <p className="mt-1 text-sm text-slate-400">
           Read-only, unauthenticated, and CORS-enabled — free to use in your own tools.
-          All responses are JSON.
+          Responses are JSON by default; list endpoints also support <code>&amp;format=csv</code>.
         </p>
 
         <div className="mt-8 space-y-6">

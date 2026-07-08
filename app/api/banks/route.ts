@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { apiJson, apiError } from "@/lib/apiResponse";
+import { apiJson, apiError, apiCsv } from "@/lib/apiResponse";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+import { toCsv } from "@/lib/csv";
 
 export async function GET(request: NextRequest) {
   if (await isRateLimited(getClientIp(request))) {
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
   }
 
   const q = request.nextUrl.searchParams.get("q");
+  const format = request.nextUrl.searchParams.get("format");
 
   const supabase = await createClient();
   let query = supabase
@@ -22,6 +24,10 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) return apiJson({ error: error.message }, { status: 500 });
+
+  if (format === "csv") {
+    return apiCsv(toCsv(data ?? []), "banks.csv");
+  }
 
   return apiJson({ banks: data });
 }
