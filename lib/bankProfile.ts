@@ -20,6 +20,7 @@ export type BankProfile = {
     phone: string | null;
     fednow_participant: boolean | null;
     rtp_participant: boolean | null;
+    zelle_participant: boolean | null;
   } | null;
   sending: RailStats[];
   receiving: RailStats[];
@@ -31,7 +32,7 @@ export async function getBankProfile(bankId: string): Promise<BankProfile> {
   const [{ data: bank }, { data: reports }] = await Promise.all([
     supabase
       .from("banks")
-      .select("id, name, website, address, phone, fednow_participant, rtp_participant")
+      .select("id, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
       .eq("id", bankId)
       .maybeSingle(),
     supabase

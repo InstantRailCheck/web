@@ -3,18 +3,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export type RailParticipation = {
   fednow: boolean;
   rtp: boolean;
+  zelle: boolean;
 };
 
 export async function checkRailParticipation(name: string): Promise<RailParticipation> {
-  const [fednow, rtp] = await Promise.all([
+  const [fednow, rtp, zelle] = await Promise.all([
     matchesTable("fednow_participants", name),
     matchesTable("rtp_participants", name),
+    matchesTable("zelle_participants", name),
   ]);
 
-  return { fednow, rtp };
+  return { fednow, rtp, zelle };
 }
 
-async function matchesTable(table: "fednow_participants" | "rtp_participants", name: string): Promise<boolean> {
+async function matchesTable(
+  table: "fednow_participants" | "rtp_participants" | "zelle_participants",
+  name: string
+): Promise<boolean> {
   const supabase = createAdminClient();
   const words = name.trim().split(/\s+/);
   const floor = Math.min(2, words.length);

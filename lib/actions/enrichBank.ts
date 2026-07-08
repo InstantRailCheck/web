@@ -25,7 +25,11 @@ export async function enrichBank(bankId: string, bankName: string) {
 
   await supabase
     .from("banks")
-    .update({ fednow_participant: railParticipation.fednow, rtp_participant: railParticipation.rtp })
+    .update({
+      fednow_participant: railParticipation.fednow,
+      rtp_participant: railParticipation.rtp,
+      zelle_participant: railParticipation.zelle,
+    })
     .eq("id", bankId);
 
   if (!website && !address && !phone) return;

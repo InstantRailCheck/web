@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   let query = supabase
     .from("banks")
-    .select("id, name, website, address, phone, fednow_participant, rtp_participant")
+    .select("id, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
     .order("name");
 
   if (q) {

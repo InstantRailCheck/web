@@ -6,19 +6,20 @@ export const dynamic = "force-dynamic";
 export default async function BanksDirectoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; fednow?: string; rtp?: string }>;
+  searchParams: Promise<{ q?: string; fednow?: string; rtp?: string; zelle?: string }>;
 }) {
-  const { q, fednow, rtp } = await searchParams;
+  const { q, fednow, rtp, zelle } = await searchParams;
 
   const supabase = await createClient();
   let query = supabase
     .from("banks")
-    .select("id, name, fednow_participant, rtp_participant")
+    .select("id, name, fednow_participant, rtp_participant, zelle_participant")
     .order("name", { ascending: true });
 
   if (q) query = query.ilike("name", `%${q}%`);
   if (fednow === "true") query = query.eq("fednow_participant", true);
   if (rtp === "true") query = query.eq("rtp_participant", true);
+  if (zelle === "true") query = query.eq("zelle_participant", true);
 
   const { data: banks } = await query;
 
@@ -50,13 +51,17 @@ export default async function BanksDirectoryPage({
             <input type="checkbox" name="rtp" value="true" defaultChecked={rtp === "true"} className="h-4 w-4" />
             RTP only
           </label>
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" name="zelle" value="true" defaultChecked={zelle === "true"} className="h-4 w-4" />
+            Zelle only
+          </label>
           <button
             type="submit"
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
           >
             Filter
           </button>
-          {(q || fednow || rtp) && (
+          {(q || fednow || rtp || zelle) && (
             <Link href="/banks" className="text-sm text-slate-400 hover:text-white transition">
               Clear
             </Link>
@@ -77,6 +82,7 @@ export default async function BanksDirectoryPage({
                 <span className="flex gap-1 text-xs">
                   {bank.fednow_participant && <span className="text-purple-400">🏦</span>}
                   {bank.rtp_participant && <span className="text-green-400">⚡</span>}
+                  {bank.zelle_participant && <span className="text-blue-400">💸</span>}
                 </span>
               </Link>
             ))

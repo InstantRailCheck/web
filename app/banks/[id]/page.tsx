@@ -79,7 +79,7 @@ export default async function BankProfilePage({
           <p className="mt-1 text-sm text-slate-400">{formatPhone(profile.bank.phone)}</p>
         )}
 
-        {(profile.bank.fednow_participant || profile.bank.rtp_participant) && (
+        {(profile.bank.fednow_participant || profile.bank.rtp_participant || profile.bank.zelle_participant) && (
           <div className="mt-3 flex gap-2">
             {profile.bank.fednow_participant && (
               <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-300">
@@ -89,6 +89,11 @@ export default async function BankProfilePage({
             {profile.bank.rtp_participant && (
               <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs text-green-300">
                 ⚡ RTP participant
+              </span>
+            )}
+            {profile.bank.zelle_participant && (
+              <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-300">
+                💸 Zelle participant
               </span>
             )}
           </div>

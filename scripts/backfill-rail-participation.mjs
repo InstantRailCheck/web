@@ -43,16 +43,17 @@ async function main() {
   for (const bank of banks) {
     const fednow = await matchesTable("fednow_participants", bank.name);
     const rtp = await matchesTable("rtp_participants", bank.name);
+    const zelle = await matchesTable("zelle_participants", bank.name);
 
     const { error: updateError } = await supabase
       .from("banks")
-      .update({ fednow_participant: fednow, rtp_participant: rtp })
+      .update({ fednow_participant: fednow, rtp_participant: rtp, zelle_participant: zelle })
       .eq("id", bank.id);
 
     if (updateError) {
       console.log(`- ${bank.name}: update failed — ${updateError.message}`);
     } else {
-      console.log(`- ${bank.name}: FedNow=${fednow} RTP=${rtp}`);
+      console.log(`- ${bank.name}: FedNow=${fednow} RTP=${rtp} Zelle=${zelle}`);
     }
   }
 }
