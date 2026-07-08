@@ -133,6 +133,10 @@ export function AuthModal({ open, onOpenChange }: Props) {
             >
               {passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey"}
             </button>
+            <p className="text-center text-xs text-slate-500">
+              Passkeys can be added once you have an account — sign in with Google or email
+              first, then register one from your account page.
+            </p>
 
             <div className="flex items-center gap-3 text-xs text-slate-500">
               <div className="h-px flex-1 bg-slate-800" />
