@@ -5,6 +5,13 @@ const WINDOW_SECONDS = 60;
 const LIMIT = 60;
 
 export function getClientIp(request: NextRequest): string {
+  // Cloudflare sits in front of Vercel and appends to (rather than replaces)
+  // X-Forwarded-For, so a client-supplied first hop there can't be trusted —
+  // it could be spoofed to cycle through fake IPs and bypass rate limiting.
+  // CF-Connecting-IP is set by Cloudflare from the actual connection and any
+  // client-supplied copy of it is stripped before we ever see it.
+  const cfIp = request.headers.get("cf-connecting-ip");
+  if (cfIp) return cfIp.trim();
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   return "unknown";
