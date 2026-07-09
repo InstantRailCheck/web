@@ -208,6 +208,12 @@ Can Bank A send money instantly to Bank B?
 **Evidence card layout fix**
 - Fixed an orphaned-word wrap on rail evidence card labels — long source text under narrow 3-column cards left the last word alone on its own right-aligned line; stacked label-above-value instead
 
+## Version 4.1.2 (v4.1.2 — shipped July 8 2026)
+
+**Clickable evidence sources**
+- FedNow and RTP source labels on rail evidence cards now link to the actual official source, using the exact URLs already verified in `scripts/sync-rail-participants.mjs`
+- Zelle deliberately left as plain text — its "source" is a paginated search endpoint, not a page meaningful to click into
+
 ## Data Principles
 
 - Real-world reports only
