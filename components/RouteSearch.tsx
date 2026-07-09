@@ -153,6 +153,10 @@ export function RouteSearch({ banks }: RouteSearchProps) {
         <Link href="/developers" className="text-blue-400 hover:text-blue-300 transition">
           API →
         </Link>
+        {" · "}
+        <Link href="/methodology" className="text-blue-400 hover:text-blue-300 transition">
+          Methodology →
+        </Link>
       </p>
 
       {fromBankId && toBankId && fromBankId === toBankId && (
