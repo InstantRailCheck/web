@@ -9,6 +9,18 @@ const STATUS_STYLES: Record<string, string> = {
   delayed: "text-yellow-400",
 };
 
+// Matches the rail color scheme used everywhere else it's shown (RouteSearch,
+// bank profile pages, /banks, /rails) so a rail is recognizable by color site-wide.
+const RAIL_COLORS: Record<string, string> = {
+  RTP: "text-green-300",
+  FedNow: "text-purple-300",
+  ACH: "text-blue-300",
+  Wire: "text-slate-300",
+  Zelle: "text-violet-300",
+  "Visa Direct": "text-sky-300",
+  "Mastercard Send": "text-orange-300",
+};
+
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const minutes = Math.floor(diffMs / 60000);
@@ -58,7 +70,7 @@ export default async function ChangelogPage() {
                       {item.fromBankName}
                     </Link>
                     <span className="text-slate-500"> → {item.toBankName} via </span>
-                    <span className="text-slate-200">{item.rail}</span>
+                    <span className={RAIL_COLORS[item.rail] ?? "text-slate-200"}>{item.rail}</span>
                     <span className={`ml-2 ${STATUS_STYLES[item.status] ?? "text-slate-400"}`}>
                       {item.status}
                     </span>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote } from "lucide-react";
+import { Banknote, Landmark, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCommunityReportedBanks, type CommunityRailEntry } from "@/lib/communityRails";
 
@@ -13,6 +13,7 @@ type Bank = { id: string; slug: string; name: string };
 function RailColumn({
   icon,
   label,
+  color,
   banks,
   total,
   viewAllHref,
@@ -20,6 +21,7 @@ function RailColumn({
 }: {
   icon: ReactNode;
   label: string;
+  color: string;
   banks: Bank[];
   total: number;
   viewAllHref: string;
@@ -27,8 +29,8 @@ function RailColumn({
 }) {
   return (
     <section>
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <span>{icon}</span> {label}
+      <h2 className={`flex items-center gap-2 text-lg font-semibold ${color}`}>
+        {icon} {label}
       </h2>
       <p className="mt-1 text-xs text-slate-500">{total} banks</p>
       {footnote && <p className="mt-1 text-xs text-yellow-500/80">{footnote}</p>}
@@ -128,11 +130,26 @@ export default async function RailsExplorerPage() {
         </p>
 
         <div className="mt-8 grid gap-8 sm:grid-cols-3">
-          <RailColumn icon="🏦" label="FedNow" banks={fednow ?? []} total={fednowCount ?? 0} viewAllHref="/banks?fednow=true" />
-          <RailColumn icon="⚡" label="RTP" banks={rtp ?? []} total={rtpCount ?? 0} viewAllHref="/banks?rtp=true" />
           <RailColumn
-            icon={<Banknote className="h-[18px] w-[18px] text-violet-400" />}
+            icon={<Landmark className="h-[18px] w-[18px]" />}
+            label="FedNow"
+            color="text-purple-300"
+            banks={fednow ?? []}
+            total={fednowCount ?? 0}
+            viewAllHref="/banks?fednow=true"
+          />
+          <RailColumn
+            icon={<Zap className="h-[18px] w-[18px]" />}
+            label="RTP"
+            color="text-green-300"
+            banks={rtp ?? []}
+            total={rtpCount ?? 0}
+            viewAllHref="/banks?rtp=true"
+          />
+          <RailColumn
+            icon={<Banknote className="h-[18px] w-[18px]" />}
             label="Zelle"
+            color="text-violet-300"
             banks={zelle ?? []}
             total={zelleCount ?? 0}
             viewAllHref="/banks?zelle=true"
