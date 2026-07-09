@@ -8,7 +8,7 @@ export function Header() {
   if (pathname === "/") return null;
 
   return (
-    <header className="w-full px-6 py-4">
+    <header className="flex w-full justify-center px-6 py-4">
       <Link href="/" className="inline-flex items-center">
         <img
           src="/logo.png"
