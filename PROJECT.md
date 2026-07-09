@@ -232,6 +232,17 @@ Can Bank A send money instantly to Bank B?
 - Renamed 8 early hand-entered banks (Chase, Bank of America, Wells Fargo, US Bank, SoFi, BECU, WSECU, Schwab, American Express Rewards Checking) to their precise FDIC/NCUA legal names — resolves their total_assets via exact match instead of an ambiguity-prone fuzzy fallback, and brings them in line with how every other bank in the directory is named. Slugs were kept unchanged so existing links still resolve
 - Deleted "Fidelity CMA" — a brokerage cash-sweep product, not a single chartered bank, so it never had a legitimate place in a directory of banks
 
+## Version 4.5.0 (v4.5.0 — shipped July 9 2026)
+
+**Scheduled data sync + a site-wide cosmetic pass**
+- New GitHub Actions workflow (`.github/workflows/sync-data.yml`): weekly resync of FedNow/RTP/Zelle participant lists, monthly resync of NCUA's directory and the `total_assets` backfill — both also manually triggerable
+- Fixed `sync-ncua-directory.mjs`'s hardcoded quarter default (would've kept re-fetching the same stale quarter forever under a cron) by auto-detecting the latest published quarter, and added retry-with-backoff after a flaky connection to ncua.gov from a GitHub Actions runner
+- Rewrote `backfill-rail-participation.mjs` to match entirely in memory instead of one Supabase round-trip per word per bank — a full run dropped from 35+ minutes (still running when first tested unattended) to under 2 minutes
+- New read-only `scripts/audit-bank-info.mjs`: diffs stored website/address/phone against fresh FDIC/NCUA data without writing anything. Caught and fixed a real bug while building it — an initial version's cross-source fallback produced wrong matches (e.g. "Five Star Bank" compared against an unrelated credit union); current version reports 0 mismatches across all 4,670 banks
+- Homepage: moved nav links from under the search box to the page footer, unified "Submit Route Report" and "Report early direct deposit" to look identical, centered box titles/forms, fixed the subtitle to render on one line (full sentence on desktop, a shorter version on mobile, since the full sentence can't fit at any legible size on a phone screen)
+- Extended the same centering treatment to every subpage's title and matching forms (`/compare`'s bank picker, `/banks`' filter bar), and centered the rail explorer's remaining column titles
+- Replaced the "← Back to search" link at the top of every subpage with the homepage's full nav footer (new shared `SiteFooterLinks` component) — the persistent header logo already covers the "back to home" case. Added Privacy/Terms links to that footer, on their own line so they always stay together
+
 ## Data Principles
 
 - Real-world reports only
