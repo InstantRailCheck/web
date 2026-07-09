@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote, Landmark, Zap } from "lucide-react";
+import { Banknote, Clock, Landmark, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getCommunityReportedBanks, type CommunityRailEntry } from "@/lib/communityRails";
+import { getCommunityReportedBanks, getEddRankedBanks, type CommunityRailEntry, type EddRankedEntry } from "@/lib/communityRails";
 
 export const dynamic = "force-dynamic";
 
@@ -88,11 +88,49 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
   );
 }
 
+function EddColumn({ entries }: { entries: EddRankedEntry[] }) {
+  const shown = entries.slice(0, DISPLAY_LIMIT);
+  return (
+    <section>
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-teal-300">
+        <Clock className="h-[18px] w-[18px]" /> Early Direct Deposit
+      </h2>
+      <p className="mt-1 text-xs text-slate-500">{entries.length} banks, ranked by average days early</p>
+      <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
+        {shown.length === 0 ? (
+          <p className="px-5 py-4 text-sm text-slate-500">No reports yet.</p>
+        ) : (
+          shown.map((entry) => (
+            <Link
+              key={entry.bankId}
+              href={`/banks/${entry.bankSlug}`}
+              className="flex items-center justify-between px-5 py-3 text-sm text-slate-200 hover:bg-slate-900 hover:text-white transition"
+            >
+              <span>{entry.bankName}</span>
+              <span className="text-xs text-slate-500">
+                {entry.avgDaysEarly}
+                {entry.hasMoreThanFive && "+"} day{entry.avgDaysEarly !== 1 ? "s" : ""} ·{" "}
+                {entry.reportCount} report{entry.reportCount !== 1 ? "s" : ""}
+              </span>
+            </Link>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default async function RailsExplorerPage() {
   const supabase = await createClient();
 
-  const [{ data: fednow, count: fednowCount }, { data: rtp, count: rtpCount }, { data: zelle, count: zelleCount }, visaDirect, mastercardSend] =
-    await Promise.all([
+  const [
+    { data: fednow, count: fednowCount },
+    { data: rtp, count: rtpCount },
+    { data: zelle, count: zelleCount },
+    visaDirect,
+    mastercardSend,
+    eddRanked,
+  ] = await Promise.all([
       supabase
         .from("banks")
         .select("id, slug, name", { count: "exact" })
@@ -113,6 +151,7 @@ export default async function RailsExplorerPage() {
         .limit(DISPLAY_LIMIT),
       getCommunityReportedBanks("Visa Direct"),
       getCommunityReportedBanks("Mastercard Send"),
+      getEddRankedBanks(),
     ]);
 
   return (
@@ -167,6 +206,18 @@ export default async function RailsExplorerPage() {
           <div className="mt-6 grid gap-8 sm:grid-cols-2">
             <CommunityRailColumn icon="💳" label="Visa Direct" entries={visaDirect} />
             <CommunityRailColumn icon="💳" label="Mastercard Send" entries={mastercardSend} />
+          </div>
+        </div>
+
+        <div className="mt-12 border-t border-slate-800 pt-8">
+          <p className="text-sm text-slate-400">
+            A per-bank feature, not a network — no official directory exists since it's a
+            marketing feature banks choose to offer, so this is based on user-submitted reports
+            only. Requires at least 2 reports to appear.
+          </p>
+
+          <div className="mt-6">
+            <EddColumn entries={eddRanked} />
           </div>
         </div>
       </div>
