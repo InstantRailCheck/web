@@ -214,6 +214,14 @@ Can Bank A send money instantly to Bank B?
 - FedNow and RTP source labels on rail evidence cards now link to the actual official source, using the exact URLs already verified in `scripts/sync-rail-participants.mjs`
 - Zelle deliberately left as plain text — its "source" is a paginated search endpoint, not a page meaningful to click into
 
+## Version 4.1.3 (v4.1.3 — shipped July 8 2026)
+
+**Polish pass**
+- FedNow source link now points to the landing page (frbservices.org's organizations page) instead of triggering a direct XLSX download
+- "Confirmed as of" pulled out into its own highlighted pill with a calendar-check icon on rail evidence cards, rather than blending into the rest of the metadata
+- Rail color scheme (purple=FedNow, green=RTP, blue=ACH, violet=Zelle) extended to `/rails` (including fixing FedNow/RTP's color-blind emoji icons there) and `/changelog`
+- Added a persistent clickable logo header on every page except the homepage (which already has its own large Hero logo, now also clickable) — centered, sized roughly half the Hero logo
+
 ## Data Principles
 
 - Real-world reports only
