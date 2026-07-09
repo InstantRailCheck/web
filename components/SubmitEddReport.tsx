@@ -12,10 +12,16 @@ type Props =
   | { banks: Bank[]; bankId?: undefined; bankName?: undefined }
   | { banks?: undefined; bankId: string; bankName: string };
 
+// 6 is a sentinel for "more than 5 days early" — the constraint on
+// edd_reports.days_early allows 0-6, not an unbounded exact count.
 const DAYS_OPTIONS = [
   { value: "0", label: "Not early / same day" },
   { value: "1", label: "1 day early" },
   { value: "2", label: "2 days early" },
+  { value: "3", label: "3 days early" },
+  { value: "4", label: "4 days early" },
+  { value: "5", label: "5 days early" },
+  { value: "6", label: "More than 5 days early" },
 ];
 
 export function SubmitEddReport(props: Props) {

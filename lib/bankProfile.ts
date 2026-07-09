@@ -22,12 +22,18 @@ export type RailEvidence = {
 export type EddEvidence = {
   avgDaysEarly: number;
   reportCount: number;
+  hasMoreThanFive: boolean;
 };
 
 // Same threshold used for Visa Direct/Mastercard Send (lib/communityRails.ts)
 // — self-reported data with no official source needs more than one report
 // before it's trustworthy enough to show.
 const EDD_MIN_REPORTS = 2;
+
+// A report of "more than 5 days early" is stored as this sentinel rather
+// than an unbounded exact count — matches the edd_reports.days_early check
+// constraint (0-6). Exported so the submission form's dropdown stays in sync.
+export const EDD_DAYS_SENTINEL = 6;
 
 export type BankProfile = {
   bank: {
@@ -142,6 +148,10 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
               (eddRows.reduce((acc, r) => acc + r.days_early, 0) / eddRows.length) * 10
             ) / 10,
           reportCount: eddRows.length,
+          // The average would understate reality if any report used the
+          // "more than 5" sentinel — flag it so the display can say "5.5+"
+          // instead of implying an exact figure.
+          hasMoreThanFive: eddRows.some((r) => r.days_early === EDD_DAYS_SENTINEL),
         }
       : null;
 

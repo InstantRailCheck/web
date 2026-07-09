@@ -125,9 +125,13 @@ function EddCard({ evidence, bankName }: { evidence: EddEvidence; bankName: stri
       </div>
       <p className="mt-2 text-slate-300">
         {bankName} releases direct deposits an average of{" "}
-        <strong className="text-white">{evidence.avgDaysEarly}</strong> day
-        {evidence.avgDaysEarly !== 1 ? "s" : ""} early, based on {evidence.reportCount} community
-        report{evidence.reportCount !== 1 ? "s" : ""}.
+        <strong className="text-white">
+          {evidence.avgDaysEarly}
+          {evidence.hasMoreThanFive && "+"}
+        </strong>{" "}
+        day{evidence.avgDaysEarly !== 1 ? "s" : ""} early, based on {evidence.reportCount}{" "}
+        community report{evidence.reportCount !== 1 ? "s" : ""}
+        {evidence.hasMoreThanFive && " (some reported more than 5 days)"}.
       </p>
       <p className="mt-1 text-xs text-slate-500">
         Self-reported — no official directory exists for this feature.
