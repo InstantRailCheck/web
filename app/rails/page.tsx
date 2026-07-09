@@ -6,7 +6,7 @@ import { getCommunityReportedBanks, getEddRankedBanks, type CommunityRailEntry, 
 
 export const dynamic = "force-dynamic";
 
-const DISPLAY_LIMIT = 50;
+const DISPLAY_LIMIT = 8;
 
 type Bank = { id: string; slug: string; name: string };
 
@@ -116,6 +116,11 @@ function EddColumn({ entries }: { entries: EddRankedEntry[] }) {
           ))
         )}
       </div>
+      {entries.length > shown.length && (
+        <Link href="/banks?edd=true" className="mt-2 block text-xs text-blue-400 hover:text-blue-300 transition">
+          View all {entries.length} →
+        </Link>
+      )}
     </section>
   );
 }
