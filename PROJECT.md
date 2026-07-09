@@ -193,6 +193,21 @@ Can Bank A send money instantly to Bank B?
 - Standardized Zelle's icon (💸) and color (violet, its signature brand color) across every page it appears — RouteSearch's rail badges were missing an icon for Zelle entirely, and `/banks` used blue while every other page already used violet
 - Deliberately generic/non-trademarked treatment, not Zelle's actual stylized logo — their trademark guidelines only extend fair use to plain-text references, not logos, and InstantRailCheck isn't a licensed Zelle partner
 
+## Version 4.1 Features (v4.1.0 — shipped July 8 2026)
+
+**Trust and evidence infrastructure**
+- New `/methodology` page explaining the site's actual data principles, official-source-per-rail breakdown, the word-boundary/uniqueness name-matching approach, confidence tiers, and the never-downgrade correction guard
+- JSON-LD structured data: `BankOrCreditUnion` schema on bank profile pages, `WebSite`/`SearchAction` on the homepage — both carry the request's CSP nonce explicitly, since script-src governs any `<script>` element regardless of type under this site's nonce-based CSP
+- Source citations on bank profile pages (FDIC BankFind vs NCUA's quarterly call report data), kept categorical rather than per-field since the schema doesn't track which specific source backed which field
+- `bank_rail_history` table + trigger, capturing every change to fednow/rtp/zelle participation regardless of which code path makes it — not displayed anywhere until now, started collecting ahead of building on it so the data wouldn't be unrecoverably lost
+- Bank profile pages now show per-rail evidence cards (Source, Confirmed as of, Community confirmations) instead of plain pill badges — deliberately no fabricated per-rail "Confidence" score, since the existing HIGH/MEDIUM/LOW tiers are a route-level crowdsourced-report-volume concept, not a per-rail per-bank one
+- Supabase CLI added as a dev dependency and linked to the project, so migrations can be pushed directly instead of pasted into the dashboard SQL editor by hand
+
+## Version 4.1.1 (v4.1.1 — shipped July 8 2026)
+
+**Evidence card layout fix**
+- Fixed an orphaned-word wrap on rail evidence card labels — long source text under narrow 3-column cards left the last word alone on its own right-aligned line; stacked label-above-value instead
+
 ## Data Principles
 
 - Real-world reports only
