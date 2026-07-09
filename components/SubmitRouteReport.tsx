@@ -163,15 +163,15 @@ export function SubmitRouteReport({ banks }: Props) {
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
 
       <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="relative">
+          <div className="text-center">
             <h2 className="text-xl font-semibold">Submit Route Report</h2>
             <p className="text-sm text-slate-400">
               Add real transfer outcomes to improve routing intelligence.
             </p>
           </div>
           {user && (
-            <div className="text-right">
+            <div className="absolute right-0 top-0 text-right">
               <p className="text-xs text-slate-500">{user.email}</p>
               <div className="flex items-center justify-end gap-2 text-xs">
                 <Link href="/account" className="text-slate-400 hover:text-white transition">

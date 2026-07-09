@@ -96,7 +96,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-left shadow-2xl">
-      <div className="mb-6">
+      <div className="mb-6 text-center">
         <h2 className="text-xl font-semibold">Check a transfer route</h2>
         <p className="mt-1 text-sm text-slate-400">
           Choose a sending bank and receiving bank.
@@ -128,36 +128,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
         </button>
       </form>
 
-      <p className="mt-5 text-sm text-slate-500">
-        {banks.length} banks currently available.{" "}
-        <Link href="/banks" className="text-blue-400 hover:text-blue-300 transition">
-          Browse all →
-        </Link>
-        {" · "}
-        <Link href="/timing" className="text-blue-400 hover:text-blue-300 transition">
-          Settlement time leaderboard →
-        </Link>
-        {" · "}
-        <Link href="/rails" className="text-blue-400 hover:text-blue-300 transition">
-          Rail explorer →
-        </Link>
-        {" · "}
-        <Link href="/compare" className="text-blue-400 hover:text-blue-300 transition">
-          Compare banks →
-        </Link>
-        {" · "}
-        <Link href="/changelog" className="text-blue-400 hover:text-blue-300 transition">
-          Changelog →
-        </Link>
-        {" · "}
-        <Link href="/developers" className="text-blue-400 hover:text-blue-300 transition">
-          API →
-        </Link>
-        {" · "}
-        <Link href="/methodology" className="text-blue-400 hover:text-blue-300 transition">
-          Methodology →
-        </Link>
-      </p>
+      <p className="mt-5 text-sm text-slate-500">{banks.length} banks currently available.</p>
 
       {fromBankId && toBankId && fromBankId === toBankId && (
         <p className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
