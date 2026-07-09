@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Banknote, Landmark, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -60,11 +61,7 @@ export default async function BanksDirectoryPage({
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
-        <Link href="/" className="text-sm text-slate-400 hover:text-white transition">
-          ← Back to search
-        </Link>
-
-        <h1 className="mt-4 text-center text-3xl font-bold">All banks</h1>
+        <h1 className="text-center text-3xl font-bold">All banks</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           {total} bank{total !== 1 ? "s" : ""} matching your filters.
         </p>
@@ -148,6 +145,8 @@ export default async function BanksDirectoryPage({
             )}
           </div>
         )}
+
+        <SiteFooterLinks />
       </div>
     </main>
   );

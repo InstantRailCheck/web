@@ -1,13 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import { headers } from "next/headers";
-import Link from "next/link";
 import { Hero } from "@/components/Hero";
 import { RouteSearch } from "@/components/RouteSearch";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
 
 type Bank = {
@@ -111,35 +111,7 @@ export default async function Home({
           </div>
         </section>
 
-        <p className="mx-auto mt-16 max-w-4xl px-6 text-center text-sm text-slate-500">
-          <Link href="/banks" className="text-blue-400 hover:text-blue-300 transition">
-            Browse all →
-          </Link>
-          {" · "}
-          <Link href="/timing" className="text-blue-400 hover:text-blue-300 transition">
-            Settlement time leaderboard →
-          </Link>
-          {" · "}
-          <Link href="/rails" className="text-blue-400 hover:text-blue-300 transition">
-            Rail explorer →
-          </Link>
-          {" · "}
-          <Link href="/compare" className="text-blue-400 hover:text-blue-300 transition">
-            Compare banks →
-          </Link>
-          {" · "}
-          <Link href="/changelog" className="text-blue-400 hover:text-blue-300 transition">
-            Changelog →
-          </Link>
-          {" · "}
-          <Link href="/developers" className="text-blue-400 hover:text-blue-300 transition">
-            API →
-          </Link>
-          {" · "}
-          <Link href="/methodology" className="text-blue-400 hover:text-blue-300 transition">
-            Methodology →
-          </Link>
-        </p>
+        <SiteFooterLinks />
 
       </div>
     </main>

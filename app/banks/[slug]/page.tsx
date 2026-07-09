@@ -6,6 +6,7 @@ import { getBankProfileBySlug, getBankSlugById, type RailEvidence, type EddEvide
 import { formatPhone } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -184,11 +185,7 @@ export default async function BankProfilePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
-        <Link href="/" className="text-sm text-slate-400 hover:text-white transition">
-          ← Back to search
-        </Link>
-
-        <h1 className="mt-4 text-3xl font-bold">{profile.bank.name}</h1>
+        <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
         {profile.bank.website && (
           <a
             href={profile.bank.website}
@@ -279,6 +276,8 @@ export default async function BankProfilePage({
             <RailList rails={profile.receiving} />
           </div>
         </section>
+
+        <SiteFooterLinks />
       </div>
     </main>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTimingLeaderboard } from "@/lib/timingLeaderboard";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -14,17 +15,13 @@ export default async function TimingLeaderboardPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
-        <Link href="/" className="text-sm text-slate-400 hover:text-white transition">
-          ← Back to search
-        </Link>
-
-        <h1 className="mt-4 text-center text-3xl font-bold">Settlement time leaderboard</h1>
+        <h1 className="text-center text-3xl font-bold">Settlement time leaderboard</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           Average settlement time by rail, based on community-submitted reports.
         </p>
 
         {rails.length === 0 ? (
-          <p className="mt-8 text-sm text-slate-500">
+          <p className="mt-8 text-center text-sm text-slate-500">
             No timing data reported yet. Submit a route report with a settlement time to get started.
           </p>
         ) : (
@@ -56,6 +53,8 @@ export default async function TimingLeaderboardPage() {
             ))}
           </div>
         )}
+
+        <SiteFooterLinks />
       </div>
     </main>
   );

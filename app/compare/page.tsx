@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getBankProfileBySlug } from "@/lib/bankProfile";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { ComparePicker } from "@/components/ComparePicker";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { formatPhone } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -44,11 +45,7 @@ export default async function ComparePage({
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
-        <Link href="/" className="text-sm text-slate-400 hover:text-white transition">
-          ← Back to search
-        </Link>
-
-        <h1 className="mt-4 text-center text-3xl font-bold">Compare banks</h1>
+        <h1 className="text-center text-3xl font-bold">Compare banks</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           Side-by-side rail capability, contact info, and network participation.
         </p>
@@ -121,6 +118,8 @@ export default async function ComparePage({
             </table>
           </div>
         )}
+
+        <SiteFooterLinks />
       </div>
     </main>
   );

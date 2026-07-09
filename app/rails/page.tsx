@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Banknote, Clock, Landmark, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCommunityReportedBanks, getEddRankedBanks, type CommunityRailEntry, type EddRankedEntry } from "@/lib/communityRails";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -29,11 +30,11 @@ function RailColumn({
 }) {
   return (
     <section>
-      <h2 className={`flex items-center gap-2 text-lg font-semibold ${color}`}>
+      <h2 className={`flex items-center justify-center gap-2 text-center text-lg font-semibold ${color}`}>
         {icon} {label}
       </h2>
-      <p className="mt-1 text-xs text-slate-500">{total} banks</p>
-      {footnote && <p className="mt-1 text-xs text-yellow-500/80">{footnote}</p>}
+      <p className="mt-1 text-center text-xs text-slate-500">{total} banks</p>
+      {footnote && <p className="mt-1 text-center text-xs text-yellow-500/80">{footnote}</p>}
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {banks.length === 0 ? (
           <p className="px-5 py-4 text-sm text-slate-500">None confirmed yet.</p>
@@ -62,10 +63,10 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
   const shown = entries.slice(0, DISPLAY_LIMIT);
   return (
     <section>
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
+      <h2 className="flex items-center justify-center gap-2 text-center text-lg font-semibold">
         <span>{icon}</span> {label}
       </h2>
-      <p className="mt-1 text-xs text-slate-500">{entries.length} banks</p>
+      <p className="mt-1 text-center text-xs text-slate-500">{entries.length} banks</p>
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {shown.length === 0 ? (
           <p className="px-5 py-4 text-sm text-slate-500">No reports yet.</p>
@@ -92,10 +93,10 @@ function EddColumn({ entries }: { entries: EddRankedEntry[] }) {
   const shown = entries.slice(0, DISPLAY_LIMIT);
   return (
     <section>
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-teal-300">
+      <h2 className="flex items-center justify-center gap-2 text-center text-lg font-semibold text-teal-300">
         <Clock className="h-[18px] w-[18px]" /> Early Direct Deposit
       </h2>
-      <p className="mt-1 text-xs text-slate-500">{entries.length} banks, ranked by average days early</p>
+      <p className="mt-1 text-center text-xs text-slate-500">{entries.length} banks, ranked by average days early</p>
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {shown.length === 0 ? (
           <p className="px-5 py-4 text-sm text-slate-500">No reports yet.</p>
@@ -165,11 +166,7 @@ export default async function RailsExplorerPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
-        <Link href="/" className="text-sm text-slate-400 hover:text-white transition">
-          ← Back to search
-        </Link>
-
-        <h1 className="mt-4 text-center text-3xl font-bold">Payment rail explorer</h1>
+        <h1 className="text-center text-3xl font-bold">Payment rail explorer</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           Banks in our database confirmed as participants on each network, verified against the
           Federal Reserve's FedNow participant list, The Clearing House's RTP participant list,
@@ -205,8 +202,8 @@ export default async function RailsExplorerPage() {
         </div>
 
         <div className="mt-12 border-t border-slate-800 pt-8">
-          <h2 className="text-xl font-semibold">Community-reported</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <h2 className="text-center text-xl font-semibold">Community-reported</h2>
+          <p className="mt-1 text-center text-sm text-slate-400">
             No official directory exists for these networks — based on user-submitted reports
             only, not independently verified. Requires at least 2 successful reports to appear.
           </p>
@@ -218,7 +215,7 @@ export default async function RailsExplorerPage() {
         </div>
 
         <div className="mt-12 border-t border-slate-800 pt-8">
-          <p className="text-sm text-slate-400">
+          <p className="text-center text-sm text-slate-400">
             A per-bank feature, not a network — no official directory exists since it's a
             marketing feature banks choose to offer, so this is based on user-submitted reports
             only. Requires at least 2 reports to appear.
@@ -228,6 +225,8 @@ export default async function RailsExplorerPage() {
             <EddColumn entries={eddRanked} />
           </div>
         </div>
+
+        <SiteFooterLinks />
       </div>
     </main>
   );
