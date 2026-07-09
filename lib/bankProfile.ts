@@ -12,6 +12,12 @@ type RailStats = {
   sameDayCount: number | null;
 };
 
+export type RailEvidence = {
+  source: string;
+  confirmedAt: string | null;
+  communityConfirmations: number;
+};
+
 export type BankProfile = {
   bank: {
     id: string;
@@ -26,6 +32,21 @@ export type BankProfile = {
   } | null;
   sending: RailStats[];
   receiving: RailStats[];
+  railEvidence: Record<"fednow" | "rtp" | "zelle", RailEvidence>;
+};
+
+const RAIL_SOURCES: Record<"fednow" | "rtp" | "zelle", string> = {
+  fednow: "Federal Reserve's FedNow participant list",
+  rtp: "The Clearing House's RTP participant list",
+  zelle: "Zelle's partner directory",
+};
+
+// route_reports.rail_used stores display names ("FedNow", "RTP", "Zelle"),
+// while bank_rail_history/banks columns use lowercase keys — map between them.
+const RAIL_DISPLAY_NAMES: Record<"fednow" | "rtp" | "zelle", string> = {
+  fednow: "FedNow",
+  rtp: "RTP",
+  zelle: "Zelle",
 };
 
 export async function getBankSlugById(id: string): Promise<string | null> {
@@ -58,25 +79,49 @@ export async function getBankProfileById(id: string): Promise<BankProfile> {
   return buildProfile(bank);
 }
 
+const EMPTY_RAIL_EVIDENCE: BankProfile["railEvidence"] = {
+  fednow: { source: RAIL_SOURCES.fednow, confirmedAt: null, communityConfirmations: 0 },
+  rtp: { source: RAIL_SOURCES.rtp, confirmedAt: null, communityConfirmations: 0 },
+  zelle: { source: RAIL_SOURCES.zelle, confirmedAt: null, communityConfirmations: 0 },
+};
+
 async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
   if (!bank) {
-    return { bank: null, sending: [], receiving: [] };
+    return { bank: null, sending: [], receiving: [], railEvidence: EMPTY_RAIL_EVIDENCE };
   }
 
   const supabase = await createClient();
-  const { data: reports } = await supabase
-    .from("route_reports")
-    .select("*")
-    .or(`from_bank_id.eq.${bank.id},to_bank_id.eq.${bank.id}`);
+  const [{ data: reports }, { data: history }] = await Promise.all([
+    supabase
+      .from("route_reports")
+      .select("*")
+      .or(`from_bank_id.eq.${bank.id},to_bank_id.eq.${bank.id}`),
+    supabase
+      .from("bank_rail_history")
+      .select("rail, changed_at")
+      .eq("bank_id", bank.id)
+      .eq("new_value", true)
+      .order("changed_at", { ascending: false }),
+  ]);
 
   const sendingRows = (reports ?? []).filter((r) => r.from_bank_id === bank.id);
   const receivingRows = (reports ?? []).filter((r) => r.to_bank_id === bank.id);
+  const sending = summarizeByRail(sendingRows);
+  const receiving = summarizeByRail(receivingRows);
 
-  return {
-    bank,
-    sending: summarizeByRail(sendingRows),
-    receiving: summarizeByRail(receivingRows),
-  };
+  const railEvidence = { ...EMPTY_RAIL_EVIDENCE };
+  for (const rail of ["fednow", "rtp", "zelle"] as const) {
+    // history is ordered newest-first, so the first match is the most recent
+    // confirmation — could be the original backfill or a later re-check.
+    const confirmedAt = history?.find((h) => h.rail === rail)?.changed_at ?? null;
+    const displayName = RAIL_DISPLAY_NAMES[rail];
+    const communityConfirmations =
+      (sending.find((s) => s.rail === displayName)?.count ?? 0) +
+      (receiving.find((r) => r.rail === displayName)?.count ?? 0);
+    railEvidence[rail] = { source: RAIL_SOURCES[rail], confirmedAt, communityConfirmations };
+  }
+
+  return { bank, sending, receiving, railEvidence };
 }
 
 function summarizeByRail(rows: any[]): RailStats[] {

@@ -11,6 +11,7 @@ export default function MethodologyPage() {
         </Link>
 
         <h1 className="mt-4 text-3xl font-bold">Methodology</h1>
+        <p className="mt-1 text-sm text-slate-500">Last updated July 8, 2026.</p>
         <p className="mt-2 text-sm text-slate-400">
           How InstantRailCheck sources, verifies, and scores the data behind every route.
         </p>
