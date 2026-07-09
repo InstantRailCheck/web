@@ -39,9 +39,10 @@ export type BankProfile = {
 const RAIL_SOURCES: Record<"fednow" | "rtp" | "zelle", { label: string; url: string | null }> = {
   fednow: {
     label: "Federal Reserve's FedNow participant list",
-    // Same URL scripts/sync-rail-participants.mjs fetches — a direct XLSX
-    // download, not a landing page, but it's the actual verified source.
-    url: "https://www.frbservices.org/binaries/content/assets/crsocms/financial-services/fednow/fednow-live-participants.xlsx",
+    // The org page the XLSX download link lives on, not the raw file
+    // scripts/sync-rail-participants.mjs fetches directly — clicking
+    // through shouldn't trigger an unexpected file download.
+    url: "https://www.frbservices.org/financial-services/fednow/organizations",
   },
   rtp: {
     label: "The Clearing House's RTP participant list",
