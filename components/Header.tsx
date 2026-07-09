@@ -15,7 +15,7 @@ export function Header() {
           alt="InstantRailCheck"
           width={680}
           height={153}
-          className="h-8 w-auto"
+          className="h-16 w-auto"
         />
       </Link>
     </header>
