@@ -80,7 +80,20 @@ function RailEvidenceCard({
       <dl className="mt-3 space-y-2 text-xs">
         <div>
           <dt className="text-slate-500">Source</dt>
-          <dd className="text-slate-300">{evidence.source}</dd>
+          <dd className="text-slate-300">
+            {evidence.sourceUrl ? (
+              <a
+                href={evidence.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-slate-600 underline-offset-2 hover:text-white hover:decoration-slate-400 transition"
+              >
+                {evidence.source}
+              </a>
+            ) : (
+              evidence.source
+            )}
+          </dd>
         </div>
         {evidence.confirmedAt && (
           <div>

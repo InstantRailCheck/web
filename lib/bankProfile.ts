@@ -14,6 +14,7 @@ type RailStats = {
 
 export type RailEvidence = {
   source: string;
+  sourceUrl: string | null;
   confirmedAt: string | null;
   communityConfirmations: number;
 };
@@ -35,10 +36,23 @@ export type BankProfile = {
   railEvidence: Record<"fednow" | "rtp" | "zelle", RailEvidence>;
 };
 
-const RAIL_SOURCES: Record<"fednow" | "rtp" | "zelle", string> = {
-  fednow: "Federal Reserve's FedNow participant list",
-  rtp: "The Clearing House's RTP participant list",
-  zelle: "Zelle's partner directory",
+const RAIL_SOURCES: Record<"fednow" | "rtp" | "zelle", { label: string; url: string | null }> = {
+  fednow: {
+    label: "Federal Reserve's FedNow participant list",
+    // Same URL scripts/sync-rail-participants.mjs fetches — a direct XLSX
+    // download, not a landing page, but it's the actual verified source.
+    url: "https://www.frbservices.org/binaries/content/assets/crsocms/financial-services/fednow/fednow-live-participants.xlsx",
+  },
+  rtp: {
+    label: "The Clearing House's RTP participant list",
+    url: "https://www.theclearinghouse.org/payment-systems/rtp/RTP-Participating-Financial-Institutions",
+  },
+  zelle: {
+    // Not linked — Zelle's "source" is a paginated search endpoint
+    // (zelle.com/search?page=N), not a page that's meaningful to click into.
+    label: "Zelle's partner directory",
+    url: null,
+  },
 };
 
 // route_reports.rail_used stores display names ("FedNow", "RTP", "Zelle"),
@@ -80,9 +94,9 @@ export async function getBankProfileById(id: string): Promise<BankProfile> {
 }
 
 const EMPTY_RAIL_EVIDENCE: BankProfile["railEvidence"] = {
-  fednow: { source: RAIL_SOURCES.fednow, confirmedAt: null, communityConfirmations: 0 },
-  rtp: { source: RAIL_SOURCES.rtp, confirmedAt: null, communityConfirmations: 0 },
-  zelle: { source: RAIL_SOURCES.zelle, confirmedAt: null, communityConfirmations: 0 },
+  fednow: { source: RAIL_SOURCES.fednow.label, sourceUrl: RAIL_SOURCES.fednow.url, confirmedAt: null, communityConfirmations: 0 },
+  rtp: { source: RAIL_SOURCES.rtp.label, sourceUrl: RAIL_SOURCES.rtp.url, confirmedAt: null, communityConfirmations: 0 },
+  zelle: { source: RAIL_SOURCES.zelle.label, sourceUrl: RAIL_SOURCES.zelle.url, confirmedAt: null, communityConfirmations: 0 },
 };
 
 async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
@@ -118,7 +132,12 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
     const communityConfirmations =
       (sending.find((s) => s.rail === displayName)?.count ?? 0) +
       (receiving.find((r) => r.rail === displayName)?.count ?? 0);
-    railEvidence[rail] = { source: RAIL_SOURCES[rail], confirmedAt, communityConfirmations };
+    railEvidence[rail] = {
+      source: RAIL_SOURCES[rail].label,
+      sourceUrl: RAIL_SOURCES[rail].url,
+      confirmedAt,
+      communityConfirmations,
+    };
   }
 
   return { bank, sending, receiving, railEvidence };
