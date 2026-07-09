@@ -1,0 +1,45 @@
+name: Sync bank data
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Rail participant lists (FedNow/RTP/Zelle) — banks onboard to these
+    # networks fairly often, so check weekly. Sundays 09:00 UTC (off-peak).
+    - cron: "0 9 * * 0"
+    # NCUA credit union directory + total_assets backfill — NCUA only
+    # publishes new call report data quarterly, so monthly is enough to
+    # pick up a new quarter promptly without syncing the same file weekly.
+    # 1st of the month, 09:00 UTC.
+    - cron: "0 9 1 * *"
+
+jobs:
+  sync-rail-participants:
+    if: github.event.schedule == '0 9 * * 0' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node scripts/sync-rail-participants.mjs
+      - run: node scripts/sync-zelle-participants.mjs
+      - run: node scripts/backfill-rail-participation.mjs
+
+  sync-ncua-and-assets:
+    if: github.event.schedule == '0 9 1 * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node scripts/sync-ncua-directory.mjs
+      - run: node scripts/backfill-bank-assets.mjs

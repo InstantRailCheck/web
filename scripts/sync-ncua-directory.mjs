@@ -1,13 +1,49 @@
 import { createClient } from "@supabase/supabase-js";
 import AdmZip from "adm-zip";
 
-const QUARTER = process.argv[2] ?? "2026-03";
-const ZIP_URL = `https://www.ncua.gov/files/publications/analysis/call-report-data-${QUARTER}.zip`;
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+function zipUrlFor(quarter) {
+  return `https://www.ncua.gov/files/publications/analysis/call-report-data-${quarter}.zip`;
+}
+
+// NCUA publishes quarterly (Mar/Jun/Sep/Dec) but with a lag of several weeks
+// to a few months after quarter-end, so "the current quarter" often isn't
+// published yet. Without this, an unattended cron run would need a manually
+// updated quarter argument every time — defeating the point of automating
+// it — so instead walk backward from the current quarter until a ZIP
+// actually exists.
+async function findLatestQuarter() {
+  const explicit = process.argv[2];
+  if (explicit) return explicit;
+
+  const now = new Date();
+  let year = now.getUTCFullYear();
+  let month = now.getUTCMonth() + 1; // 1-12
+  const quarterMonth = Math.ceil(month / 3) * 3; // 3, 6, 9, or 12
+  let candidate = { year, month: quarterMonth };
+
+  for (let i = 0; i < 8; i++) {
+    const quarter = `${candidate.year}-${String(candidate.month).padStart(2, "0")}`;
+    const res = await fetch(zipUrlFor(quarter), { method: "HEAD" });
+    if (res.ok) return quarter;
+
+    candidate.month -= 3;
+    if (candidate.month < 1) {
+      candidate.month = 12;
+      candidate.year -= 1;
+    }
+  }
+
+  throw new Error("Could not find a published NCUA call report ZIP in the last 8 quarters.");
+}
+
+const QUARTER = await findLatestQuarter();
+const ZIP_URL = zipUrlFor(QUARTER);
+console.log(`Using quarter: ${QUARTER}`);
 
 function parseCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
