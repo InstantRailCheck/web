@@ -103,7 +103,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
         </p>
       </div>
 
-      <form className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+      <form className="mx-auto grid max-w-2xl gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
         <BankSelect
           label="From bank"
           placeholder="Search sender"
@@ -128,7 +128,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
         </button>
       </form>
 
-      <p className="mt-5 text-sm text-slate-500">{banks.length} banks currently available.</p>
+      <p className="mt-5 text-center text-sm text-slate-500">{banks.length} banks currently available.</p>
 
       {fromBankId && toBankId && fromBankId === toBankId && (
         <p className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
