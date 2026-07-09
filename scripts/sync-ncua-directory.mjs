@@ -10,6 +10,27 @@ function zipUrlFor(quarter) {
   return `https://www.ncua.gov/files/publications/analysis/call-report-data-${quarter}.zip`;
 }
 
+// ncua.gov has been observed to intermittently fail to accept connections
+// within Node's default 10s timeout from some networks (e.g. GitHub Actions
+// runners) — retry a few times with backoff before giving up, since a
+// transient blip shouldn't fail the whole sync.
+async function fetchWithRetry(url, options, attempts = 4) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      lastError = err;
+      if (i < attempts - 1) {
+        const delayMs = 2 ** i * 1000;
+        console.log(`  fetch failed (${err.message}), retrying in ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
 // NCUA publishes quarterly (Mar/Jun/Sep/Dec) but with a lag of several weeks
 // to a few months after quarter-end, so "the current quarter" often isn't
 // published yet. Without this, an unattended cron run would need a manually
@@ -28,7 +49,7 @@ async function findLatestQuarter() {
 
   for (let i = 0; i < 8; i++) {
     const quarter = `${candidate.year}-${String(candidate.month).padStart(2, "0")}`;
-    const res = await fetch(zipUrlFor(quarter), { method: "HEAD" });
+    const res = await fetchWithRetry(zipUrlFor(quarter), { method: "HEAD" });
     if (res.ok) return quarter;
 
     candidate.month -= 3;
@@ -88,7 +109,7 @@ function parseCsvLine(line) {
 
 async function main() {
   console.log(`Downloading ${ZIP_URL}...`);
-  const res = await fetch(ZIP_URL);
+  const res = await fetchWithRetry(ZIP_URL);
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   const buffer = Buffer.from(await res.arrayBuffer());
 
