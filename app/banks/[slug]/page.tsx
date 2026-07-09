@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
-import { Banknote, Landmark, Zap } from "lucide-react";
+import { Banknote, CalendarCheck, Landmark, Zap } from "lucide-react";
 import { getBankProfileBySlug, getBankSlugById, type RailEvidence } from "@/lib/bankProfile";
 import { formatPhone } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
@@ -77,6 +77,17 @@ function RailEvidenceCard({
       <div className={`flex items-center gap-2 font-semibold ${text}`}>
         {icon} {label} participant
       </div>
+      {evidence.confirmedAt && (
+        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-slate-950/40 px-2.5 py-1.5 text-xs font-medium text-slate-200">
+          <CalendarCheck className="h-3.5 w-3.5 shrink-0" />
+          Confirmed{" "}
+          {new Date(evidence.confirmedAt).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </div>
+      )}
       <dl className="mt-3 space-y-2 text-xs">
         <div>
           <dt className="text-slate-500">Source</dt>
@@ -95,18 +106,6 @@ function RailEvidenceCard({
             )}
           </dd>
         </div>
-        {evidence.confirmedAt && (
-          <div>
-            <dt className="text-slate-500">Confirmed as of</dt>
-            <dd className="text-slate-300">
-              {new Date(evidence.confirmedAt).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </dd>
-          </div>
-        )}
         <div>
           <dt className="text-slate-500">Community confirmations</dt>
           <dd className="text-slate-300">{evidence.communityConfirmations}</dd>
