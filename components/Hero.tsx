@@ -1,14 +1,18 @@
+import Link from "next/link";
+
 export function Hero() {
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col items-center px-6 pt-1 pb-2 text-center">
       <div className="mb-1 flex w-full justify-center">
-        <img
-          src="/logo.png"
-          alt="InstantRailCheck"
-          width={680}
-          height={153}
-          className="block h-auto w-[520px] max-w-[90vw] md:w-[560px]"
-        />
+        <Link href="/">
+          <img
+            src="/logo.png"
+            alt="InstantRailCheck"
+            width={680}
+            height={153}
+            className="block h-auto w-[520px] max-w-[90vw] md:w-[560px]"
+          />
+        </Link>
       </div>
 
       <div className="flex flex-col items-center gap-3 font-sans">

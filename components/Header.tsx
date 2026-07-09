@@ -1,6 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export function Header() {
+  const pathname = usePathname();
+  if (pathname === "/") return null;
+
   return (
     <header className="w-full px-6 py-4">
       <Link href="/" className="inline-flex items-center">
