@@ -18,8 +18,8 @@ export default async function TimingLeaderboardPage() {
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">Settlement time leaderboard</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-4 text-center text-3xl font-bold">Settlement time leaderboard</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
           Average settlement time by rail, based on community-submitted reports.
         </p>
 

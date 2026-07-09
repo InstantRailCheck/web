@@ -64,12 +64,12 @@ export default async function BanksDirectoryPage({
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">All banks</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-4 text-center text-3xl font-bold">All banks</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
           {total} bank{total !== 1 ? "s" : ""} matching your filters.
         </p>
 
-        <form method="GET" className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+        <form method="GET" className="mt-6 flex flex-wrap items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
           <input
             type="text"
             name="q"

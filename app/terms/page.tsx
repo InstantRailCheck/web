@@ -10,8 +10,8 @@ export default function TermsPage() {
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">Terms of Service</h1>
-        <p className="mt-1 text-sm text-slate-500">Last updated July 8, 2026.</p>
+        <h1 className="mt-4 text-center text-3xl font-bold">Terms of Service</h1>
+        <p className="mt-1 text-center text-sm text-slate-500">Last updated July 8, 2026.</p>
 
         <div className="mt-8 space-y-8 text-sm leading-relaxed text-slate-300">
           <section>

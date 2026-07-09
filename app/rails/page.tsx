@@ -169,8 +169,8 @@ export default async function RailsExplorerPage() {
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">Payment rail explorer</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-4 text-center text-3xl font-bold">Payment rail explorer</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
           Banks in our database confirmed as participants on each network, verified against the
           Federal Reserve's FedNow participant list, The Clearing House's RTP participant list,
           and Zelle's partner directory.

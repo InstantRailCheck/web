@@ -11,8 +11,8 @@ export default function AccountPage() {
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">Account</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-4 text-center text-3xl font-bold">Account</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
           Manage how you sign in.
         </p>
 

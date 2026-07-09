@@ -38,8 +38,8 @@ export default function DevelopersPage() {
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">API</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-4 text-center text-3xl font-bold">API</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
           Read-only, unauthenticated, and CORS-enabled — free to use in your own tools.
           Responses are JSON by default; list endpoints also support <code>&amp;format=csv</code>.
         </p>

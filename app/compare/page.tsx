@@ -48,8 +48,8 @@ export default async function ComparePage({
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">Compare banks</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-4 text-center text-3xl font-bold">Compare banks</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
           Side-by-side rail capability, contact info, and network participation.
         </p>
 

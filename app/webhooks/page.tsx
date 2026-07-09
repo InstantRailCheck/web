@@ -11,8 +11,8 @@ export default function WebhooksPage() {
           ← Back to search
         </Link>
 
-        <h1 className="mt-4 text-3xl font-bold">Webhooks</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="mt-4 text-center text-3xl font-bold">Webhooks</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
           Get notified in real time instead of polling the API.
         </p>
 
