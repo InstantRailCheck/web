@@ -1,10 +1,12 @@
 export const dynamic = "force-dynamic";
 
+import { headers } from "next/headers";
 import { Hero } from "@/components/Hero";
 import { RouteSearch } from "@/components/RouteSearch";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
+import { SITE_URL } from "@/lib/siteConfig";
 
 type Bank = {
   id: string;
@@ -28,8 +30,28 @@ export default async function Home({
     error = { message: err instanceof Error ? err.message : "Failed to load banks" };
   }
 
+  // Nonce required even for a non-executing script tag — script-src governs
+  // any <script> element regardless of type under this site's CSP.
+  const nonce = (await headers()).get("x-nonce");
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "InstantRailCheck",
+    url: SITE_URL,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${SITE_URL}/banks?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
+      <script
+        type="application/ld+json"
+        nonce={nonce ?? undefined}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-6 pt-6 pb-16">
 
         <Hero />

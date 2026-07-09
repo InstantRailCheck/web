@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Banknote } from "lucide-react";
 import { getBankProfileBySlug, getBankSlugById } from "@/lib/bankProfile";
 import { formatPhone } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
+import { SITE_URL } from "@/lib/siteConfig";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -76,8 +78,26 @@ export default async function BankProfilePage({
     notFound();
   }
 
+  // Nonce required even for a non-executing script tag — script-src governs
+  // any <script> element regardless of type under this site's CSP.
+  const nonce = (await headers()).get("x-nonce");
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BankOrCreditUnion",
+    name: profile.bank.name,
+    mainEntityOfPage: `${SITE_URL}/banks/${profile.bank.slug}`,
+    ...(profile.bank.website ? { url: profile.bank.website } : {}),
+    ...(profile.bank.address ? { address: profile.bank.address } : {}),
+    ...(profile.bank.phone ? { telephone: profile.bank.phone } : {}),
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
+      <script
+        type="application/ld+json"
+        nonce={nonce ?? undefined}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <Link href="/" className="text-sm text-slate-400 hover:text-white transition">
           ← Back to search
@@ -99,6 +119,19 @@ export default async function BankProfilePage({
         )}
         {profile.bank.phone && (
           <p className="mt-1 text-sm text-slate-400">{formatPhone(profile.bank.phone)}</p>
+        )}
+        {(profile.bank.website || profile.bank.address || profile.bank.phone) && (
+          <p className="mt-1 text-xs text-slate-600">
+            Contact info sourced from{" "}
+            {profile.bank.name.toLowerCase().includes("credit union")
+              ? "NCUA's quarterly call report data"
+              : "FDIC BankFind"}
+            . See{" "}
+            <Link href="/methodology" className="text-slate-500 hover:text-slate-400 underline transition">
+              methodology
+            </Link>
+            .
+          </p>
         )}
 
         {(profile.bank.fednow_participant || profile.bank.rtp_participant || profile.bank.zelle_participant) && (
