@@ -20,9 +20,16 @@ export function Hero() {
           Know before you transfer.
         </h1>
 
-        <p className="mt-1 m-0 text-balance text-base leading-7 text-slate-300 lg:whitespace-nowrap">
+        {/* Full sentence doesn't fit on one line at any legible size below
+            lg (section caps out at max-w-5xl, so wider screens don't buy
+            more room) — swap in a shorter line on mobile instead of
+            shrinking the text or letting it wrap. */}
+        <p className="mt-1 m-0 hidden text-base leading-7 text-slate-300 lg:block lg:whitespace-nowrap">
           Check RTP, FedNow, ACH, wire, and other bank transfer compatibility between U.S.
           financial institutions.
+        </p>
+        <p className="mt-1 m-0 text-base leading-7 text-slate-300 lg:hidden">
+          Check RTP, FedNow, ACH &amp; wire compatibility.
         </p>
 
         <div className="mt-3 flex flex-col items-center justify-center gap-3 sm:flex-row">
