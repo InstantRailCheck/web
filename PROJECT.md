@@ -222,6 +222,16 @@ Can Bank A send money instantly to Bank B?
 - Rail color scheme (purple=FedNow, green=RTP, blue=ACH, violet=Zelle) extended to `/rails` (including fixing FedNow/RTP's color-blind emoji icons there) and `/changelog`
 - Added a persistent clickable logo header on every page except the homepage (which already has its own large Hero logo, now also clickable) — centered, sized roughly half the Hero logo
 
+## Version 4.2.0 (v4.2.0 — shipped July 8 2026)
+
+**Sort by institution size, backed by a real asset backfill**
+- New `total_assets` column on `banks` and `ncua_credit_unions`, sourced from FDIC's `ASSET` field and NCUA's `ACCT_010` (the standard 5300 call report Total Assets account code, cross-checked against Navy Federal's real reported figure before trusting it)
+- `scripts/backfill-bank-assets.mjs` matches each bank against FDIC/NCUA data using the same word-boundary + uniqueness-of-1 approach used elsewhere in the codebase, adapted for in-memory matching against thousands of institutions; genuinely ambiguous names (multiple real institutions sharing one legal name, e.g. 4 distinct "United Bank" charters) are correctly left blank rather than guessed — 4,515 of 4,670 banks (96.7%) matched
+- `/rails`' FedNow/RTP/Zelle columns now sort by `total_assets DESC NULLS LAST` instead of alphabetically, so the largest participating institutions surface first
+- Along the way, found and fixed two matching bugs: a naive name→value map was silently collapsing legitimate duplicate-name collisions to an arbitrary (sometimes wrong) value instead of recognizing them as ambiguous; and a comma/period-stripping mismatch between candidate names and source data was causing near-universal false negatives on ", National Association"-suffixed names (Capital One, Citibank, BankUnited, and others)
+- Renamed 8 early hand-entered banks (Chase, Bank of America, Wells Fargo, US Bank, SoFi, BECU, WSECU, Schwab, American Express Rewards Checking) to their precise FDIC/NCUA legal names — resolves their total_assets via exact match instead of an ambiguity-prone fuzzy fallback, and brings them in line with how every other bank in the directory is named. Slugs were kept unchanged so existing links still resolve
+- Deleted "Fidelity CMA" — a brokerage cash-sweep product, not a single chartered bank, so it never had a legitimate place in a directory of banks
+
 ## Data Principles
 
 - Real-world reports only
@@ -234,7 +244,6 @@ Can Bank A send money instantly to Bank B?
 
 - Chase to Gesa Credit Union: RTP confirmed
 - Chase to SoFi: ACH observed
-- Chase to Fidelity CMA: ACH observed
 - Chase to Schwab: ACH observed
 - Chase to BECU: ACH observed
 - Chase to WSECU: ACH observed

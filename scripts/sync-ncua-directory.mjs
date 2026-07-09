@@ -75,10 +75,24 @@ async function main() {
   console.log("Parsing FS220D (website)...");
   const fs220d = readEntry("FS220D.txt");
 
+  console.log("Parsing FS220 (total assets)...");
+  const fs220 = readEntry("FS220.txt");
+
   const websiteByCharter = new Map();
   for (const row of fs220d) {
     const site = (row.Acct_891 || "").trim();
     if (site) websiteByCharter.set(row.CU_NUMBER, normalizeWebsite(site));
+  }
+
+  // ACCT_010 is the standard NCUA 5300 call report account code for Total
+  // Assets — verified against Navy Federal's real reported figure ($203.6B)
+  // before trusting it, not assumed from the field name alone.
+  const totalAssetsByCharter = new Map();
+  for (const row of fs220) {
+    const assets = Number(row.ACCT_010);
+    if (Number.isFinite(assets) && assets > 0) {
+      totalAssetsByCharter.set(row.CU_NUMBER, assets);
+    }
   }
 
   const branchByCharter = new Map();
@@ -120,6 +134,7 @@ async function main() {
       website: websiteByCharter.get(charterNumber) ?? null,
       address: branch?.address ?? null,
       phone: branch?.phone ?? null,
+      total_assets: totalAssetsByCharter.get(charterNumber) ?? null,
       updated_at: new Date().toISOString(),
     };
   });
