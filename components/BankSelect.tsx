@@ -32,6 +32,7 @@ type BankSelectProps = {
   onChange?: (bankId: string) => void;
   onAdd?: (name: string) => Promise<string>;
   centerLabel?: boolean;
+  centerText?: boolean;
 };
 
 // Rendering all banks (4,000+) as raw DOM nodes at once — even with cmdk
@@ -49,6 +50,7 @@ export function BankSelect({
   onChange,
   onAdd,
   centerLabel = false,
+  centerText = false,
 }: BankSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -95,7 +97,10 @@ export function BankSelect({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-left text-white hover:bg-slate-900 hover:text-white"
+            className={cn(
+              "w-full rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white hover:bg-slate-900 hover:text-white",
+              centerText ? "justify-center text-center" : "justify-between text-left"
+            )}
           >
             {selectedBank ? selectedBank.name : placeholder}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

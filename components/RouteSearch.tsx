@@ -111,6 +111,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
           value={fromBankId}
           onChange={setFromBankId}
           centerLabel
+          centerText
         />
         <BankSelect
           label="To bank"
@@ -119,6 +120,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
           value={toBankId}
           onChange={setToBankId}
           centerLabel
+          centerText
         />
         <button
           type="button"
