@@ -77,14 +77,14 @@ function RailEvidenceCard({
       <div className={`flex items-center gap-2 font-semibold ${text}`}>
         {icon} {label} participant
       </div>
-      <dl className="mt-3 space-y-1.5 text-xs">
-        <div className="flex items-baseline justify-between gap-4">
-          <dt className="shrink-0 text-slate-500">Source</dt>
-          <dd className="text-right text-slate-300">{evidence.source}</dd>
+      <dl className="mt-3 space-y-2 text-xs">
+        <div>
+          <dt className="text-slate-500">Source</dt>
+          <dd className="text-slate-300">{evidence.source}</dd>
         </div>
         {evidence.confirmedAt && (
-          <div className="flex items-baseline justify-between gap-4">
-            <dt className="shrink-0 text-slate-500">Confirmed as of</dt>
+          <div>
+            <dt className="text-slate-500">Confirmed as of</dt>
             <dd className="text-slate-300">
               {new Date(evidence.confirmedAt).toLocaleDateString("en-US", {
                 year: "numeric",
@@ -94,8 +94,8 @@ function RailEvidenceCard({
             </dd>
           </div>
         )}
-        <div className="flex items-baseline justify-between gap-4">
-          <dt className="shrink-0 text-slate-500">Community confirmations</dt>
+        <div>
+          <dt className="text-slate-500">Community confirmations</dt>
           <dd className="text-slate-300">{evidence.communityConfirmations}</dd>
         </div>
       </dl>
