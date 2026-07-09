@@ -31,6 +31,7 @@ type BankSelectProps = {
   value?: string;
   onChange?: (bankId: string) => void;
   onAdd?: (name: string) => Promise<string>;
+  centerLabel?: boolean;
 };
 
 // Rendering all banks (4,000+) as raw DOM nodes at once — even with cmdk
@@ -47,6 +48,7 @@ export function BankSelect({
   value = "",
   onChange,
   onAdd,
+  centerLabel = false,
 }: BankSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -82,7 +84,7 @@ export function BankSelect({
 
   return (
     <div className="block">
-      <span className="mb-2 block text-sm font-medium text-slate-300">
+      <span className={cn("mb-2 block text-sm font-medium text-slate-300", centerLabel && "text-center")}>
         {label}
       </span>
 

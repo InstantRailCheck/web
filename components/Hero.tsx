@@ -20,9 +20,9 @@ export function Hero() {
           Know before you transfer.
         </h1>
 
-        <p className="mt-1 m-0 max-w-3xl text-base leading-7 text-slate-300 md:text-lg">
-          Check RTP, FedNow, ACH, wire, and other bank transfer compatibility between U.S.{" "}
-          <span className="whitespace-nowrap">financial institutions.</span>
+        <p className="mt-1 m-0 max-w-3xl text-balance text-base leading-7 text-slate-300 md:text-lg">
+          Check RTP, FedNow, ACH, wire, and other bank transfer compatibility between U.S.
+          financial institutions.
         </p>
 
         <div className="mt-3 flex flex-col items-center justify-center gap-3 sm:flex-row">
