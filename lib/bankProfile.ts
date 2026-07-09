@@ -19,6 +19,16 @@ export type RailEvidence = {
   communityConfirmations: number;
 };
 
+export type EddEvidence = {
+  avgDaysEarly: number;
+  reportCount: number;
+};
+
+// Same threshold used for Visa Direct/Mastercard Send (lib/communityRails.ts)
+// — self-reported data with no official source needs more than one report
+// before it's trustworthy enough to show.
+const EDD_MIN_REPORTS = 2;
+
 export type BankProfile = {
   bank: {
     id: string;
@@ -34,6 +44,7 @@ export type BankProfile = {
   sending: RailStats[];
   receiving: RailStats[];
   railEvidence: Record<"fednow" | "rtp" | "zelle", RailEvidence>;
+  eddEvidence: EddEvidence | null;
 };
 
 const RAIL_SOURCES: Record<"fednow" | "rtp" | "zelle", { label: string; url: string | null }> = {
@@ -102,11 +113,11 @@ const EMPTY_RAIL_EVIDENCE: BankProfile["railEvidence"] = {
 
 async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
   if (!bank) {
-    return { bank: null, sending: [], receiving: [], railEvidence: EMPTY_RAIL_EVIDENCE };
+    return { bank: null, sending: [], receiving: [], railEvidence: EMPTY_RAIL_EVIDENCE, eddEvidence: null };
   }
 
   const supabase = await createClient();
-  const [{ data: reports }, { data: history }] = await Promise.all([
+  const [{ data: reports }, { data: history }, { data: eddRows }] = await Promise.all([
     supabase
       .from("route_reports")
       .select("*")
@@ -117,7 +128,22 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
       .eq("bank_id", bank.id)
       .eq("new_value", true)
       .order("changed_at", { ascending: false }),
+    supabase
+      .from("edd_reports")
+      .select("days_early")
+      .eq("bank_id", bank.id),
   ]);
+
+  const eddEvidence: EddEvidence | null =
+    eddRows && eddRows.length >= EDD_MIN_REPORTS
+      ? {
+          avgDaysEarly:
+            Math.round(
+              (eddRows.reduce((acc, r) => acc + r.days_early, 0) / eddRows.length) * 10
+            ) / 10,
+          reportCount: eddRows.length,
+        }
+      : null;
 
   const sendingRows = (reports ?? []).filter((r) => r.from_bank_id === bank.id);
   const receivingRows = (reports ?? []).filter((r) => r.to_bank_id === bank.id);
@@ -141,7 +167,7 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
     };
   }
 
-  return { bank, sending, receiving, railEvidence };
+  return { bank, sending, receiving, railEvidence, eddEvidence };
 }
 
 function summarizeByRail(rows: any[]): RailStats[] {

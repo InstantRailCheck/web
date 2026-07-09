@@ -6,6 +6,7 @@ import { RouteSearch } from "@/components/RouteSearch";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
+import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { SITE_URL } from "@/lib/siteConfig";
 
 type Bank = {
@@ -70,6 +71,7 @@ export default async function Home({
             <>
               <RouteSearch banks={bankOptions} />
               <SubmitRouteReport banks={bankOptions} />
+              <SubmitEddReport banks={bankOptions} />
             </>
           )}
         </div>

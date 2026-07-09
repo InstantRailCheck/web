@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
-import { Banknote, CalendarCheck, Landmark, Zap } from "lucide-react";
-import { getBankProfileBySlug, getBankSlugById, type RailEvidence } from "@/lib/bankProfile";
+import { Banknote, CalendarCheck, Clock, Landmark, Zap } from "lucide-react";
+import { getBankProfileBySlug, getBankSlugById, type RailEvidence, type EddEvidence } from "@/lib/bankProfile";
 import { formatPhone } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
+import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { SITE_URL } from "@/lib/siteConfig";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -112,6 +113,25 @@ function RailEvidenceCard({
         </div>
       </dl>
       {footnote && <p className="mt-2 text-xs text-yellow-500/80">{footnote}</p>}
+    </div>
+  );
+}
+
+function EddCard({ evidence, bankName }: { evidence: EddEvidence; bankName: string }) {
+  return (
+    <div className="mt-3 rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 text-sm">
+      <div className="flex items-center gap-2 font-semibold text-teal-300">
+        <Clock className="h-4 w-4" /> Early Direct Deposit
+      </div>
+      <p className="mt-2 text-slate-300">
+        {bankName} releases direct deposits an average of{" "}
+        <strong className="text-white">{evidence.avgDaysEarly}</strong> day
+        {evidence.avgDaysEarly !== 1 ? "s" : ""} early, based on {evidence.reportCount} community
+        report{evidence.reportCount !== 1 ? "s" : ""}.
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        Self-reported — no official directory exists for this feature.
+      </p>
     </div>
   );
 }
@@ -231,7 +251,10 @@ export default async function BankProfilePage({
           </div>
         )}
 
+        {profile.eddEvidence && <EddCard evidence={profile.eddEvidence} bankName={profile.bank.name} />}
+
         <SuggestCorrection bankId={profile.bank.id} />
+        <SubmitEddReport bankId={profile.bank.id} bankName={profile.bank.name} />
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
           <h2 className="text-lg font-semibold">Sending from {profile.bank.name}</h2>
