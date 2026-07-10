@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BankSelect } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
 type Props =
@@ -135,7 +136,7 @@ export function SubmitEddReport(props: Props) {
             />
           )}
 
-          <div className="flex flex-col items-center gap-1">
+          <div className={cn("flex flex-col items-center gap-1", !props.banks && "md:col-span-2")}>
             <label className="text-center text-sm font-medium text-slate-300">How early</label>
             <select
               value={daysEarly}
