@@ -23,6 +23,20 @@ function RailCell({ rail }: { rail: { successRate: number; avgTime: number | nul
   );
 }
 
+function WebsiteCell({ website }: { website: string | null }) {
+  if (!website) return <span className="text-slate-600">—</span>;
+  return (
+    <a
+      href={website}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-400 hover:text-blue-300 transition"
+    >
+      {website}
+    </a>
+  );
+}
+
 function EddCell({ evidence }: { evidence: { avgDaysEarly: number; reportCount: number; hasMoreThanFive: boolean } | null }) {
   if (!evidence) return <span className="text-slate-600">No data</span>;
   return (
@@ -110,8 +124,12 @@ export default async function ComparePage({
               <tbody className="divide-y divide-slate-800">
                 <tr>
                   <td className="px-5 py-3 text-slate-500">Website</td>
-                  <td className="px-5 py-3">{a.bank.website ?? <span className="text-slate-600">—</span>}</td>
-                  <td className="px-5 py-3">{b.bank.website ?? <span className="text-slate-600">—</span>}</td>
+                  <td className="px-5 py-3">
+                    <WebsiteCell website={a.bank.website} />
+                  </td>
+                  <td className="px-5 py-3">
+                    <WebsiteCell website={b.bank.website} />
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-5 py-3 text-slate-500">Address</td>
