@@ -50,7 +50,7 @@ export function DatePicker({ label, value, onChange, max, centerLabel = false }:
           <Button
             type="button"
             variant="outline"
-            className="w-full flex-1 justify-center gap-2 rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-center font-medium text-white hover:bg-slate-900 hover:text-white"
+            className="w-full justify-center gap-2 rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-center font-medium text-white hover:bg-slate-900 hover:text-white"
           >
             {selected
               ? selected.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })
