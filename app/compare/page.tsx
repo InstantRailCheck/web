@@ -119,7 +119,15 @@ export default async function ComparePage({
         </p>
 
         <div className="mt-6">
-          <ComparePicker initialBankA={initialBankA} initialBankB={initialBankB} />
+          {/* BankSelect is uncontrolled (initialBank only seeds first mount),
+              so a router.push()-driven navigation to a different ?banks=
+              value wouldn't otherwise resync the pickers' displayed value —
+              keying on the resolved slugs forces a fresh mount instead. */}
+          <ComparePicker
+            key={`${initialBankA?.slug ?? ""}-${initialBankB?.slug ?? ""}`}
+            initialBankA={initialBankA}
+            initialBankB={initialBankB}
+          />
         </div>
 
         {a?.bank && b?.bank && (
