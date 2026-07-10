@@ -16,7 +16,7 @@ export function Hero() {
         </Link>
       </div>
 
-      <div className="flex flex-col items-center gap-3 font-sans">
+      <div className="w-full min-w-0 flex flex-col items-center gap-3 font-sans">
         <h1 className="m-0 max-w-5xl text-5xl font-extrabold leading-[0.95] tracking-tight text-white md:text-7xl">
           Know before you transfer.
         </h1>
@@ -33,7 +33,7 @@ export function Hero() {
           Check RTP, FedNow, ACH &amp; wire compatibility.
         </p>
 
-        <div className="mt-2">
+        <div className="mt-2 w-full min-w-0">
           <SiteNavLinks />
         </div>
 

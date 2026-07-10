@@ -13,7 +13,7 @@ const NAV_ITEMS = [
 
 export function SiteNavLinks() {
   return (
-    <nav className="mx-auto flex w-fit max-w-4xl flex-nowrap gap-1.5 overflow-x-auto px-6">
+    <nav className="mx-auto flex w-fit min-w-0 max-w-[min(56rem,100%)] flex-nowrap gap-1.5 overflow-x-auto px-6">
       {NAV_ITEMS.map((item) => (
         <Link
           key={item.href}
