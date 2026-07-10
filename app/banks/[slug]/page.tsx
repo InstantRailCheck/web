@@ -28,7 +28,7 @@ function getRailStyle(rail: string) {
 
 function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"] }) {
   if (rails.length === 0) {
-    return <p className="text-sm text-slate-500">No reports yet.</p>;
+    return <p className="text-center text-sm text-slate-500">No reports yet.</p>;
   }
 
   return (
