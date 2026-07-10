@@ -17,7 +17,7 @@ export function Header() {
     <header className="flex w-full flex-col items-center gap-4 px-6 py-4">
       <Link href="/" className="inline-flex items-center">
         <img
-          src="/logo.png"
+          src="/logo.svg"
           alt="InstantRailCheck"
           width={680}
           height={153}

@@ -19,7 +19,10 @@ export const metadata = {
   description:
     "Check whether banks and credit unions support RTP, FedNow, ACH, wire transfers, and other payment rails before sending money.",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
   },
 };
 

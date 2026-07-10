@@ -7,7 +7,7 @@ export function Hero() {
       <div className="mb-1 flex w-full justify-center">
         <Link href="/">
           <img
-            src="/logo.png"
+            src="/logo.svg"
             alt="InstantRailCheck"
             width={680}
             height={153}
