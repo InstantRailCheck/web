@@ -1,19 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Banknote } from "lucide-react";
-import { BankSelect } from "@/components/BankSelect";
+import { BankSelect, type Bank } from "@/components/BankSelect";
 import { getRouteIntelligence, RouteIntelligence } from "@/lib/routingEngine";
 
-type Bank = {
-  id: string;
-  slug: string;
-  name: string;
-};
-
 type RouteSearchProps = {
-  banks: Bank[];
+  bankCount: number;
 };
 
 const INSTANT_RAILS = new Set(["RTP", "FedNow", "Visa Direct", "Mastercard Send"]);
@@ -66,14 +60,11 @@ function RailMeta({
   );
 }
 
-export function RouteSearch({ banks }: RouteSearchProps) {
-  const [fromBankId, setFromBankId] = useState("");
-  const [toBankId, setToBankId] = useState("");
+export function RouteSearch({ bankCount }: RouteSearchProps) {
+  const [fromBank, setFromBank] = useState<Bank | null>(null);
+  const [toBank, setToBank] = useState<Bank | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RouteIntelligence | null>(null);
-
-  const fromBank = useMemo(() => banks.find((b) => b.id === fromBankId), [banks, fromBankId]);
-  const toBank = useMemo(() => banks.find((b) => b.id === toBankId), [banks, toBankId]);
 
   async function handleCheckRoute() {
     if (!fromBank || !toBank || fromBank.id === toBank.id) {
@@ -108,9 +99,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
           <BankSelect
             label="From bank"
             placeholder="Search sender"
-            banks={banks}
-            value={fromBankId}
-            onChange={setFromBankId}
+            onChange={setFromBank}
             centerLabel
             centerText
           />
@@ -119,9 +108,7 @@ export function RouteSearch({ banks }: RouteSearchProps) {
           <BankSelect
             label="To bank"
             placeholder="Search receiver"
-            banks={banks}
-            value={toBankId}
-            onChange={setToBankId}
+            onChange={setToBank}
             centerLabel
             centerText
           />
@@ -129,16 +116,16 @@ export function RouteSearch({ banks }: RouteSearchProps) {
         <button
           type="button"
           onClick={handleCheckRoute}
-          disabled={!fromBankId || !toBankId || fromBankId === toBankId}
+          disabled={!fromBank || !toBank || fromBank.id === toBank.id}
           className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 md:row-start-2"
         >
           {loading ? "Checking..." : "Check Route"}
         </button>
       </form>
 
-      <p className="mt-5 text-center text-sm text-slate-500">{banks.length} banks currently available.</p>
+      <p className="mt-5 text-center text-sm text-slate-500">{bankCount} banks currently available.</p>
 
-      {fromBankId && toBankId && fromBankId === toBankId && (
+      {fromBank && toBank && fromBank.id === toBank.id && (
         <p className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
           Choose two different banks to check a route.
         </p>

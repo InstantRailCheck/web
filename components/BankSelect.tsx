@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,34 +19,28 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-type Bank = {
+export type Bank = {
   id: string;
+  slug: string;
   name: string;
 };
 
 type BankSelectProps = {
   label: string;
   placeholder: string;
-  banks: Bank[];
-  value?: string;
-  onChange?: (bankId: string) => void;
-  onAdd?: (name: string) => Promise<string>;
+  initialBank?: Bank | null;
+  onChange?: (bank: Bank | null) => void;
+  onAdd?: (name: string) => Promise<Bank>;
   centerLabel?: boolean;
   centerText?: boolean;
 };
 
-// Rendering all banks (4,000+) as raw DOM nodes at once — even with cmdk
-// hiding non-matches via CSS rather than removing them — makes cmdk's own
-// internal keyboard-highlight tracking (a DOM querySelectorAll over live
-// nodes) unreliable at that scale. Pre-filtering to a small, bounded list
-// before it ever reaches cmdk avoids that entirely.
-const RESULTS_LIMIT = 50;
+const SEARCH_DEBOUNCE_MS = 250;
 
 export function BankSelect({
   label,
   placeholder,
-  banks,
-  value = "",
+  initialBank = null,
   onChange,
   onAdd,
   centerLabel = false,
@@ -55,18 +49,51 @@ export function BankSelect({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
-  const selectedBank = banks.find((bank) => bank.id === value);
+  const [selectedBank, setSelectedBank] = useState<Bank | null>(initialBank);
+  const [results, setResults] = useState<Bank[]>([]);
+  const [loading, setLoading] = useState(false);
+  const openedFetchedRef = useRef(false);
 
-  const filteredBanks = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const matches = query
-      ? banks.filter((bank) => bank.name.toLowerCase().includes(query))
-      : banks;
-    return matches.slice(0, RESULTS_LIMIT);
-  }, [banks, search]);
+  // Fetches immediately the moment the popover opens (so it isn't empty on
+  // first click), then debounces on every subsequent keystroke while open.
+  useEffect(() => {
+    if (!open) {
+      openedFetchedRef.current = false;
+      return;
+    }
 
-  function handleSelect(bankId: string) {
-    onChange?.(bankId === value ? "" : bankId);
+    const isFirstFetch = !openedFetchedRef.current;
+    const controller = new AbortController();
+
+    const handle = setTimeout(
+      async () => {
+        openedFetchedRef.current = true;
+        setLoading(true);
+        try {
+          const res = await fetch(`/api/bank-search?q=${encodeURIComponent(search.trim())}`, {
+            signal: controller.signal,
+          });
+          const data = await res.json();
+          setResults(data.banks ?? []);
+        } catch (err) {
+          if ((err as Error).name !== "AbortError") console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      },
+      isFirstFetch ? 0 : SEARCH_DEBOUNCE_MS
+    );
+
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
+  }, [search, open]);
+
+  function handleSelect(bank: Bank) {
+    const next = selectedBank?.id === bank.id ? null : bank;
+    setSelectedBank(next);
+    onChange?.(next);
     setOpen(false);
     setSearch("");
   }
@@ -75,8 +102,9 @@ export function BankSelect({
     if (!onAdd || !search.trim()) return;
     setAdding(true);
     try {
-      const newId = await onAdd(search.trim());
-      onChange?.(newId);
+      const bank = await onAdd(search.trim());
+      setSelectedBank(bank);
+      onChange?.(bank);
       setOpen(false);
       setSearch("");
     } finally {
@@ -112,7 +140,9 @@ export function BankSelect({
             <CommandInput placeholder="Search banks..." onValueChange={setSearch} />
             <CommandList>
               <CommandEmpty>
-                {onAdd && search.trim() ? (
+                {loading ? (
+                  "Searching..."
+                ) : onAdd && search.trim() ? (
                   <button
                     onClick={handleAdd}
                     disabled={adding}
@@ -125,17 +155,17 @@ export function BankSelect({
                 )}
               </CommandEmpty>
               <CommandGroup>
-                {filteredBanks.map((bank) => (
+                {results.map((bank) => (
                   <CommandItem
                     key={bank.id}
                     value={bank.name}
-                    onSelect={() => handleSelect(bank.id)}
+                    onSelect={() => handleSelect(bank)}
                     className="text-white aria-selected:bg-slate-800"
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        value === bank.id ? "opacity-100" : "opacity-0"
+                        selectedBank?.id === bank.id ? "opacity-100" : "opacity-0"
                       )}
                     />
                     {bank.name}

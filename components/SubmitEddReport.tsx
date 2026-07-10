@@ -7,10 +7,8 @@ import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-type Bank = { id: string; name: string };
-
 type Props =
-  | { banks: Bank[]; bankId?: undefined; bankName?: undefined }
+  | { banks: true; bankId?: undefined; bankName?: undefined }
   | { banks?: undefined; bankId: string; bankName: string };
 
 // 6 is a sentinel for "more than 5 days early" — the constraint on
@@ -133,9 +131,7 @@ export function SubmitEddReport(props: Props) {
             <BankSelect
               label="Bank"
               placeholder="Select bank"
-              banks={props.banks}
-              value={bankId}
-              onChange={setBankId}
+              onChange={(bank) => setBankId(bank?.id ?? "")}
             />
           )}
 

@@ -2,32 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BankSelect } from "@/components/BankSelect";
+import { BankSelect, type Bank } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
 import { addBank } from "@/lib/actions/addBank";
 import type { User } from "@supabase/supabase-js";
 
-type Bank = {
-  id: string;
-  slug: string;
-  name: string;
-};
-
-type Props = {
-  banks: Bank[];
-};
-
 function today() {
   return new Date().toISOString().split("T")[0];
 }
 
-export function SubmitRouteReport({ banks }: Props) {
+export function SubmitRouteReport() {
   const [user, setUser] = useState<User | null>(null);
-  const [allBanks, setAllBanks] = useState<Bank[]>(banks);
   const [authOpen, setAuthOpen] = useState(false);
-  const [fromBankId, setFromBankId] = useState("");
-  const [toBankId, setToBankId] = useState("");
+  const [fromBank, setFromBank] = useState<Bank | null>(null);
+  const [toBank, setToBank] = useState<Bank | null>(null);
   const [railUsed, setRailUsed] = useState("");
   const [direction, setDirection] = useState("");
   const [status, setStatus] = useState("");
@@ -51,13 +40,10 @@ export function SubmitRouteReport({ banks }: Props) {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function handleAddBank(name: string): Promise<string> {
+  async function handleAddBank(name: string): Promise<Bank> {
     const result = await addBank(name);
     if ("error" in result) throw new Error(result.error);
-    if (!allBanks.find((b) => b.id === result.id)) {
-      setAllBanks((prev) => [...prev, result]);
-    }
-    return result.id;
+    return result;
   }
 
   async function handleSignOut() {
@@ -76,14 +62,9 @@ export function SubmitRouteReport({ banks }: Props) {
     setError(null);
 
     try {
-      if (!fromBankId || !toBankId || !railUsed || !direction || !status) {
+      if (!fromBank || !toBank || !railUsed || !direction || !status) {
         throw new Error("Please fill in all required fields");
       }
-
-      const fromBank = allBanks.find((b) => b.id === fromBankId);
-      const toBank = allBanks.find((b) => b.id === toBankId);
-
-      if (!fromBank || !toBank) throw new Error("Selected bank not found");
 
       const supabase = createClient();
       const { error: insertError } = await supabase
@@ -105,8 +86,8 @@ export function SubmitRouteReport({ banks }: Props) {
 
       if (insertError) throw insertError;
 
-      setFromBankId("");
-      setToBankId("");
+      setFromBank(null);
+      setToBank(null);
       setRailUsed("");
       setDirection("");
       setStatus("");
@@ -169,18 +150,14 @@ export function SubmitRouteReport({ banks }: Props) {
             <BankSelect
               label="From bank"
               placeholder="Sender bank"
-              banks={allBanks}
-              value={fromBankId}
-              onChange={setFromBankId}
+              onChange={setFromBank}
               onAdd={handleAddBank}
             />
 
             <BankSelect
               label="To bank"
               placeholder="Receiver bank"
-              banks={allBanks}
-              value={toBankId}
-              onChange={setToBankId}
+              onChange={setToBank}
               onAdd={handleAddBank}
             />
 

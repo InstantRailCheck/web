@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getBankProfileBySlug } from "@/lib/bankProfile";
-import { fetchAllBanks } from "@/lib/allBanks";
 import { ComparePicker } from "@/components/ComparePicker";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { formatPhone, telHref } from "@/lib/utils";
@@ -81,10 +80,20 @@ export default async function ComparePage({
   const slugs = (banksParam ?? "").split(",").filter(Boolean).slice(0, 2);
 
   const supabase = await createClient();
-  const allBanks = await fetchAllBanks<{ id: string; slug: string; name: string }>(supabase, "id, slug, name");
 
   const profiles = slugs.length === 2 ? await Promise.all(slugs.map((slug) => getBankProfileBySlug(slug))) : null;
   const [a, b] = profiles ?? [null, null];
+
+  // Resolves the picker's pre-filled selections without ever fetching the
+  // full bank directory: a two-slug URL already resolved both banks above
+  // via getBankProfileBySlug, so reuse that; a lone first slug (e.g. someone
+  // picked bank A and hasn't picked bank B yet) needs one small extra lookup.
+  let initialBankA = a?.bank ? { id: a.bank.id, slug: a.bank.slug, name: a.bank.name } : null;
+  const initialBankB = b?.bank ? { id: b.bank.id, slug: b.bank.slug, name: b.bank.name } : null;
+  if (!initialBankA && slugs.length >= 1) {
+    const { data } = await supabase.from("banks").select("id, slug, name").eq("slug", slugs[0]).maybeSingle();
+    initialBankA = data ?? null;
+  }
 
   // Merges sending + receiving so community-reported rails with no official
   // participant flag (Visa Direct, Mastercard Send, etc.) still surface here
@@ -110,7 +119,7 @@ export default async function ComparePage({
         </p>
 
         <div className="mt-6">
-          <ComparePicker banks={allBanks ?? []} initialSlugs={slugs} />
+          <ComparePicker initialBankA={initialBankA} initialBankB={initialBankB} />
         </div>
 
         {a?.bank && b?.bank && (

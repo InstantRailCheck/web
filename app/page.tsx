@@ -4,18 +4,10 @@ import { headers } from "next/headers";
 import { Hero } from "@/components/Hero";
 import { RouteSearch } from "@/components/RouteSearch";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAllBanks } from "@/lib/allBanks";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
-
-type Bank = {
-  id: string;
-  slug: string;
-  name: string;
-  website: string | null;
-};
 
 export default async function Home({
   searchParams,
@@ -24,10 +16,14 @@ export default async function Home({
 }) {
   const { auth_error } = await searchParams;
   const supabase = await createClient();
-  let bankOptions: Bank[] = [];
+  let bankCount = 0;
   let error: { message: string } | null = null;
   try {
-    bankOptions = await fetchAllBanks<Bank>(supabase, "id, slug, name, website");
+    const { count, error: countError } = await supabase
+      .from("banks")
+      .select("id", { count: "exact", head: true });
+    if (countError) throw countError;
+    bankCount = count ?? 0;
   } catch (err) {
     error = { message: err instanceof Error ? err.message : "Failed to load banks" };
   }
@@ -70,9 +66,9 @@ export default async function Home({
             </p>
           ) : (
             <>
-              <RouteSearch banks={bankOptions} />
-              <SubmitRouteReport banks={bankOptions} />
-              <SubmitEddReport banks={bankOptions} />
+              <RouteSearch bankCount={bankCount} />
+              <SubmitRouteReport />
+              <SubmitEddReport banks={true} />
             </>
           )}
         </div>
