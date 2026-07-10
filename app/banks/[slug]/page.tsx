@@ -26,6 +26,16 @@ function getRailStyle(rail: string) {
   return RAIL_STYLES[rail] ?? { border: "border-slate-700", bg: "bg-slate-900", text: "text-slate-300" };
 }
 
+function PhoneText({ phone }: { phone: string }) {
+  const href = telHref(phone);
+  if (!href) return formatPhone(phone);
+  return (
+    <a href={href} className="hover:text-slate-300 transition">
+      {formatPhone(phone)}
+    </a>
+  );
+}
+
 function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"] }) {
   if (rails.length === 0) {
     return <p className="text-center text-sm text-slate-500">No reports yet.</p>;
@@ -229,9 +239,7 @@ export default async function BankProfilePage({
           )}
           {profile.bank.phone && (
             <p className="mt-1 text-sm text-slate-400">
-              <a href={telHref(profile.bank.phone) ?? undefined} className="hover:text-slate-300 transition">
-                {formatPhone(profile.bank.phone)}
-              </a>
+              <PhoneText phone={profile.bank.phone} />
             </p>
           )}
           {(profile.bank.website || profile.bank.address || profile.bank.phone) && (
