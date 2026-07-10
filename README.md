@@ -11,10 +11,11 @@ Live at [instantrailcheck.com](https://www.instantrailcheck.com)
 - Search any two US banks to see which payment rails work between them
 - View success rates, average settlement times, and data freshness
 - Submit your own real transfer outcomes to improve the database
-- Accounts via magic link — no password required
+- Accounts via Google, email one-time code, or passkey — no password required
 - Bank profile pages with website, address, and phone auto-filled from FDIC, NCUA, and FINRA
 - FedNow, RTP, and Zelle network participation, verified against official/semi-official directories where available
 - Visa Direct and Mastercard Send tracked as community-reported (no official directory exists for either)
+- Early Direct Deposit tracking, self-reported — ranked on the [rail explorer](https://www.instantrailcheck.com/rails) leaderboards alongside per-rail community rankings
 - Compare two banks side by side
 - Settlement time leaderboard and a changelog of recent activity
 - SEO-friendly bank URLs (`/banks/chase`, not a UUID) with automatic redirects from old links
@@ -46,6 +47,6 @@ Also uses `SUPABASE_SERVICE_ROLE_KEY` server-side for enrichment and rate limiti
 
 ## Database
 
-Supabase tables: `banks`, `route_reports`, `ncua_credit_unions`, `fednow_participants`, `rtp_participants`, `zelle_participants`, `api_rate_limits`, `bank_corrections`, `webhooks`, `webhook_deliveries`
+Supabase tables: `banks`, `route_reports`, `ncua_credit_unions`, `fednow_participants`, `rtp_participants`, `zelle_participants`, `api_rate_limits`, `bank_corrections`, `webhooks`, `webhook_deliveries`, `bank_rail_history`, `edd_reports`
 
 Migrations live in `supabase/migrations/`. Reference tables (`ncua_credit_unions`, `fednow_participants`, `rtp_participants`, `zelle_participants`) are synced periodically from official/semi-official sources via the scripts in `scripts/`, not queried live.
