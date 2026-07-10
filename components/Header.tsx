@@ -21,7 +21,7 @@ export function Header() {
           alt="InstantRailCheck"
           width={680}
           height={153}
-          className="h-28 w-auto"
+          className="h-20 w-auto"
         />
       </Link>
       {!NO_TOP_NAV_PATHS.has(pathname) && <SiteNavLinks />}
