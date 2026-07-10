@@ -23,6 +23,20 @@ function RailCell({ rail }: { rail: { successRate: number; avgTime: number | nul
   );
 }
 
+function EddCell({ evidence }: { evidence: { avgDaysEarly: number; reportCount: number; hasMoreThanFive: boolean } | null }) {
+  if (!evidence) return <span className="text-slate-600">No data</span>;
+  return (
+    <span>
+      {evidence.avgDaysEarly}
+      {evidence.hasMoreThanFive && "+"} day{evidence.avgDaysEarly !== 1 ? "s" : ""} early
+      <span className="text-slate-500">
+        {" "}
+        ({evidence.reportCount} report{evidence.reportCount !== 1 ? "s" : ""})
+      </span>
+    </span>
+  );
+}
+
 export default async function ComparePage({
   searchParams,
 }: {
@@ -37,9 +51,19 @@ export default async function ComparePage({
   const profiles = slugs.length === 2 ? await Promise.all(slugs.map((slug) => getBankProfileBySlug(slug))) : null;
   const [a, b] = profiles ?? [null, null];
 
+  // Merges sending + receiving so community-reported rails with no official
+  // participant flag (Visa Direct, Mastercard Send, etc.) still surface here
+  // even if reports only exist for one direction.
   const rails =
     a && b
-      ? Array.from(new Set([...a.sending.map((r) => r.rail), ...b.sending.map((r) => r.rail)]))
+      ? Array.from(
+          new Set([
+            ...a.sending.map((r) => r.rail),
+            ...a.receiving.map((r) => r.rail),
+            ...b.sending.map((r) => r.rail),
+            ...b.receiving.map((r) => r.rail),
+          ])
+        )
       : [];
 
   return (
@@ -103,14 +127,23 @@ export default async function ComparePage({
                   <td className="px-5 py-3">{a.bank.zelle_participant ? "✅" : "—"}</td>
                   <td className="px-5 py-3">{b.bank.zelle_participant ? "✅" : "—"}</td>
                 </tr>
+                <tr>
+                  <td className="px-5 py-3 text-slate-500">Early Direct Deposit</td>
+                  <td className="px-5 py-3">
+                    <EddCell evidence={a.eddEvidence} />
+                  </td>
+                  <td className="px-5 py-3">
+                    <EddCell evidence={b.eddEvidence} />
+                  </td>
+                </tr>
                 {rails.map((rail) => (
                   <tr key={rail}>
                     <td className="px-5 py-3 text-slate-500">{rail}</td>
                     <td className="px-5 py-3">
-                      <RailCell rail={a.sending.find((r) => r.rail === rail)} />
+                      <RailCell rail={a.sending.find((r) => r.rail === rail) ?? a.receiving.find((r) => r.rail === rail)} />
                     </td>
                     <td className="px-5 py-3">
-                      <RailCell rail={b.sending.find((r) => r.rail === rail)} />
+                      <RailCell rail={b.sending.find((r) => r.rail === rail) ?? b.receiving.find((r) => r.rail === rail)} />
                     </td>
                   </tr>
                 ))}
