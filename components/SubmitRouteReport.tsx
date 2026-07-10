@@ -215,7 +215,7 @@ export function SubmitRouteReport(props: Props) {
             {fixedBank && fixedRole === "from" ? (
               <div className="block">
                 <span className="mb-2 block text-center text-sm font-medium text-slate-300">From bank</span>
-                <div className="flex w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-slate-300">
+                <div className="flex w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-6 text-center text-slate-300">
                   {fixedBank.name}
                 </div>
               </div>
@@ -233,7 +233,7 @@ export function SubmitRouteReport(props: Props) {
             {fixedBank && fixedRole === "to" ? (
               <div className="block">
                 <span className="mb-2 block text-center text-sm font-medium text-slate-300">To bank</span>
-                <div className="flex w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-slate-300">
+                <div className="flex w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-6 text-center text-slate-300">
                   {fixedBank.name}
                 </div>
               </div>
@@ -251,7 +251,7 @@ export function SubmitRouteReport(props: Props) {
             <div className="flex flex-col items-center gap-1">
               <label className="text-center text-sm font-medium text-slate-300">Rail used</label>
               <Select value={railUsed} onValueChange={setRailUsed}>
-                <SelectTrigger className="w-full justify-center rounded-lg border-slate-700 bg-slate-950 p-3 text-white">
+                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white">
                   <SelectValue placeholder="Select rail" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
@@ -271,7 +271,7 @@ export function SubmitRouteReport(props: Props) {
             <div className="flex flex-col items-center gap-1">
               <label className="text-center text-sm font-medium text-slate-300">Direction</label>
               <Select value={direction} onValueChange={setDirection}>
-                <SelectTrigger className="w-full justify-center rounded-lg border-slate-700 bg-slate-950 p-3 text-white">
+                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white">
                   <SelectValue placeholder="Select direction" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
@@ -284,7 +284,7 @@ export function SubmitRouteReport(props: Props) {
             <div className="flex flex-col items-center gap-1">
               <label className="text-center text-sm font-medium text-slate-300">Status</label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-full justify-center rounded-lg border-slate-700 bg-slate-950 p-3 text-white">
+                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
@@ -302,7 +302,7 @@ export function SubmitRouteReport(props: Props) {
                 value={testedAt}
                 max={today()}
                 onChange={(e) => setTestedAt(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-white"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-6 text-center text-white"
               />
             </div>
 
@@ -312,7 +312,7 @@ export function SubmitRouteReport(props: Props) {
               placeholder="Settlement time (minutes, optional)"
               type="number"
               min="0"
-              className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white md:col-span-2"
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-6 text-center text-white md:col-span-2"
             />
 
             {railUsed === "ACH" && (
@@ -331,7 +331,7 @@ export function SubmitRouteReport(props: Props) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Notes (optional)"
-              className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white md:col-span-2"
+              className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-center text-white md:col-span-2"
               rows={3}
             />
 
