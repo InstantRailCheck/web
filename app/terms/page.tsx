@@ -16,12 +16,12 @@ export default function TermsPage() {
             <p className="mt-2">
               InstantRailCheck is a free, crowdsourced database of real-world bank transfer
               compatibility — which payment rails (RTP, FedNow, ACH, Wire, Zelle, and others)
-              actually work between which banks. It's provided as-is, free of charge.
+              actually work between which banks. It&apos;s provided as-is, free of charge.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white">Accuracy isn't guaranteed</h2>
+            <h2 className="text-lg font-semibold text-white">Accuracy isn&apos;t guaranteed</h2>
             <p className="mt-2">
               Data comes from a mix of official sources (FDIC, NCUA, FinRA, the Fed, The
               Clearing House) and user-submitted reports. We work to keep it accurate — unknown
@@ -37,7 +37,7 @@ export default function TermsPage() {
             <p className="mt-2">
               Signing in requires a real email address (via Google or a one-time code) or a
               passkey tied to a real account — no anonymous submissions. Route reports should
-              reflect actual transfers you've made or observed. Submitting false or intentionally
+              reflect actual transfers you&apos;ve made or observed. Submitting false or intentionally
               misleading reports may result in account suspension.
             </p>
           </section>
@@ -58,7 +58,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white">No warranty</h2>
             <p className="mt-2">
-              InstantRailCheck is provided "as is," without warranty of any kind. We're not
+              InstantRailCheck is provided &quot;as is,&quot; without warranty of any kind. We&apos;re not
               liable for any loss, delay, or damage resulting from reliance on data shown on this
               site or returned by the API.
             </p>

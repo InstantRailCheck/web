@@ -169,8 +169,8 @@ export default async function RailsExplorerPage() {
         <h1 className="text-center text-3xl font-bold">Payment rail explorer</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           Banks in our database confirmed as participants on each network, verified against the
-          Federal Reserve's FedNow participant list, The Clearing House's RTP participant list,
-          and Zelle's partner directory.
+          Federal Reserve&apos;s FedNow participant list, The Clearing House&apos;s RTP participant list,
+          and Zelle&apos;s partner directory.
         </p>
 
         <div className="mt-8 grid gap-8 sm:grid-cols-3">
@@ -216,7 +216,7 @@ export default async function RailsExplorerPage() {
 
         <div className="mt-12 border-t border-slate-800 pt-8">
           <p className="text-center text-sm text-slate-400">
-            A per-bank feature, not a network — no official directory exists since it's a
+            A per-bank feature, not a network — no official directory exists since it&apos;s a
             marketing feature banks choose to offer, so this is based on user-submitted reports
             only. Requires at least 2 reports to appear.
           </p>

@@ -159,7 +159,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
             </div>
 
             <p className="text-sm text-slate-400">
-              Enter your email and we'll send you a sign-in link. No password needed.
+              Enter your email and we&apos;ll send you a sign-in link. No password needed.
             </p>
             <input
               type="email"

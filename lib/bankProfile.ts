@@ -183,14 +183,24 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
   return { bank, sending, receiving, railEvidence, eddEvidence };
 }
 
-function summarizeByRail(rows: any[]): RailStats[] {
+type RouteReportRow = {
+  rail_used: string | null;
+  status: string;
+  settlement_time_minutes: number | null;
+  tested_at: string | null;
+  same_day: boolean | null;
+};
+
+function summarizeByRail(rows: RouteReportRow[]): RailStats[] {
   const rails = Array.from(new Set(rows.map((r) => r.rail_used || "unknown")));
 
   return rails.map((rail) => {
     const railRows = rows.filter((r) => (r.rail_used || "unknown") === rail);
     const successCount = railRows.filter((r) => r.status === "success").length;
 
-    const timingRows = railRows.filter((r) => r.settlement_time_minutes != null);
+    const timingRows = railRows.filter(
+      (r): r is RouteReportRow & { settlement_time_minutes: number } => r.settlement_time_minutes != null
+    );
     const avgTime =
       timingRows.length > 0
         ? Math.round(

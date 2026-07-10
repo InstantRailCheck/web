@@ -57,6 +57,10 @@ function toMatch(best: FdicInstitution): FdicMatch | null {
   return { website, address };
 }
 
+type FdicApiResponse = {
+  data?: Array<{ data: FdicInstitution }>;
+};
+
 async function searchFdic(name: string): Promise<FdicInstitution[]> {
   const url = `https://api.fdic.gov/banks/institutions?search=${encodeURIComponent(
     `NAME:${quoteIfNeeded(name)}`
@@ -65,8 +69,8 @@ async function searchFdic(name: string): Promise<FdicInstitution[]> {
   const res = await fetch(url);
   if (!res.ok) return [];
 
-  const json = await res.json();
-  return (json.data ?? []).map((d: any) => d.data);
+  const json: FdicApiResponse = await res.json();
+  return (json.data ?? []).map((d) => d.data);
 }
 
 function quoteIfNeeded(name: string): string {

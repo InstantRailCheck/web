@@ -31,12 +31,12 @@ export default function MethodologyPage() {
             </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5">
               <li><strong className="text-slate-100">Banks</strong> — FDIC BankFind (website, address)</li>
-              <li><strong className="text-slate-100">Credit unions</strong> — NCUA's quarterly call report data (website, address, phone); no live API exists for this, so it's synced periodically from NCUA's bulk data files</li>
+              <li><strong className="text-slate-100">Credit unions</strong> — NCUA&apos;s quarterly call report data (website, address, phone); no live API exists for this, so it&apos;s synced periodically from NCUA&apos;s bulk data files</li>
               <li><strong className="text-slate-100">Brokerages</strong> — FINRA BrokerCheck (address, phone only — no official website field exists for broker-dealers in any regulatory source we checked)</li>
             </ul>
             <p className="mt-3">
               Matching a user-entered institution name against these sources never guesses. If a
-              name is ambiguous enough to plausibly match more than one real institution, it's
+              name is ambiguous enough to plausibly match more than one real institution, it&apos;s
               treated as no match rather than picking one — a missing field is always safer than
               a wrong one.
             </p>
@@ -44,33 +44,33 @@ export default function MethodologyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-white">Payment rail verification</h2>
-            <p className="mt-2">Each rail is verified differently, based on what's actually available:</p>
+            <p className="mt-2">Each rail is verified differently, based on what&apos;s actually available:</p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5">
-              <li><strong className="text-slate-100">FedNow</strong> — checked against the Federal Reserve's official participant list</li>
-              <li><strong className="text-slate-100">RTP</strong> — checked against The Clearing House's official participant list</li>
+              <li><strong className="text-slate-100">FedNow</strong> — checked against the Federal Reserve&apos;s official participant list</li>
+              <li><strong className="text-slate-100">RTP</strong> — checked against The Clearing House&apos;s official participant list</li>
               <li>
-                <strong className="text-slate-100">Zelle</strong> — checked against Zelle's own partner
+                <strong className="text-slate-100">Zelle</strong> — checked against Zelle&apos;s own partner
                 directory, which is confirmed to be incomplete (a genuine Zelle-supporting bank
-                can be absent from it). A missing Zelle badge means "not listed," not "confirmed
-                unsupported."
+                can be absent from it). A missing Zelle badge means &quot;not listed,&quot; not &quot;confirmed
+                unsupported.&quot;
               </li>
-              <li><strong className="text-slate-100">ACH, Wire, Visa Direct, Mastercard Send</strong> — no accessible official directory exists for any of these, so they're tracked entirely from user-submitted route reports</li>
+              <li><strong className="text-slate-100">ACH, Wire, Visa Direct, Mastercard Send</strong> — no accessible official directory exists for any of these, so they&apos;re tracked entirely from user-submitted route reports</li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-white">Name-matching, precisely</h2>
             <p className="mt-2">
-              Verifying rail participation means matching an institution's name against an
+              Verifying rail participation means matching an institution&apos;s name against an
               official participant list — harder than it sounds, since official lists use full
-              legal names ("Capital One, National Association") while most people think in brand
-              names ("Capital One"). The matcher tries progressively shorter prefixes of a name,
+              legal names (&quot;Capital One, National Association&quot;) while most people think in brand
+              names (&quot;Capital One&quot;). The matcher tries progressively shorter prefixes of a name,
               but only trusts a substring match on the complete, untruncated name — and only if
               it resolves to exactly one distinct institution.
             </p>
             <p className="mt-2">
-              That last part matters: a generic word like "Farmers" legitimately appears in two
-              dozen unrelated "Farmers ... Bank" entities across official lists. Matching on it
+              That last part matters: a generic word like &quot;Farmers&quot; legitimately appears in two
+              dozen unrelated &quot;Farmers ... Bank&quot; entities across official lists. Matching on it
               would produce a confident-looking but essentially random result. Multiple matches
               are treated as ambiguous — not a guess, no match.
             </p>
@@ -89,10 +89,10 @@ export default function MethodologyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white">Corrections never override confirmed data</h2>
             <p className="mt-2">
-              Automated re-syncs against official sources never downgrade a rail flag that's
+              Automated re-syncs against official sources never downgrade a rail flag that&apos;s
               already confirmed true — a positive confirmation (even a manual correction) always
-              outweighs a later absence in a source that can itself be incomplete, like Zelle's
-              directory. User-suggested corrections to a bank's website or phone are re-verified
+              outweighs a later absence in a source that can itself be incomplete, like Zelle&apos;s
+              directory. User-suggested corrections to a bank&apos;s website or phone are re-verified
               against the same official sources before being applied; a match auto-applies, a
               mismatch is flagged for review instead of trusted blindly.
             </p>

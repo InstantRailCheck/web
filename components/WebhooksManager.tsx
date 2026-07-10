@@ -75,7 +75,7 @@ export function WebhooksManager() {
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
       <p className="text-sm text-slate-400">
         Fires a signed POST to your URL whenever a new bank is added. Up to 5 webhooks per
-        account. Deliveries aren't retried — check your endpoint returns a 2xx quickly.
+        account. Deliveries aren&apos;t retried — check your endpoint returns a 2xx quickly.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -98,7 +98,7 @@ export function WebhooksManager() {
 
       {newSecret && (
         <div className="mt-3 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm">
-          <p className="text-green-300">Webhook registered. Save this secret — it won't be shown again:</p>
+          <p className="text-green-300">Webhook registered. Save this secret — it won&apos;t be shown again:</p>
           <code className="mt-1 block break-all text-xs text-green-200">{newSecret}</code>
           <p className="mt-1 text-xs text-slate-400">
             Verify deliveries with HMAC-SHA256 of the raw body against this secret, sent in the{" "}

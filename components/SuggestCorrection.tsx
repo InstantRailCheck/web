@@ -68,8 +68,8 @@ export function SuggestCorrection({ bankId }: Props) {
     <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900/70 p-4">
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
       <p className="text-xs text-slate-400">
-        Suggestions are checked against official sources before being applied. If it doesn't
-        match, it's flagged for review instead of applied automatically.
+        Suggestions are checked against official sources before being applied. If it doesn&apos;t
+        match, it&apos;s flagged for review instead of applied automatically.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">

@@ -3,6 +3,20 @@ export type FinraMatch = {
   phone: string | null;
 };
 
+type FinraApiResponse = {
+  hits?: { hits?: Array<{ _source?: { firm_address_details?: string } }> };
+};
+
+type FinraAddressDetails = {
+  officeAddress?: {
+    street1?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+  };
+  businessPhoneNumber?: string;
+};
+
 export async function lookupFinraBroker(name: string): Promise<FinraMatch | null> {
   const words = name.trim().split(/\s+/);
   const floor = Math.min(2, words.length);
@@ -24,11 +38,11 @@ async function searchFinra(name: string): Promise<FinraMatch | null> {
   const res = await fetch(url);
   if (!res.ok) return null;
 
-  const json = await res.json();
+  const json: FinraApiResponse = await res.json();
   const hit = json.hits?.hits?.[0]?._source;
-  if (!hit) return null;
+  if (!hit?.firm_address_details) return null;
 
-  let details: any = null;
+  let details: FinraAddressDetails;
   try {
     details = JSON.parse(hit.firm_address_details);
   } catch {

@@ -6,6 +6,7 @@
 // indistinguishable from real ones (the signature only proves the server
 // signed it, not that the content is genuine). Its only legitimate caller
 // is addBank.ts, right after a verified insert.
+import "server-only";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUrlSafeForWebhook } from "@/lib/webhookSafety";

@@ -1,3 +1,4 @@
+import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lookupFdicBank } from "@/lib/fdicLookup";
 import { lookupNcuaCreditUnion } from "@/lib/ncuaLookup";

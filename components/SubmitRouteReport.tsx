@@ -115,9 +115,9 @@ export function SubmitRouteReport({ banks }: Props) {
       setSameDay(false);
       setNotes("");
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message || "Submit failed");
+      setError(err instanceof Error ? err.message : "Submit failed");
     } finally {
       setLoading(false);
     }

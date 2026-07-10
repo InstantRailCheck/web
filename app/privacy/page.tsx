@@ -16,7 +16,7 @@ export default function PrivacyPage() {
             <p className="mt-2">
               If you sign in, we store your email address (via magic link/one-time code or
               Google sign-in) and, if you choose to add one, a passkey — only the public key
-              InstantRailCheck.com is stored on our servers; your device's fingerprint, face, or
+              InstantRailCheck.com is stored on our servers; your device&apos;s fingerprint, face, or
               screen lock never leaves your device.
             </p>
             <p className="mt-2">
@@ -32,10 +32,10 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white">What we don't do</h2>
+            <h2 className="text-lg font-semibold text-white">What we don&apos;t do</h2>
             <p className="mt-2">
-              We don't sell your data, run ads, or track you across other sites. Our analytics
-              (Vercel Web Analytics) is cookie-free and reports aggregate usage only — it doesn't
+              We don&apos;t sell your data, run ads, or track you across other sites. Our analytics
+              (Vercel Web Analytics) is cookie-free and reports aggregate usage only — it doesn&apos;t
               identify individual visitors.
             </p>
           </section>
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
               InstantRailCheck runs on Supabase (authentication and database), Vercel (hosting
               and analytics), Google (if you choose to sign in with Google), and Cloudflare
               (security and network routing). Each processes data only as needed to run the
-              service — we don't sell or otherwise share your data with anyone else.
+              service — we don&apos;t sell or otherwise share your data with anyone else.
             </p>
           </section>
 

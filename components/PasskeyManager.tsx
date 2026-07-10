@@ -38,7 +38,23 @@ export function PasskeyManager() {
   }
 
   useEffect(() => {
-    if (user) refreshPasskeys();
+    if (!user) return;
+
+    // Fetch inline with a cancellation guard rather than calling the shared
+    // refreshPasskeys() from the effect — besides satisfying the lint rule
+    // against indirect setState-in-effect, this also fixes a real race: if
+    // user changes again (or the component unmounts) before the request
+    // resolves, a stale response could otherwise overwrite state that no
+    // longer corresponds to the current user.
+    let cancelled = false;
+    const supabase = createClient();
+    supabase.auth.passkey.list().then(({ data, error }) => {
+      if (!cancelled && !error && data) setPasskeys(data);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   async function handleRegister() {
@@ -84,7 +100,7 @@ export function PasskeyManager() {
       <div className="mt-6">
         <h2 className="text-lg font-semibold">Passkeys</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Sign in with your device's fingerprint, face, or screen lock instead of an email code.
+          Sign in with your device&apos;s fingerprint, face, or screen lock instead of an email code.
         </p>
 
         <button
