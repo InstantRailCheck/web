@@ -136,12 +136,12 @@ export function SubmitEddReport(props: Props) {
             />
           )}
 
-          <div className={cn("flex flex-col items-center gap-1", !props.banks && "md:col-span-2")}>
-            <label className="text-center text-sm font-medium text-slate-300">How early</label>
+          <div className={cn("block", !props.banks && "md:col-span-2")}>
+            <label className="mb-2 block text-center text-sm font-medium text-slate-300">How early</label>
             <select
               value={daysEarly}
               onChange={(e) => setDaysEarly(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-white"
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-6 text-center text-white"
             >
               <option value="">Select</option>
               {DAYS_OPTIONS.map((opt) => (
