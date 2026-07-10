@@ -45,7 +45,9 @@ export default async function BanksDirectoryPage({
   // column on banks), so filtering means resolving qualifying bank IDs
   // first rather than a plain .eq() like the other three filters.
   if (edd === "true") {
-    const { data: eddRows } = await supabase.from("edd_reports").select("bank_id, user_id, days_early, created_at");
+    const { data: eddRows } = await supabase
+      .from("edd_reports")
+      .select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider");
     const attributable = dedupeEddReportsByReporterAndBank(eddRows ?? []);
     const counts = new Map<string, number>();
     for (const row of attributable) {

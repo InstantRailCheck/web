@@ -3,7 +3,14 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Banknote, CalendarCheck, Clock, Landmark, Zap } from "lucide-react";
-import { getBankProfileBySlug, getBankSlugById, describeRailEvidence, type RailEvidence, type EddEvidence } from "@/lib/bankProfile";
+import {
+  getBankProfileBySlug,
+  getBankSlugById,
+  describeRailEvidence,
+  describeEddProviderEvidence,
+  type RailEvidence,
+  type EddEvidence,
+} from "@/lib/bankProfile";
 import { formatPhone, telHref } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
@@ -152,6 +159,13 @@ function EddCard({ evidence, bankName }: { evidence: EddEvidence; bankName: stri
       <p className="mt-1 text-xs text-slate-500">
         Self-reported — no official directory exists for this feature.
       </p>
+      {evidence.providers.length > 0 && (
+        <ul className="mt-3 space-y-1 border-t border-teal-500/20 pt-3 text-xs text-slate-400">
+          {evidence.providers.map((p) => (
+            <li key={p.provider}>{describeEddProviderEvidence(p)}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -86,7 +86,7 @@ export async function getEddRankedBanks(): Promise<EddRankedEntry[]> {
   const supabase = createAdminClient();
 
   const [{ data: eddRows }, allBanks] = await Promise.all([
-    supabase.from("edd_reports").select("bank_id, user_id, days_early, created_at"),
+    supabase.from("edd_reports").select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider"),
     fetchAllBanks<{ id: string; slug: string; name: string }>(supabase, "id, slug, name"),
   ]);
 

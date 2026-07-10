@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dedupeToNewestPerReporter, type ReportStatus } from "@/lib/routeConfidence";
+import { NON_PAYROLL_DEPOSIT_TYPES, payrollProviderLabel, type DepositType, type PayrollProvider } from "@/lib/eddContext";
 
 const STALE_DAYS = 180;
 
@@ -46,10 +47,21 @@ export type RailEvidence = {
   communityConfirmations: number;
 };
 
+export type EddProviderEvidence = {
+  provider: PayrollProvider;
+  providerLabel: string;
+  avgDaysEarly: number;
+  reportCount: number;
+};
+
 export type EddEvidence = {
   avgDaysEarly: number;
   reportCount: number;
   hasMoreThanFive: boolean;
+  // Only providers meeting EDD_PROVIDER_MIN_REPORTERS appear here — a
+  // below-threshold provider is simply absent, not included as a
+  // zero-count or suppressed placeholder.
+  providers: EddProviderEvidence[];
 };
 
 // The single definition of "how many distinct reporters before EDD evidence
@@ -62,20 +74,34 @@ export type EddEvidence = {
 // product claims and are allowed to diverge from this number.
 export const EDD_MIN_REPORTERS = 2;
 
+// Provider-specific claims ("ADP deposits were reported 2 days early by N
+// reporters") name a specific company, which is more identifying than the
+// bank-wide EDD_MIN_REPORTERS evidence — requires a higher bar before
+// becoming public, per the privacy design for this feature.
+export const EDD_PROVIDER_MIN_REPORTERS = 3;
+
 // A report of "more than 5 days early" is stored as this sentinel rather
 // than an unbounded exact count — matches the edd_reports.days_early check
 // constraint (0-6). Exported so the submission form's dropdown stays in sync.
 export const EDD_DAYS_SENTINEL = 6;
 
-export type EddReportRow = { bank_id: string; user_id: string | null; days_early: number; created_at: string };
+export type EddReportRow = {
+  bank_id: string;
+  user_id: string | null;
+  days_early: number;
+  created_at: string;
+  deposit_type: string | null;
+  payroll_provider: string | null;
+};
 
-// Dedupes to each reporter's newest EDD report per bank (unit: user + bank —
-// distinct from the future provider-context unit of user + bank +
-// deposit_type + payroll_provider) and drops unattributed rows. Shared so
-// every EDD-consuming surface (this bank-profile evidence, the ranked
-// leaderboard in lib/communityRails.ts, and the /banks ?edd=true directory
-// filter) applies the identical integrity rule instead of each
-// re-implementing — and potentially getting wrong — its own version.
+// Dedupes to each reporter's newest EDD report per bank (unit: user + bank)
+// and drops unattributed rows — the coarser unit backing overall EDD
+// evidence (avgDaysEarly/reportCount), independent of what deposit type or
+// provider was reported. Shared so every EDD-consuming surface (this
+// bank-profile evidence, the ranked leaderboard in lib/communityRails.ts,
+// and the /banks ?edd=true directory filter) applies the identical
+// integrity rule instead of each re-implementing — and potentially getting
+// wrong — its own version.
 export function dedupeEddReportsByReporterAndBank(rows: EddReportRow[]): EddReportRow[] {
   const byBank = new Map<string, EddReportRow[]>();
   for (const r of rows) {
@@ -84,6 +110,75 @@ export function dedupeEddReportsByReporterAndBank(rows: EddReportRow[]): EddRepo
   }
   return Array.from(byBank.values()).flatMap((bankRows) =>
     dedupeToNewestPerReporter(bankRows.map((r) => ({ ...r, userId: r.user_id, testedAt: r.created_at })))
+  );
+}
+
+// Finer unit than dedupeEddReportsByReporterAndBank: newest report per
+// user + bank + deposit_type + payroll_provider. A reporter who's had EDD
+// from two different providers at the same bank (e.g. changed jobs) gets
+// counted once per distinct context, not collapsed into one — but repeat
+// submissions of the *same* context still only count their newest.
+function dedupeEddReportsByReporterBankAndContext(rows: EddReportRow[]): EddReportRow[] {
+  const byContext = new Map<string, EddReportRow[]>();
+  for (const r of rows) {
+    const key = `${r.bank_id}|${r.deposit_type}|${r.payroll_provider}`;
+    if (!byContext.has(key)) byContext.set(key, []);
+    byContext.get(key)!.push(r);
+  }
+  return Array.from(byContext.values()).flatMap((contextRows) =>
+    dedupeToNewestPerReporter(contextRows.map((r) => ({ ...r, userId: r.user_id, testedAt: r.created_at })))
+  );
+}
+
+// Builds the public, provider-named evidence list for one bank. Excludes:
+// unattributed rows (via the dedup step), deposit types that aren't payroll
+// (government_benefit/tax_refund/pension — a "government_treasury" answer
+// on a tax refund is a sensible thing to have *recorded*, but must never
+// surface as a payroll-provider claim), and "unknown"/"other"/null provider
+// values, since neither names an actual provider to make a claim about.
+// A provider below EDD_PROVIDER_MIN_REPORTERS is omitted entirely — never
+// returned as a suppressed/zero-count entry.
+export function computeEddProviderEvidence(rows: EddReportRow[]): EddProviderEvidence[] {
+  const eligible = rows.filter(
+    (r) =>
+      r.payroll_provider &&
+      r.payroll_provider !== "unknown" &&
+      r.payroll_provider !== "other" &&
+      r.deposit_type &&
+      !NON_PAYROLL_DEPOSIT_TYPES.has(r.deposit_type as DepositType)
+  );
+
+  const attributable = dedupeEddReportsByReporterBankAndContext(eligible);
+
+  const byProvider = new Map<string, EddReportRow[]>();
+  for (const r of attributable) {
+    const key = r.payroll_provider!;
+    if (!byProvider.has(key)) byProvider.set(key, []);
+    byProvider.get(key)!.push(r);
+  }
+
+  const results: EddProviderEvidence[] = [];
+  for (const [provider, providerRows] of byProvider) {
+    if (providerRows.length < EDD_PROVIDER_MIN_REPORTERS) continue;
+    results.push({
+      provider: provider as PayrollProvider,
+      providerLabel: payrollProviderLabel(provider) ?? provider,
+      avgDaysEarly:
+        Math.round((providerRows.reduce((acc, r) => acc + r.days_early, 0) / providerRows.length) * 10) / 10,
+      reportCount: providerRows.length,
+    });
+  }
+
+  return results.sort((a, b) => b.reportCount - a.reportCount);
+}
+
+// e.g. "ADP payroll deposits were reported 2 days early by 6 distinct
+// reporters." Describes evidence, not a guarantee — never "ADP deposits
+// arrive 2 days early."
+export function describeEddProviderEvidence(entry: EddProviderEvidence): string {
+  return (
+    `${entry.providerLabel} payroll deposits were reported ${entry.avgDaysEarly} ` +
+    `day${entry.avgDaysEarly !== 1 ? "s" : ""} early by ${entry.reportCount} distinct reporter${entry.reportCount !== 1 ? "s" : ""}.`
   );
 }
 
@@ -200,7 +295,7 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
       .order("changed_at", { ascending: false }),
     supabase
       .from("edd_reports")
-      .select("bank_id, user_id, days_early, created_at")
+      .select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider")
       .eq("bank_id", bank.id),
   ]);
 
@@ -217,6 +312,7 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
           // "more than 5" sentinel — flag it so the display can say "5.5+"
           // instead of implying an exact figure.
           hasMoreThanFive: attributableEddRows.some((r) => r.days_early === EDD_DAYS_SENTINEL),
+          providers: computeEddProviderEvidence(eddRows ?? []),
         }
       : null;
 

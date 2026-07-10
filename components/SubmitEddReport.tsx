@@ -7,6 +7,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { DEPOSIT_TYPES, PAYROLL_PROVIDERS } from "@/lib/eddContext";
 import type { User } from "@supabase/supabase-js";
 
 type Props =
@@ -30,6 +31,8 @@ export function SubmitEddReport(props: Props) {
   const [authOpen, setAuthOpen] = useState(false);
   const [bankId, setBankId] = useState(props.bankId ?? "");
   const [daysEarly, setDaysEarly] = useState("");
+  const [depositType, setDepositType] = useState("");
+  const [payrollProvider, setPayrollProvider] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +41,8 @@ export function SubmitEddReport(props: Props) {
   // this key forces a remount after a successful submit.
   const [resetKey, setResetKey] = useState(0);
   const daysEarlyLabelId = useId();
+  const depositTypeLabelId = useId();
+  const payrollProviderLabelId = useId();
 
   useEffect(() => {
     const supabase = createClient();
@@ -76,6 +81,8 @@ export function SubmitEddReport(props: Props) {
         bank_id: bankId,
         days_early: Number(daysEarly),
         user_id: user.id,
+        deposit_type: depositType || null,
+        payroll_provider: payrollProvider || null,
       });
 
       if (insertError) throw insertError;
@@ -85,6 +92,8 @@ export function SubmitEddReport(props: Props) {
         setResetKey((k) => k + 1);
       }
       setDaysEarly("");
+      setDepositType("");
+      setPayrollProvider("");
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed");
@@ -165,6 +174,51 @@ export function SubmitEddReport(props: Props) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="block">
+            <label id={depositTypeLabelId} className="mb-2 block text-center text-sm font-medium text-slate-300">
+              What kind of deposit was this?
+            </label>
+            <Select value={depositType} onValueChange={setDepositType}>
+              <SelectTrigger
+                aria-labelledby={depositTypeLabelId}
+                className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white"
+              >
+                <SelectValue placeholder="Optional" />
+              </SelectTrigger>
+              <SelectContent className="border-slate-800 bg-slate-950 text-white">
+                {DEPOSIT_TYPES.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-white focus:bg-slate-800 focus:text-white">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="block">
+            <label id={payrollProviderLabelId} className="mb-2 block text-center text-sm font-medium text-slate-300">
+              Which payroll platform or provider was used?
+            </label>
+            <Select value={payrollProvider} onValueChange={setPayrollProvider}>
+              <SelectTrigger
+                aria-labelledby={payrollProviderLabelId}
+                className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white"
+              >
+                <SelectValue placeholder="Optional" />
+              </SelectTrigger>
+              <SelectContent className="border-slate-800 bg-slate-950 text-white">
+                {PAYROLL_PROVIDERS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-white focus:bg-slate-800 focus:text-white">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-2 text-center text-xs text-slate-500">
+              Optional. This may appear on your paystub or payroll portal.
+            </p>
           </div>
 
           <button

@@ -95,6 +95,29 @@ export default function DevelopersPage() {
         </div>
 
         <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold">Early Direct Deposit evidence</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            <code>/banks/:id</code>&apos;s <code>eddEvidence</code> is <code>null</code> until at
+            least 2 distinct signed-in reporters have reported early direct deposit for that
+            bank (same one-report-per-reporter rule as route evidence). When present, it includes{" "}
+            <code>avgDaysEarly</code>, <code>reportCount</code>, <code>hasMoreThanFive</code>{" "}
+            (some reporters selected &quot;more than 5 days&quot;, so the average understates
+            reality), and <code>providers</code>.
+          </p>
+          <p className="mt-2 text-sm text-slate-400">
+            Reporters can optionally note what kind of deposit it was and which payroll platform
+            or provider paid it. <code>providers</code> breaks out bank-wide EDD evidence by
+            provider (e.g. &quot;ADP payroll deposits were reported 2 days early by 6 distinct
+            reporters&quot;), but only once a provider has <strong className="text-slate-300">3</strong>{" "}
+            distinct reporters — a higher bar than overall <code>eddEvidence</code>, since naming a
+            specific company is more identifying. A provider below that threshold is simply
+            absent from the array, not included as a zero-count entry. Deposit types that
+            aren&apos;t payroll (government benefits, tax refunds, pensions) never contribute to a
+            provider&apos;s count, even if a provider was recorded alongside them.
+          </p>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
           <h2 className="text-lg font-semibold">v6 breaking change</h2>
           <p className="mt-2 text-sm text-slate-400">
             <code>/routes</code>&apos; <code>confidence</code>{" "}
