@@ -42,6 +42,16 @@ export default async function Home({
       "query-input": "required name=search_term_string",
     },
   };
+  // Google reads this (not Search Console) to source the larger brand
+  // logo shown in knowledge panels/rich results — the square 512x512 PNG
+  // is its recommended format.
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "InstantRailCheck",
+    url: SITE_URL,
+    logo: `${SITE_URL}/android-chrome-512x512.png`,
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -49,6 +59,11 @@ export default async function Home({
         type="application/ld+json"
         nonce={nonce ?? undefined}
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        nonce={nonce ?? undefined}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-6 pt-6 pb-16">
 
