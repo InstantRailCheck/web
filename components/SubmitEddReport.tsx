@@ -134,6 +134,8 @@ export function SubmitEddReport(props: Props) {
               label="Bank"
               placeholder="Select bank"
               onChange={(bank) => setBankId(bank?.id ?? "")}
+              centerLabel
+              centerText
             />
           )}
 
