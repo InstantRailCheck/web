@@ -96,14 +96,14 @@ export function RouteSearch({ banks }: RouteSearchProps) {
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-left shadow-2xl">
-      <div className="mb-6 text-center">
-        <h2 className="text-xl font-semibold">Check a transfer route</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Choose a sending bank and receiving bank.
-        </p>
-      </div>
-
       <form className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+        <div className="text-center md:col-span-2">
+          <h2 className="text-xl font-semibold">Check a transfer route</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Choose a sending bank and receiving bank.
+          </p>
+        </div>
+
         <BankSelect
           label="From bank"
           placeholder="Search sender"
