@@ -279,6 +279,21 @@ This release starts with a full security pass of every API route and RLS policy 
 
 - Centered the "Sending from"/"Receiving into" section headers on bank profile pages, missed in v5.0.0's card-centering pass
 
+## Version 6.0 Features (v6.0.0–v6.0.2 — shipped July 10 2026)
+
+**Security: server-only reads + RLS lockdown**
+- `route_reports`/`edd_reports` were being read directly from the browser with the anon key; moved every consumer to a server-only admin-client read path and fixed 5 raw-count/no-dedup aggregation bugs found in the resulting audit
+- Dropped all non-INSERT RLS policies on both tables (including an undocumented UPDATE/DELETE policy created outside migration tracking) — the privacy boundary is now enforced by the database itself, not just by what the UI chooses to query
+- v6.0.1/v6.0.2: fixed two state bugs in the contribution loop (stale route evidence after changing bank, wrong-route refetch when editing a prefilled report)
+
+## Version 6.1 Features (v6.1.0 — shipped July 10 2026)
+
+**Payroll context for Early Direct Deposit**
+- Reporters can optionally note the deposit type and payroll provider/platform behind an early deposit (`lib/eddContext.ts` is the canonical value list, shared by the form, aggregation, and docs)
+- Bank pages surface provider-specific evidence (e.g. "ADP payroll deposits were reported 2 days early by 6 distinct reporters") once a provider has at least 3 distinct reporters — stricter than the 2-reporter threshold for overall EDD evidence, since naming a specific company is more identifying
+- Non-payroll deposit types (government benefits, tax refunds, pensions) never contribute to a provider's count, even when a provider is recorded alongside them (e.g. "government_treasury" on a tax refund is a legitimate thing to record but never becomes a payroll-provider claim)
+- Wording rule: provider evidence describes what was reported, never what caused it — "were reported N days early by M reporters," not "arrive N days early" or any phrasing implying the provider caused the timing. Applies everywhere evidence appears (bank pages, `/developers` docs, future surfaces)
+
 ## Data Principles
 
 - Real-world reports only
@@ -286,6 +301,7 @@ This release starts with a full security pass of every API route and RLS policy 
 - Unknown is better than wrong
 - Show test dates clearly
 - Stale data should be marked stale
+- Evidence describes correlation, not causation — never phrase a report as proof that something (a bank, a rail, a payroll provider) caused an outcome
 
 ## Seed Routes
 
