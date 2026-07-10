@@ -142,7 +142,7 @@ export function SubmitEddReport(props: Props) {
           <div className={cn("block", !props.banks && "md:col-span-2")}>
             <label className="mb-2 block text-center text-sm font-medium text-slate-300">How early</label>
             <Select value={daysEarly} onValueChange={setDaysEarly}>
-              <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white">
+              <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent className="border-slate-800 bg-slate-950 text-white">
