@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BankSelect } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
@@ -138,18 +139,18 @@ export function SubmitEddReport(props: Props) {
 
           <div className={cn("block", !props.banks && "md:col-span-2")}>
             <label className="mb-2 block text-center text-sm font-medium text-slate-300">How early</label>
-            <select
-              value={daysEarly}
-              onChange={(e) => setDaysEarly(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-6 text-center text-white"
-            >
-              <option value="">Select</option>
-              {DAYS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <Select value={daysEarly} onValueChange={setDaysEarly}>
+              <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent className="border-slate-800 bg-slate-950 text-white">
+                {DAYS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-white focus:bg-slate-800 focus:text-white">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <button
