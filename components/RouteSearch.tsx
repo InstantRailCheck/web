@@ -1,14 +1,25 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
 import { Banknote } from "lucide-react";
 import { BankSelect, type Bank } from "@/components/BankSelect";
-import { getRouteIntelligence, RouteIntelligence } from "@/lib/routingEngine";
+import { RouteIntelligence } from "@/lib/routingEngine";
 import { EVIDENCE_LABELS, type EvidenceState } from "@/lib/routeConfidence";
 
+// Controlled — fromBank/toBank/result/loading are all owned by a parent
+// (HomeRouteChecker) so a submitted "Report this route" form can share the
+// same selection and refresh evidence in place without RouteSearch keeping
+// its own duplicate copy of that state.
 type RouteSearchProps = {
   bankCount: number;
+  fromBank: Bank | null;
+  toBank: Bank | null;
+  onFromBankChange: (bank: Bank | null) => void;
+  onToBankChange: (bank: Bank | null) => void;
+  onCheckRoute: () => void;
+  loading: boolean;
+  result: RouteIntelligence | null;
 };
 
 const INSTANT_RAILS = new Set(["RTP", "FedNow", "Visa Direct", "Mastercard Send"]);
@@ -85,27 +96,16 @@ function RailMeta({
   );
 }
 
-export function RouteSearch({ bankCount }: RouteSearchProps) {
-  const [fromBank, setFromBank] = useState<Bank | null>(null);
-  const [toBank, setToBank] = useState<Bank | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<RouteIntelligence | null>(null);
-
-  async function handleCheckRoute() {
-    if (!fromBank || !toBank || fromBank.id === toBank.id) {
-      setResult(null);
-      return;
-    }
-    setLoading(true);
-    setResult(null);
-    try {
-      const data = await getRouteIntelligence(fromBank.id, toBank.id);
-      setResult(data);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+export function RouteSearch({
+  bankCount,
+  fromBank,
+  toBank,
+  onFromBankChange,
+  onToBankChange,
+  onCheckRoute,
+  loading,
+  result,
+}: RouteSearchProps) {
   const instantRails = result?.rails.filter((r) => INSTANT_RAILS.has(r.rail)) ?? [];
   const fallbackRails = result?.rails.filter((r) => !INSTANT_RAILS.has(r.rail)) ?? [];
   const hasData = result && result.rails.length > 0;
@@ -124,7 +124,8 @@ export function RouteSearch({ bankCount }: RouteSearchProps) {
           <BankSelect
             label="From bank"
             placeholder="Search sender"
-            onChange={setFromBank}
+            initialBank={fromBank}
+            onChange={onFromBankChange}
             centerLabel
             centerText
           />
@@ -133,14 +134,15 @@ export function RouteSearch({ bankCount }: RouteSearchProps) {
           <BankSelect
             label="To bank"
             placeholder="Search receiver"
-            onChange={setToBank}
+            initialBank={toBank}
+            onChange={onToBankChange}
             centerLabel
             centerText
           />
         </div>
         <button
           type="button"
-          onClick={handleCheckRoute}
+          onClick={onCheckRoute}
           disabled={!fromBank || !toBank || fromBank.id === toBank.id}
           className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 md:row-start-2"
         >

@@ -2,19 +2,22 @@ export const dynamic = "force-dynamic";
 
 import { headers } from "next/headers";
 import { Hero } from "@/components/Hero";
-import { RouteSearch } from "@/components/RouteSearch";
+import { HomeRouteChecker } from "@/components/HomeRouteChecker";
 import { createClient } from "@/lib/supabase/server";
-import { SubmitRouteReport } from "@/components/SubmitRouteReport";
-import { SubmitEddReport } from "@/components/SubmitEddReport";
+import { getBankBySlug } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ auth_error?: string }>;
+  searchParams: Promise<{ auth_error?: string; from?: string; to?: string }>;
 }) {
-  const { auth_error } = await searchParams;
+  const { auth_error, from, to } = await searchParams;
+  const [initialFromBank, initialToBank] = await Promise.all([
+    from ? getBankBySlug(from) : Promise.resolve(null),
+    to ? getBankBySlug(to) : Promise.resolve(null),
+  ]);
   const supabase = await createClient();
   let bankCount = 0;
   let error: { message: string } | null = null;
@@ -80,11 +83,16 @@ export default async function Home({
               Supabase error: {error.message}
             </p>
           ) : (
-            <>
-              <RouteSearch bankCount={bankCount} />
-              <SubmitRouteReport />
-              <SubmitEddReport banks={true} />
-            </>
+            // Keyed on the resolved slugs (not the raw URL params) so a
+            // shared link or browser back/forward — which each arrive as a
+            // fresh server render with new initial banks — forces a clean
+            // remount instead of trying to resync already-mounted pickers.
+            <HomeRouteChecker
+              key={`${initialFromBank?.slug ?? ""}-${initialToBank?.slug ?? ""}`}
+              bankCount={bankCount}
+              initialFromBank={initialFromBank}
+              initialToBank={initialToBank}
+            />
           )}
         </div>
 

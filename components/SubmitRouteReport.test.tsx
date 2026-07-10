@@ -127,3 +127,58 @@ describe("SubmitRouteReport — same bank on both sides (general page)", () => {
     expect(insertMock).not.toHaveBeenCalled();
   });
 });
+
+describe("SubmitRouteReport — coordinated/prefilled mode (homepage route checker)", () => {
+  const PREFILLED_FROM = { id: "bank-from", slug: "from-bank", name: "From Bank" };
+  const PREFILLED_TO = { id: "bank-to", slug: "to-bank", name: "To Bank" };
+
+  it("keeps both sides as live, editable BankSelects showing the prefilled values", async () => {
+    render(<SubmitRouteReport initialFromBank={PREFILLED_FROM} initialToBank={PREFILLED_TO} />);
+    await waitFor(() => screen.getByText("Add real transfer outcomes to improve routing intelligence."));
+
+    expect(screen.getByRole("combobox", { name: "From bank" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "To bank" })).toBeInTheDocument();
+    expect(screen.getByText(PREFILLED_FROM.name)).toBeInTheDocument();
+    expect(screen.getByText(PREFILLED_TO.name)).toBeInTheDocument();
+    // Not the fixed-bank UI — no sender/receiver toggle should appear.
+    expect(screen.queryByRole("button", { name: "Sender" })).not.toBeInTheDocument();
+  });
+
+  it("preserves both selections after a successful submit and calls onSuccess", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn().mockResolvedValue(undefined);
+    render(<SubmitRouteReport initialFromBank={PREFILLED_FROM} initialToBank={PREFILLED_TO} onSuccess={onSuccess} />);
+    await waitFor(() => screen.getByText("Add real transfer outcomes to improve routing intelligence."));
+
+    await fillCommonFields(user);
+    await user.click(screen.getByRole("button", { name: "Submit Report" }));
+
+    await waitFor(() => expect(insertMock).toHaveBeenCalledTimes(1));
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ from_bank_id: PREFILLED_FROM.id, to_bank_id: PREFILLED_TO.id })
+    );
+    await waitFor(() => screen.getByText("Report submitted — thank you!"));
+
+    // Both sides still show the same banks — neither was cleared/remounted.
+    expect(screen.getByText(PREFILLED_FROM.name)).toBeInTheDocument();
+    expect(screen.getByText(PREFILLED_TO.name)).toBeInTheDocument();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not report a submit failure when onSuccess itself throws", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn().mockRejectedValue(new Error("refetch boom"));
+    render(<SubmitRouteReport initialFromBank={PREFILLED_FROM} initialToBank={PREFILLED_TO} onSuccess={onSuccess} />);
+    await waitFor(() => screen.getByText("Add real transfer outcomes to improve routing intelligence."));
+
+    await fillCommonFields(user);
+    await user.click(screen.getByRole("button", { name: "Submit Report" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    // The insert genuinely succeeded — that must stay reported as success,
+    // regardless of the parent's own follow-up failing.
+    expect(screen.getByText("Report submitted — thank you!")).toBeInTheDocument();
+    expect(screen.queryByText(/Submit failed/)).not.toBeInTheDocument();
+    expect(screen.queryByText("refetch boom")).not.toBeInTheDocument();
+  });
+});

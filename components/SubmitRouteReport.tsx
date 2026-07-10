@@ -12,8 +12,20 @@ import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
 type Props =
-  | { bankId?: undefined; bankName?: undefined }
-  | { bankId: string; bankName: string };
+  | { bankId: string; bankName: string }
+  | {
+      bankId?: undefined;
+      bankName?: undefined;
+      // Passed by a coordinating parent (the homepage route checker) that
+      // owns fromBank/toBank itself — when present (even as null), the
+      // parent is treated as the source of truth: a successful submission
+      // keeps both selections instead of clearing them, and onSuccess lets
+      // the parent refetch route evidence in place. Omit both entirely for
+      // the old standalone behavior (both sides start empty, clear on success).
+      initialFromBank?: Bank | null;
+      initialToBank?: Bank | null;
+      onSuccess?: () => void | Promise<void>;
+    };
 
 function today() {
   const d = new Date();
@@ -24,12 +36,30 @@ function today() {
 
 export function SubmitRouteReport(props: Props) {
   const fixedBank: Bank | null = props.bankId ? { id: props.bankId, slug: "", name: props.bankName } : null;
+  // A coordinating parent is present whenever it passed either prefill prop
+  // at all (even explicitly null) — that's the signal to keep selections
+  // after a successful submit instead of clearing them, and to call
+  // onSuccess so the parent can refetch route evidence in place.
+  let initialFromBank: Bank | null = null;
+  let initialToBank: Bank | null = null;
+  let onSuccessCallback: (() => void | Promise<void>) | undefined;
+  let coordinated = false;
+  if (props.bankId === undefined) {
+    initialFromBank = props.initialFromBank ?? null;
+    initialToBank = props.initialToBank ?? null;
+    onSuccessCallback = props.onSuccess;
+    coordinated = props.initialFromBank !== undefined || props.initialToBank !== undefined;
+  }
 
   const [user, setUser] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [fixedRole, setFixedRole] = useState<"from" | "to">("from");
-  const [fromBank, setFromBank] = useState<Bank | null>(fixedBank && fixedRole === "from" ? fixedBank : null);
-  const [toBank, setToBank] = useState<Bank | null>(fixedBank && fixedRole === "to" ? fixedBank : null);
+  const [fromBank, setFromBank] = useState<Bank | null>(
+    fixedBank && fixedRole === "from" ? fixedBank : initialFromBank
+  );
+  const [toBank, setToBank] = useState<Bank | null>(
+    fixedBank && fixedRole === "to" ? fixedBank : initialToBank
+  );
   const [railUsed, setRailUsed] = useState("");
   const [direction, setDirection] = useState("");
   const [status, setStatus] = useState("");
@@ -123,15 +153,19 @@ export function SubmitRouteReport(props: Props) {
 
       // On a bank-scoped page, keep the fixed side pinned so reporting
       // several routes for the same bank in a row doesn't require
-      // re-selecting it each time — only the searched side resets.
+      // re-selecting it each time — only the searched side resets. A
+      // coordinated parent (the homepage route checker) owns fromBank/
+      // toBank itself and expects the checked route to stay selected, so
+      // neither side resets there either.
       if (fixedBank) {
         if (fixedRole === "from") setToBank(null);
         else setFromBank(null);
-      } else {
+        setResetKey((k) => k + 1);
+      } else if (!coordinated) {
         setFromBank(null);
         setToBank(null);
+        setResetKey((k) => k + 1);
       }
-      setResetKey((k) => k + 1);
       setRailUsed("");
       setDirection("");
       setStatus("");
@@ -140,6 +174,17 @@ export function SubmitRouteReport(props: Props) {
       setSameDay(false);
       setNotes("");
       setSuccess(true);
+
+      if (onSuccessCallback) {
+        try {
+          await onSuccessCallback();
+        } catch (err) {
+          // The submission itself already succeeded — a failure in the
+          // parent's follow-up (e.g. refetching route evidence) must not
+          // be reported as a submit failure; the confirmation stays up.
+          console.error("onSuccess handler failed after a successful submission:", err);
+        }
+      }
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Submit failed");
@@ -152,7 +197,7 @@ export function SubmitRouteReport(props: Props) {
     <>
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
 
-      <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+      <div id="submit-route-report" className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <div className="relative">
           <div className="text-center">
             <h2 className="text-xl font-semibold">Submit Route Report</h2>
@@ -241,6 +286,7 @@ export function SubmitRouteReport(props: Props) {
                 key={`from-${resetKey}`}
                 label="From bank"
                 placeholder="Sender bank"
+                initialBank={initialFromBank}
                 onChange={setFromBank}
                 onAdd={handleAddBank}
                 centerLabel
@@ -260,6 +306,7 @@ export function SubmitRouteReport(props: Props) {
                 key={`to-${resetKey}`}
                 label="To bank"
                 placeholder="Receiver bank"
+                initialBank={initialToBank}
                 onChange={setToBank}
                 onAdd={handleAddBank}
                 centerLabel
