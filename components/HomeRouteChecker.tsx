@@ -6,7 +6,16 @@ import { RouteSearch } from "@/components/RouteSearch";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
 import type { Bank } from "@/components/BankSelect";
-import { getRouteIntelligence, type RouteIntelligence } from "@/lib/routingEngine";
+import type { RouteIntelligence } from "@/lib/routingEngine";
+
+// Route evidence includes attribution data (user_id) internally, so it's
+// only ever read server-side via the admin client — RLS denies public
+// SELECT on route_reports entirely. The browser must go through this public
+// API, never import lib/routingEngine directly (it's marked server-only).
+async function fetchRouteIntelligence(fromId: string, toId: string): Promise<RouteIntelligence> {
+  const res = await fetch(`/api/routes?from=${encodeURIComponent(fromId)}&to=${encodeURIComponent(toId)}`);
+  return res.json();
+}
 
 type Props = {
   bankCount: number;
@@ -39,7 +48,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
     setLoading(true);
     setResult(null);
     try {
-      const data = await getRouteIntelligence(from.id, to.id);
+      const data = await fetchRouteIntelligence(from.id, to.id);
       setResult(data);
     } finally {
       setLoading(false);
@@ -55,7 +64,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
   useEffect(() => {
     if (!shouldAutoFetch(initialFromBank, initialToBank)) return;
     let cancelled = false;
-    getRouteIntelligence(initialFromBank!.id, initialToBank!.id).then((data) => {
+    fetchRouteIntelligence(initialFromBank!.id, initialToBank!.id).then((data) => {
       if (!cancelled) {
         setResult(data);
         setLoading(false);

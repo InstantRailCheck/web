@@ -1,13 +1,14 @@
+import "server-only";
 import Link from "next/link";
 import { Banknote, Landmark, Zap } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { EDD_MIN_REPORTERS, dedupeEddReportsByReporterAndBank } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { normalizeForSearch } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
-const EDD_MIN_REPORTS = 2;
 
 function buildPageUrl(params: Record<string, string | undefined>, page: number) {
   const usp = new URLSearchParams();
@@ -29,7 +30,7 @@ export default async function BanksDirectoryPage({
   const { q, fednow, rtp, zelle, edd, page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   let query = supabase
     .from("banks")
     .select("id, slug, name, fednow_participant, rtp_participant, zelle_participant", { count: "exact" })
@@ -44,12 +45,13 @@ export default async function BanksDirectoryPage({
   // column on banks), so filtering means resolving qualifying bank IDs
   // first rather than a plain .eq() like the other three filters.
   if (edd === "true") {
-    const { data: eddRows } = await supabase.from("edd_reports").select("bank_id");
+    const { data: eddRows } = await supabase.from("edd_reports").select("bank_id, user_id, days_early, created_at");
+    const attributable = dedupeEddReportsByReporterAndBank(eddRows ?? []);
     const counts = new Map<string, number>();
-    for (const row of eddRows ?? []) {
+    for (const row of attributable) {
       counts.set(row.bank_id, (counts.get(row.bank_id) ?? 0) + 1);
     }
-    const qualifyingIds = [...counts.entries()].filter(([, c]) => c >= EDD_MIN_REPORTS).map(([id]) => id);
+    const qualifyingIds = [...counts.entries()].filter(([, c]) => c >= EDD_MIN_REPORTERS).map(([id]) => id);
     query = query.in("id", qualifyingIds.length > 0 ? qualifyingIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 

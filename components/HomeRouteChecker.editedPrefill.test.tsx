@@ -16,10 +16,20 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
-const getRouteIntelligenceMock = vi.fn();
-vi.mock("@/lib/routingEngine", () => ({
-  getRouteIntelligence: (...args: unknown[]) => getRouteIntelligenceMock(...args),
-}));
+// HomeRouteChecker fetches /api/routes rather than importing the (now
+// server-only) engine directly — mock fetch instead of the module.
+const routeApiMock = vi.fn();
+function mockFetch() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      const from = url.searchParams.get("from")!;
+      const to = url.searchParams.get("to")!;
+      return new Response(JSON.stringify(routeApiMock(from, to)), { status: 200 });
+    })
+  );
+}
 
 let capturedOnSuccess: ((route: { fromBank: unknown; toBank: unknown }) => void | Promise<void>) | null = null;
 vi.mock("@/components/SubmitRouteReport", () => ({
@@ -43,21 +53,22 @@ const EVIDENCE_CD = { rails: [{ rail: "ACH", evidence: { state: "observed_workin
 
 beforeEach(() => {
   pushMock.mockClear();
-  getRouteIntelligenceMock.mockReset();
+  routeApiMock.mockReset();
   capturedOnSuccess = null;
 });
 
 describe("HomeRouteChecker — editing the prefilled report before submitting", () => {
   it("refetches the actually-submitted route, not the originally checked one", async () => {
-    getRouteIntelligenceMock.mockImplementation((from: string, to: string) => {
-      if (from === BANK_A.id && to === BANK_B.id) return Promise.resolve(EVIDENCE_AB);
-      if (from === BANK_C.id && to === BANK_D.id) return Promise.resolve(EVIDENCE_CD);
-      return Promise.resolve({ rails: [] });
+    routeApiMock.mockImplementation((from: string, to: string) => {
+      if (from === BANK_A.id && to === BANK_B.id) return EVIDENCE_AB;
+      if (from === BANK_C.id && to === BANK_D.id) return EVIDENCE_CD;
+      return { rails: [] };
     });
+    mockFetch();
 
     render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
     await waitFor(() => screen.getByText(/Limited evidence/));
-    expect(getRouteIntelligenceMock).toHaveBeenCalledWith(BANK_A.id, BANK_B.id);
+    expect(routeApiMock).toHaveBeenCalledWith(BANK_A.id, BANK_B.id);
 
     // Simulate the user having edited the prefilled form to a different
     // route (C -> D) and successfully submitted it — SubmitRouteReport
@@ -65,7 +76,7 @@ describe("HomeRouteChecker — editing the prefilled report before submitting", 
     expect(capturedOnSuccess).not.toBeNull();
     await capturedOnSuccess!({ fromBank: BANK_C, toBank: BANK_D });
 
-    await waitFor(() => expect(getRouteIntelligenceMock).toHaveBeenCalledWith(BANK_C.id, BANK_D.id));
+    await waitFor(() => expect(routeApiMock).toHaveBeenCalledWith(BANK_C.id, BANK_D.id));
     await waitFor(() => screen.getByText(/Observed working/));
     // The stale A -> B evidence must be gone, replaced by C -> D's.
     expect(screen.queryByText(/Limited evidence/)).not.toBeInTheDocument();

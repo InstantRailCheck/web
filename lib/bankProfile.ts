@@ -1,5 +1,6 @@
+import "server-only";
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { dedupeToNewestPerReporter, type ReportStatus } from "@/lib/routeConfidence";
 
 const STALE_DAYS = 180;
@@ -51,15 +52,40 @@ export type EddEvidence = {
   hasMoreThanFive: boolean;
 };
 
-// Same threshold used for Visa Direct/Mastercard Send (lib/communityRails.ts)
-// — self-reported data with no official source needs more than one report
-// before it's trustworthy enough to show.
-const EDD_MIN_REPORTS = 2;
+// The single definition of "how many distinct reporters before EDD evidence
+// is trustworthy enough to show" — every EDD surface (this bank-profile
+// evidence, lib/communityRails.ts's ranked leaderboard, and the /banks
+// ?edd=true directory filter) must use this one constant, not its own copy,
+// or the three could silently drift to different thresholds. Deliberately
+// separate from communityRails.ts's own rail-ranking threshold and
+// timingLeaderboard.ts's sample-size threshold — those represent different
+// product claims and are allowed to diverge from this number.
+export const EDD_MIN_REPORTERS = 2;
 
 // A report of "more than 5 days early" is stored as this sentinel rather
 // than an unbounded exact count — matches the edd_reports.days_early check
 // constraint (0-6). Exported so the submission form's dropdown stays in sync.
 export const EDD_DAYS_SENTINEL = 6;
+
+export type EddReportRow = { bank_id: string; user_id: string | null; days_early: number; created_at: string };
+
+// Dedupes to each reporter's newest EDD report per bank (unit: user + bank —
+// distinct from the future provider-context unit of user + bank +
+// deposit_type + payroll_provider) and drops unattributed rows. Shared so
+// every EDD-consuming surface (this bank-profile evidence, the ranked
+// leaderboard in lib/communityRails.ts, and the /banks ?edd=true directory
+// filter) applies the identical integrity rule instead of each
+// re-implementing — and potentially getting wrong — its own version.
+export function dedupeEddReportsByReporterAndBank(rows: EddReportRow[]): EddReportRow[] {
+  const byBank = new Map<string, EddReportRow[]>();
+  for (const r of rows) {
+    if (!byBank.has(r.bank_id)) byBank.set(r.bank_id, []);
+    byBank.get(r.bank_id)!.push(r);
+  }
+  return Array.from(byBank.values()).flatMap((bankRows) =>
+    dedupeToNewestPerReporter(bankRows.map((r) => ({ ...r, userId: r.user_id, testedAt: r.created_at })))
+  );
+}
 
 export type BankProfile = {
   bank: {
@@ -108,7 +134,7 @@ const RAIL_DISPLAY_NAMES: Record<"fednow" | "rtp" | "zelle", string> = {
 };
 
 export async function getBankSlugById(id: string): Promise<string | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase.from("banks").select("slug").eq("id", id).maybeSingle();
   return data?.slug ?? null;
 }
@@ -118,7 +144,7 @@ export async function getBankSlugById(id: string): Promise<string | null> {
 // prefilling a picker from a shared link) — getBankProfileBySlug does 3
 // parallel table fetches plus aggregation and is the wrong tool for this.
 export async function getBankBySlug(slug: string): Promise<{ id: string; slug: string; name: string } | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data } = await supabase.from("banks").select("id, slug, name").eq("slug", slug).maybeSingle();
   return data ?? null;
 }
@@ -126,7 +152,7 @@ export async function getBankBySlug(slug: string): Promise<{ id: string; slug: s
 // Wrapped in React's cache() so generateMetadata and the page component
 // share one fetch per request instead of each triggering it independently.
 export const getBankProfileBySlug = cache(async (slug: string): Promise<BankProfile> => {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: bank } = await supabase
     .from("banks")
     .select("id, slug, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
@@ -139,7 +165,7 @@ export const getBankProfileBySlug = cache(async (slug: string): Promise<BankProf
 // Public API contract (/api/banks/:id) is stable and ID-based — kept
 // separate from the slug-based lookup the website itself uses.
 export async function getBankProfileById(id: string): Promise<BankProfile> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: bank } = await supabase
     .from("banks")
     .select("id, slug, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
@@ -160,7 +186,7 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
     return { bank: null, sending: [], receiving: [], railEvidence: EMPTY_RAIL_EVIDENCE, eddEvidence: null };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const [{ data: reports }, { data: history }, { data: eddRows }] = await Promise.all([
     supabase
       .from("route_reports")
@@ -174,22 +200,23 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
       .order("changed_at", { ascending: false }),
     supabase
       .from("edd_reports")
-      .select("days_early")
+      .select("bank_id, user_id, days_early, created_at")
       .eq("bank_id", bank.id),
   ]);
 
+  const attributableEddRows = dedupeEddReportsByReporterAndBank(eddRows ?? []);
   const eddEvidence: EddEvidence | null =
-    eddRows && eddRows.length >= EDD_MIN_REPORTS
+    attributableEddRows.length >= EDD_MIN_REPORTERS
       ? {
           avgDaysEarly:
             Math.round(
-              (eddRows.reduce((acc, r) => acc + r.days_early, 0) / eddRows.length) * 10
+              (attributableEddRows.reduce((acc, r) => acc + r.days_early, 0) / attributableEddRows.length) * 10
             ) / 10,
-          reportCount: eddRows.length,
+          reportCount: attributableEddRows.length,
           // The average would understate reality if any report used the
           // "more than 5" sentinel — flag it so the display can say "5.5+"
           // instead of implying an exact figure.
-          hasMoreThanFive: eddRows.some((r) => r.days_early === EDD_DAYS_SENTINEL),
+          hasMoreThanFive: attributableEddRows.some((r) => r.days_early === EDD_DAYS_SENTINEL),
         }
       : null;
 

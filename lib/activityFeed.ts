@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActivityItem =
   | { type: "bank_added"; id: string; bankId: string; bankSlug: string; bankName: string; createdAt: string }
@@ -16,7 +17,7 @@ export type ActivityItem =
     };
 
 export async function getActivityFeed(limit = 30): Promise<ActivityItem[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const [{ data: banks }, { data: reports }, { data: allSuccess }, { data: allBanks }] = await Promise.all([
     supabase

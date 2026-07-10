@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   computeRouteEvidence,
   dedupeToNewestPerReporter,
@@ -30,12 +30,15 @@ export type RouteIntelligence = {
   message?: string;
 };
 
+// Server-only: reads route_reports (including user_id, needed for
+// attribution) via the admin client, since RLS denies public SELECT on this
+// table entirely. Callers must go through /api/routes — never import this
+// directly from a client component (see components/HomeRouteChecker.tsx).
 export async function getRouteIntelligence(
   fromBankId: string,
-  toBankId: string,
-  supabaseClient?: SupabaseClient
+  toBankId: string
 ): Promise<RouteIntelligence> {
-  const supabase = supabaseClient ?? createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("route_reports")
     .select("rail_used, direction, status, settlement_time_minutes, tested_at, same_day, user_id")
