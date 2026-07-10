@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { getBankProfileBySlug, describeRailEvidence } from "@/lib/bankProfile";
+import { getBankProfileBySlug, getBankBySlug, describeRailEvidence } from "@/lib/bankProfile";
 import { ComparePicker } from "@/components/ComparePicker";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { formatPhone, telHref } from "@/lib/utils";
@@ -79,8 +78,6 @@ export default async function ComparePage({
   const { banks: banksParam } = await searchParams;
   const slugs = (banksParam ?? "").split(",").filter(Boolean).slice(0, 2);
 
-  const supabase = await createClient();
-
   const profiles = slugs.length === 2 ? await Promise.all(slugs.map((slug) => getBankProfileBySlug(slug))) : null;
   const [a, b] = profiles ?? [null, null];
 
@@ -91,8 +88,7 @@ export default async function ComparePage({
   let initialBankA = a?.bank ? { id: a.bank.id, slug: a.bank.slug, name: a.bank.name } : null;
   const initialBankB = b?.bank ? { id: b.bank.id, slug: b.bank.slug, name: b.bank.name } : null;
   if (!initialBankA && slugs.length >= 1) {
-    const { data } = await supabase.from("banks").select("id, slug, name").eq("slug", slugs[0]).maybeSingle();
-    initialBankA = data ?? null;
+    initialBankA = await getBankBySlug(slugs[0]);
   }
 
   // Merges sending + receiving so community-reported rails with no official

@@ -113,6 +113,16 @@ export async function getBankSlugById(id: string): Promise<string | null> {
   return data?.slug ?? null;
 }
 
+// Lightweight lookup for callers that just need to resolve a URL slug into
+// the minimal {id, slug, name} shape BankSelect's Bank type needs (e.g.
+// prefilling a picker from a shared link) — getBankProfileBySlug does 3
+// parallel table fetches plus aggregation and is the wrong tool for this.
+export async function getBankBySlug(slug: string): Promise<{ id: string; slug: string; name: string } | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("banks").select("id, slug, name").eq("slug", slug).maybeSingle();
+  return data ?? null;
+}
+
 // Wrapped in React's cache() so generateMetadata and the page component
 // share one fetch per request instead of each triggering it independently.
 export const getBankProfileBySlug = cache(async (slug: string): Promise<BankProfile> => {
