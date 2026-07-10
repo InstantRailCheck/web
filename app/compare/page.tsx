@@ -37,6 +37,17 @@ function EddCell({ evidence }: { evidence: { avgDaysEarly: number; reportCount: 
   );
 }
 
+type Profile = Awaited<ReturnType<typeof getBankProfileBySlug>>;
+
+function findRail(profile: Profile, rail: string) {
+  return profile.sending.find((r) => r.rail === rail) ?? profile.receiving.find((r) => r.rail === rail);
+}
+
+// These have no official participant directory (unlike FedNow/RTP/Zelle), so
+// unlike those, they'd otherwise only appear once someone actually reports
+// on them — show them as always-present rows so the comparison is consistent.
+const ALWAYS_SHOWN_RAILS = ["Visa Direct", "Mastercard Send"];
+
 export default async function ComparePage({
   searchParams,
 }: {
@@ -63,7 +74,7 @@ export default async function ComparePage({
             ...b.sending.map((r) => r.rail),
             ...b.receiving.map((r) => r.rail),
           ])
-        )
+        ).filter((rail) => !ALWAYS_SHOWN_RAILS.includes(rail))
       : [];
 
   return (
@@ -136,14 +147,25 @@ export default async function ComparePage({
                     <EddCell evidence={b.eddEvidence} />
                   </td>
                 </tr>
+                {ALWAYS_SHOWN_RAILS.map((rail) => (
+                  <tr key={rail}>
+                    <td className="px-5 py-3 text-slate-500">{rail}</td>
+                    <td className="px-5 py-3">
+                      <RailCell rail={findRail(a, rail)} />
+                    </td>
+                    <td className="px-5 py-3">
+                      <RailCell rail={findRail(b, rail)} />
+                    </td>
+                  </tr>
+                ))}
                 {rails.map((rail) => (
                   <tr key={rail}>
                     <td className="px-5 py-3 text-slate-500">{rail}</td>
                     <td className="px-5 py-3">
-                      <RailCell rail={a.sending.find((r) => r.rail === rail) ?? a.receiving.find((r) => r.rail === rail)} />
+                      <RailCell rail={findRail(a, rail)} />
                     </td>
                     <td className="px-5 py-3">
-                      <RailCell rail={b.sending.find((r) => r.rail === rail) ?? b.receiving.find((r) => r.rail === rail)} />
+                      <RailCell rail={findRail(b, rail)} />
                     </td>
                   </tr>
                 ))}
