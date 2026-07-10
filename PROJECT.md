@@ -275,6 +275,10 @@ This release starts with a full security pass of every API route and RLS policy 
 **Cosmetic**
 - Centered the bank info block (name, website, address, phone) and the rail evidence/sending/receiving card rows on bank profile pages — previously grid-based layouts left a lopsided-looking row whenever a bank had fewer than the maximum number of cards
 
+## Version 5.0.1 (v5.0.1 — shipped July 10 2026)
+
+- Centered the "Sending from"/"Receiving into" section headers on bank profile pages, missed in v5.0.0's card-centering pass
+
 ## Data Principles
 
 - Real-world reports only
