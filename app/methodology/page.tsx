@@ -1,5 +1,3 @@
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
-
 export const dynamic = "force-static";
 
 export default function MethodologyPage() {
@@ -104,8 +102,6 @@ export default function MethodologyPage() {
             </p>
           </section>
         </div>
-
-        <SiteFooterLinks />
       </div>
     </main>
   );

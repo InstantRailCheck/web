@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
 
 type Bank = {
@@ -110,8 +109,6 @@ export default async function Home({
 
           </div>
         </section>
-
-        <SiteFooterLinks />
 
       </div>
     </main>

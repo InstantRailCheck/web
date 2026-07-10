@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SiteNavLinks } from "@/components/SiteNavLinks";
 
 export function Hero() {
   return (
@@ -31,6 +32,10 @@ export function Hero() {
         <p className="mt-1 m-0 text-base leading-7 text-slate-300 lg:hidden">
           Check RTP, FedNow, ACH &amp; wire compatibility.
         </p>
+
+        <div className="mt-2">
+          <SiteNavLinks />
+        </div>
 
         <div className="mt-3 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a

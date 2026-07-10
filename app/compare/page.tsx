@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getBankProfileBySlug } from "@/lib/bankProfile";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { ComparePicker } from "@/components/ComparePicker";
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { formatPhone, telHref } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -205,8 +204,6 @@ export default async function ComparePage({
             </table>
           </div>
         )}
-
-        <SiteFooterLinks />
       </div>
     </main>
   );

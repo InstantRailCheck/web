@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getTimingLeaderboard } from "@/lib/timingLeaderboard";
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +52,6 @@ export default async function TimingLeaderboardPage() {
             ))}
           </div>
         )}
-
-        <SiteFooterLinks />
       </div>
     </main>
   );

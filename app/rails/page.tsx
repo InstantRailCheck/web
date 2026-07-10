@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { Banknote, Clock, Landmark, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCommunityReportedBanks, getEddRankedBanks, type CommunityRailEntry, type EddRankedEntry } from "@/lib/communityRails";
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -225,8 +224,6 @@ export default async function RailsExplorerPage() {
             <EddColumn entries={eddRanked} />
           </div>
         </div>
-
-        <SiteFooterLinks />
       </div>
     </main>
   );

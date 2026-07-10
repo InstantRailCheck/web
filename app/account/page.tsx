@@ -1,5 +1,4 @@
 import { PasskeyManager } from "@/components/PasskeyManager";
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +14,6 @@ export default function AccountPage() {
         <div className="mt-6">
           <PasskeyManager />
         </div>
-
-        <SiteFooterLinks />
       </div>
     </main>
   );

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getActivityFeed } from "@/lib/activityFeed";
-import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -78,8 +77,6 @@ export default async function ChangelogPage() {
             ))}
           </div>
         )}
-
-        <SiteFooterLinks />
       </div>
     </main>
   );
