@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SiteNavLinks } from "@/components/SiteNavLinks";
@@ -16,11 +17,12 @@ export function Header() {
   return (
     <header className="flex w-full flex-col items-center gap-4 px-6 py-4">
       <Link href="/" className="inline-flex items-center">
-        <img
+        <Image
           src="/logo.svg"
           alt="InstantRailCheck"
           width={680}
           height={153}
+          unoptimized
           className="h-20 w-auto"
         />
       </Link>

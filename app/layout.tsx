@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "InstantRailCheck | Check RTP, FedNow & Bank Transfer Compatibility",
   description:
     "Check whether banks and credit unions support RTP, FedNow, ACH, wire transfers, and other payment rails before sending money.",

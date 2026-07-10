@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { SiteNavLinks } from "@/components/SiteNavLinks";
 
@@ -6,11 +7,13 @@ export function Hero() {
     <section className="mx-auto flex w-full max-w-5xl flex-col items-center px-6 pt-1 pb-2 text-center">
       <div className="mb-1 flex w-full justify-center">
         <Link href="/">
-          <img
+          <Image
             src="/logo.svg"
             alt="InstantRailCheck"
             width={680}
             height={153}
+            unoptimized
+            priority
             className="block h-auto w-[520px] max-w-[90vw] md:w-[560px]"
           />
         </Link>
