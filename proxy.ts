@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Nonce-based CSP requires a fresh value per request and must be threaded
 // through both the request (so Next.js can apply it to framework-generated
 // inline scripts/styles during rendering) and the response.
-function buildCspHeader(): { nonce: string; value: string } {
+export function buildCspHeader(): { nonce: string; value: string } {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
 
