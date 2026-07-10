@@ -135,12 +135,12 @@ export function SubmitEddReport(props: Props) {
             />
           )}
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-300">How early</label>
+          <div className="flex flex-col items-center gap-1">
+            <label className="text-center text-sm font-medium text-slate-300">How early</label>
             <select
               value={daysEarly}
               onChange={(e) => setDaysEarly(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+              className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-white"
             >
               <option value="">Select</option>
               {DAYS_OPTIONS.map((opt) => (
