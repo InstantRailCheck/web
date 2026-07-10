@@ -178,31 +178,36 @@ export function SubmitRouteReport(props: Props) {
         ) : (
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {fixedBank && (
-              <div className="flex justify-center gap-2 md:col-span-2">
-                <button
-                  type="button"
-                  onClick={() => handleRoleToggle("from")}
-                  className={cn(
-                    "rounded-full border px-4 py-1.5 text-sm font-medium transition",
-                    fixedRole === "from"
-                      ? "border-blue-500 bg-blue-500/10 text-blue-300"
-                      : "border-slate-700 text-slate-400 hover:border-slate-600"
-                  )}
-                >
-                  {fixedBank.name} is sending
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRoleToggle("to")}
-                  className={cn(
-                    "rounded-full border px-4 py-1.5 text-sm font-medium transition",
-                    fixedRole === "to"
-                      ? "border-blue-500 bg-blue-500/10 text-blue-300"
-                      : "border-slate-700 text-slate-400 hover:border-slate-600"
-                  )}
-                >
-                  {fixedBank.name} is receiving
-                </button>
+              <div className="flex flex-col items-center gap-2 md:col-span-2">
+                <span className="text-sm font-medium text-slate-300">
+                  In this transfer, was {fixedBank.name} the sender or the receiver?
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleRoleToggle("from")}
+                    className={cn(
+                      "rounded-full border px-4 py-1.5 text-sm font-medium transition",
+                      fixedRole === "from"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                        : "border-slate-700 text-slate-400 hover:border-slate-600"
+                    )}
+                  >
+                    Sender
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRoleToggle("to")}
+                    className={cn(
+                      "rounded-full border px-4 py-1.5 text-sm font-medium transition",
+                      fixedRole === "to"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                        : "border-slate-700 text-slate-400 hover:border-slate-600"
+                    )}
+                  >
+                    Receiver
+                  </button>
+                </div>
               </div>
             )}
 
