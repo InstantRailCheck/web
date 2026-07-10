@@ -33,8 +33,8 @@ export function ComparePicker({ banks, initialSlugs }: Props) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
       <div className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-        <BankSelect label="Bank A" placeholder="Select a bank" banks={banks} value={aId} onChange={setAId} centerLabel centerText />
-        <BankSelect label="Bank B" placeholder="Select a bank" banks={banks} value={bId} onChange={setBId} centerLabel centerText />
+        <BankSelect label="First bank" placeholder="Select a bank" banks={banks} value={aId} onChange={setAId} centerLabel centerText />
+        <BankSelect label="Second bank" placeholder="Select a bank" banks={banks} value={bId} onChange={setBId} centerLabel centerText />
         <button
           type="button"
           onClick={handleCompare}
