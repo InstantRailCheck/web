@@ -28,3 +28,4 @@ the repository can lag behind very recent work.
 - [0001 — Conservative Institution Name Matching](0001-conservative-institution-name-matching.md)
 - [0002 — Webhook SSRF Protection and Signed Delivery](0002-webhook-ssrf-protection.md)
 - [0003 — Nonce-Based Content Security Policy](0003-nonce-based-csp.md)
+- [0004 — Public API Subdomain and Legacy API Redirects](0004-public-api-subdomain.md)
