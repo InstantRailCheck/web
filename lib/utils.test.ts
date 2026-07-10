@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPhone, slugify } from "./utils";
+import { formatPhone, slugify, telHref } from "./utils";
 
 describe("slugify", () => {
   it("lowercases and joins words with dashes", () => {
@@ -67,5 +67,28 @@ describe("formatPhone", () => {
 
   it("returns null for null input", () => {
     expect(formatPhone(null)).toBeNull();
+  });
+});
+
+describe("telHref", () => {
+  it("builds a tel: URI with a +1 prefix from a 10-digit number", () => {
+    expect(telHref("2125551234")).toBe("tel:+12125551234");
+  });
+
+  it("builds a tel: URI from an 11-digit number with a leading 1", () => {
+    expect(telHref("12125551234")).toBe("tel:+12125551234");
+  });
+
+  it("strips non-digit characters before building the URI", () => {
+    expect(telHref("(212) 555-1234")).toBe("tel:+12125551234");
+  });
+
+  it("returns null if the number isn't 10 or 11 digits", () => {
+    expect(telHref("555-1234")).toBeNull();
+    expect(telHref("not a phone number")).toBeNull();
+  });
+
+  it("returns null for null input", () => {
+    expect(telHref(null)).toBeNull();
   });
 });

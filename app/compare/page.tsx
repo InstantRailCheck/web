@@ -4,7 +4,7 @@ import { getBankProfileBySlug } from "@/lib/bankProfile";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { ComparePicker } from "@/components/ComparePicker";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
-import { formatPhone } from "@/lib/utils";
+import { formatPhone, telHref } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +20,16 @@ function RailCell({ rail }: { rail: { successRate: number; avgTime: number | nul
         {rail.isStale ? ", stale" : ""})
       </span>
     </span>
+  );
+}
+
+function PhoneCell({ phone }: { phone: string | null }) {
+  const href = telHref(phone);
+  if (!href) return <span className="text-slate-600">—</span>;
+  return (
+    <a href={href} className="hover:text-slate-300 transition">
+      {formatPhone(phone)}
+    </a>
   );
 }
 
@@ -138,8 +148,12 @@ export default async function ComparePage({
                 </tr>
                 <tr>
                   <td className="px-5 py-3 text-slate-500">Phone</td>
-                  <td className="px-5 py-3">{formatPhone(a.bank.phone) ?? <span className="text-slate-600">—</span>}</td>
-                  <td className="px-5 py-3">{formatPhone(b.bank.phone) ?? <span className="text-slate-600">—</span>}</td>
+                  <td className="px-5 py-3">
+                    <PhoneCell phone={a.bank.phone} />
+                  </td>
+                  <td className="px-5 py-3">
+                    <PhoneCell phone={b.bank.phone} />
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-5 py-3 text-slate-500">FedNow</td>

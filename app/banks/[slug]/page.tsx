@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Banknote, CalendarCheck, Clock, Landmark, Zap } from "lucide-react";
 import { getBankProfileBySlug, getBankSlugById, type RailEvidence, type EddEvidence } from "@/lib/bankProfile";
-import { formatPhone } from "@/lib/utils";
+import { formatPhone, telHref } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
@@ -228,7 +228,11 @@ export default async function BankProfilePage({
             <p className="mt-1 text-sm text-slate-400">{profile.bank.address}</p>
           )}
           {profile.bank.phone && (
-            <p className="mt-1 text-sm text-slate-400">{formatPhone(profile.bank.phone)}</p>
+            <p className="mt-1 text-sm text-slate-400">
+              <a href={telHref(profile.bank.phone) ?? undefined} className="hover:text-slate-300 transition">
+                {formatPhone(profile.bank.phone)}
+              </a>
+            </p>
           )}
           {(profile.bank.website || profile.bank.address || profile.bank.phone) && (
             <p className="mt-1 text-xs text-slate-600">
