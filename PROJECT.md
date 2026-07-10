@@ -279,14 +279,97 @@ This release starts with a full security pass of every API route and RLS policy 
 
 - Centered the "Sending from"/"Receiving into" section headers on bank profile pages, missed in v5.0.0's card-centering pass
 
-## Version 6.0 Features (v6.0.0–v6.0.2 — shipped July 10 2026)
+## Version 5.0.2–5.0.3 (v5.0.2–v5.0.3 — shipped July 9 2026)
+
+- v5.0.2: housekeeping only — synced `package-lock.json`'s version field to `package.json` (no functional change)
+- v5.0.3: centered the "No reports yet" empty state on bank pages
+
+## Version 5.1 Features (v5.1.0–v5.1.3 — shipped July 9 2026)
+
+**Compare page depth**
+- Added Early Direct Deposit and community-reported rail (Visa Direct, Mastercard Send) rows to the bank comparison table, always shown (not just when data exists) so the two banks' row sets never differ
+- Reordered rows so Visa/Mastercard follow the three officially-verified rails, with EDD last
+- Bank website is now clickable on the compare page, matching the profile page
+
+## Version 5.2 Features (v5.2.0–v5.2.2 — shipped July 9 2026)
+
+**Contact info polish**
+- Phone numbers are tap-to-call (`tel:` links) on both bank profile and compare pages
+- Guarded against rendering an `href`-less `<a>` for a malformed phone number
+- Renamed compare picker labels from "Bank A"/"Bank B" to "First bank"/"Second bank"
+
+## Version 5.3 (v5.3.0 — shipped July 9 2026)
+
+- Added non-affiliation disclaimers to `/methodology` and `/terms` — the site isn't affiliated with any bank, FedNow, RTP, Zelle, Visa, or Mastercard
+
+## Version 5.4 (v5.4.0–v5.4.1 — shipped July 9 2026)
+
+- Moved site nav to the top of every page (previously only a footer); Privacy/Terms links stay in the footer on `/terms` and `/privacy` specifically
+- v5.4.1: corrected a version-tagging mistake (a commit had been tagged `v5.5.0` in error; retagged `v5.4.1`)
+
+## Version 5.5 Features (v5.5.0–v5.5.4 — shipped July 9 2026)
+
+**Nav and header visual pass**
+- Site nav links restyled as buttons instead of arrow-suffixed text links
+- Header logo enlarged (h-16 → h-28), one step below the homepage hero logo
+- Added "Submit report" as the first nav link, pointing to `/#search`
+- Kept nav links on one line instead of wrapping on narrower viewports
+- Centered the "Check a transfer route" heading over the dropdowns rather than the button
+
+## Version 5.6 (v5.6.0–v5.6.2 — shipped July 9 2026)
+
+- Swapped "wire" for "Zelle" in the homepage's "How it works" copy (more representative of common use)
+- Fixed a page-wide horizontal scroll on mobile caused by the homepage nav, plus a grid layout regression from the prior release's heading-centering change
+- Shrunk the header logo (h-28 → h-20) to fix visible softness at the larger size — later fully resolved in v5.7.0 by switching to a vector asset
+
+## Version 5.7 Features (v5.7.0–v5.7.3 — shipped July 9 2026)
+
+**Vector logo and full home-screen icon set**
+- Replaced the raster logo/favicon with vector versions (`logo.svg`/`favicon.svg`), resolving the header-logo softness noted in v5.6.2 — the h-20 header size is no longer a hard ceiling
+- Regenerated `app/favicon.ico` from the new logo (the old one had survived untouched since before the redesign)
+- Added `apple-touch-icon` for iOS "Add to Home Screen" and fixed Android's version of the same via the real manifest route
+- Removed now-unused static logo assets; updated `README.md` to match the site's actual current features and schema
+
+## Version 5.8 Features (v5.8.0–v5.8.1 — shipped July 9–10 2026)
+
+**Bank search overhaul**
+- Replaced the embedded full bank directory (shipped to every client) with a debounced, API-backed search (`/api/bank-search`) plus loading feedback — avoids re-hitting the earlier 1000-row/4,671-bank scale problems on the client
+- Fixed a punctuation-sensitive search bug (e.g. "Chase" not matching "Chase Bank, N.A." style names) on the homepage first, then found and fixed the identical bug on `/banks` and `/api/banks`
+
+## Version 5.9 Features (v5.9.0–v5.9.1 — shipped July 10 2026)
+
+**Route reports from bank pages + form consistency pass**
+- Route report submission is now available directly from individual bank profile pages, not just the homepage
+- Labeled the sender/receiver toggle explicitly for accessibility
+- A long visual-consistency pass across `Select`, `BankSelect`, and the date picker: matched heights, corner radii, font weight, and placeholder contrast; centered every label/control in Submit Route Report and the homepage EDD form; replaced the native `<select>` with shadcn's `Select` and the native date `<input>` with a custom `DatePicker` for real style parity across browsers
+- v5.9.1: fixed report-submission bugs surfaced by new component tests, plus a residual `DatePicker` box-height mismatch against sibling fields
+
+## Version 6.0.1 Features (v6.0.1 — shipped July 10 2026)
+
+**Breaking API change: evidence states replace confidence/success-rate**
+- `/routes`' `confidence` (a raw report-count threshold reaching HIGH/MEDIUM/LOW from as few as one unattributed or repeat-reporter report) and every rail's `successRate` are removed. Replaced by `lib/routeConfidence.ts`: exclude unattributed (`user_id` null) reports, keep only each reporter's newest report per route+rail, classify the remainder into one of 7 evidence states within a 180-day freshness window. A route/rail with no attributable evidence is simply absent from the response ("blank over wrong"), not shown with a placeholder
+- `lib/bankProfile.ts`'s per-rail `successRate` (bank pages, compare page, `/banks/:id`) had the identical raw-count flaw — replaced with the same descriptive evidence approach (attributable/successful/delayed/unsuccessful counts, distinct routes, latest observation date)
+- `X-Api-Version` response header bumped to 6; evidence states and the removed/replaced fields documented on `/developers`
+
+**Community contribution loop**
+- A route search with no attributable evidence now offers a clear path to become the first reporter; a checked route is shareable/bookmarkable via `?from=<slug>&to=<slug>`
+- New `HomeRouteChecker.tsx` orchestrator centrally owns the homepage's from/to/result/loading state (previously split, uncoordinated, across `RouteSearch` and `SubmitRouteReport`); `SubmitRouteReport` gained a coordinated/prefilled mode that stays fully editable and preserves selections after a successful submit
+
+**Other**
+- Accessibility: associated form labels with their controls, added `aria-pressed` to the sender/receiver role toggle
+- Added `Organization` JSON-LD structured data with logo, for Google knowledge panels
+- Fixed unreadable first-option text when a `Select` dropdown opens
+- CI: pinned `@swc/helpers` to resolve an `npm ci` lockfile conflict, bumped `actions/checkout`/`actions/setup-node` to clear a Node 20 deprecation warning, fixed remaining lint warnings
+
+## Version 6.0.2 (v6.0.2 — shipped July 10 2026)
+
+- Fixed two state bugs in the new contribution loop, found via ChatGPT's review of v6.0.1: changing a bank selection left the previous route's evidence visible on screen instead of clearing immediately, and editing a prefilled report's banks before submitting caused the parent to refetch the stale original route instead of the one actually submitted
+
+## Version 6.1 Features (v6.1.0 — shipped July 10 2026)
 
 **Security: server-only reads + RLS lockdown**
 - `route_reports`/`edd_reports` were being read directly from the browser with the anon key; moved every consumer to a server-only admin-client read path and fixed 5 raw-count/no-dedup aggregation bugs found in the resulting audit
 - Dropped all non-INSERT RLS policies on both tables (including an undocumented UPDATE/DELETE policy created outside migration tracking) — the privacy boundary is now enforced by the database itself, not just by what the UI chooses to query
-- v6.0.1/v6.0.2: fixed two state bugs in the contribution loop (stale route evidence after changing bank, wrong-route refetch when editing a prefilled report)
-
-## Version 6.1 Features (v6.1.0 — shipped July 10 2026)
 
 **Payroll context for Early Direct Deposit**
 - Reporters can optionally note the deposit type and payroll provider/platform behind an early deposit (`lib/eddContext.ts` is the canonical value list, shared by the form, aggregation, and docs)
