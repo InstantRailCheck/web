@@ -6,17 +6,25 @@ import { BankSelect, type Bank } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
 import { addBank } from "@/lib/actions/addBank";
+import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
+
+type Props =
+  | { bankId?: undefined; bankName?: undefined }
+  | { bankId: string; bankName: string };
 
 function today() {
   return new Date().toISOString().split("T")[0];
 }
 
-export function SubmitRouteReport() {
+export function SubmitRouteReport(props: Props) {
+  const fixedBank: Bank | null = props.bankId ? { id: props.bankId, slug: "", name: props.bankName } : null;
+
   const [user, setUser] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [fromBank, setFromBank] = useState<Bank | null>(null);
-  const [toBank, setToBank] = useState<Bank | null>(null);
+  const [fixedRole, setFixedRole] = useState<"from" | "to">("from");
+  const [fromBank, setFromBank] = useState<Bank | null>(fixedBank && fixedRole === "from" ? fixedBank : null);
+  const [toBank, setToBank] = useState<Bank | null>(fixedBank && fixedRole === "to" ? fixedBank : null);
   const [railUsed, setRailUsed] = useState("");
   const [direction, setDirection] = useState("");
   const [status, setStatus] = useState("");
@@ -39,6 +47,18 @@ export function SubmitRouteReport() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  function handleRoleToggle(role: "from" | "to") {
+    if (!fixedBank || role === fixedRole) return;
+    setFixedRole(role);
+    if (role === "from") {
+      setFromBank(fixedBank);
+      setToBank((prev) => (prev?.id === fixedBank.id ? null : prev));
+    } else {
+      setToBank(fixedBank);
+      setFromBank((prev) => (prev?.id === fixedBank.id ? null : prev));
+    }
+  }
 
   async function handleAddBank(name: string): Promise<Bank> {
     const result = await addBank(name);
@@ -86,8 +106,16 @@ export function SubmitRouteReport() {
 
       if (insertError) throw insertError;
 
-      setFromBank(null);
-      setToBank(null);
+      // On a bank-scoped page, keep the fixed side pinned so reporting
+      // several routes for the same bank in a row doesn't require
+      // re-selecting it each time — only the searched side resets.
+      if (fixedBank) {
+        if (fixedRole === "from") setToBank(null);
+        else setFromBank(null);
+      } else {
+        setFromBank(null);
+        setToBank(null);
+      }
       setRailUsed("");
       setDirection("");
       setStatus("");
@@ -113,7 +141,9 @@ export function SubmitRouteReport() {
           <div className="text-center">
             <h2 className="text-xl font-semibold">Submit Route Report</h2>
             <p className="text-sm text-slate-400">
-              Add real transfer outcomes to improve routing intelligence.
+              {fixedBank
+                ? `Add a real transfer outcome involving ${fixedBank.name}.`
+                : "Add real transfer outcomes to improve routing intelligence."}
             </p>
           </div>
           {user && (
@@ -147,19 +177,66 @@ export function SubmitRouteReport() {
           </div>
         ) : (
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <BankSelect
-              label="From bank"
-              placeholder="Sender bank"
-              onChange={setFromBank}
-              onAdd={handleAddBank}
-            />
+            {fixedBank && (
+              <div className="flex justify-center gap-2 md:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => handleRoleToggle("from")}
+                  className={cn(
+                    "rounded-full border px-4 py-1.5 text-sm font-medium transition",
+                    fixedRole === "from"
+                      ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                      : "border-slate-700 text-slate-400 hover:border-slate-600"
+                  )}
+                >
+                  {fixedBank.name} is sending
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRoleToggle("to")}
+                  className={cn(
+                    "rounded-full border px-4 py-1.5 text-sm font-medium transition",
+                    fixedRole === "to"
+                      ? "border-blue-500 bg-blue-500/10 text-blue-300"
+                      : "border-slate-700 text-slate-400 hover:border-slate-600"
+                  )}
+                >
+                  {fixedBank.name} is receiving
+                </button>
+              </div>
+            )}
 
-            <BankSelect
-              label="To bank"
-              placeholder="Receiver bank"
-              onChange={setToBank}
-              onAdd={handleAddBank}
-            />
+            {fixedBank && fixedRole === "from" ? (
+              <div className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-300">From bank</span>
+                <div className="flex w-full items-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-300">
+                  {fixedBank.name}
+                </div>
+              </div>
+            ) : (
+              <BankSelect
+                label="From bank"
+                placeholder="Sender bank"
+                onChange={setFromBank}
+                onAdd={handleAddBank}
+              />
+            )}
+
+            {fixedBank && fixedRole === "to" ? (
+              <div className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-300">To bank</span>
+                <div className="flex w-full items-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-300">
+                  {fixedBank.name}
+                </div>
+              </div>
+            ) : (
+              <BankSelect
+                label="To bank"
+                placeholder="Receiver bank"
+                onChange={setToBank}
+                onAdd={handleAddBank}
+              />
+            )}
 
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-slate-300">Rail used</label>

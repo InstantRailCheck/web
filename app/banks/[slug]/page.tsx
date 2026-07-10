@@ -6,6 +6,7 @@ import { Banknote, CalendarCheck, Clock, Landmark, Zap } from "lucide-react";
 import { getBankProfileBySlug, getBankSlugById, type RailEvidence, type EddEvidence } from "@/lib/bankProfile";
 import { formatPhone, telHref } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
+import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
@@ -296,6 +297,7 @@ export default async function BankProfilePage({
         {profile.eddEvidence && <EddCard evidence={profile.eddEvidence} bankName={profile.bank.name} />}
 
         <SuggestCorrection bankId={profile.bank.id} />
+        <SubmitRouteReport bankId={profile.bank.id} bankName={profile.bank.name} />
         <SubmitEddReport bankId={profile.bank.id} bankName={profile.bank.name} />
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
