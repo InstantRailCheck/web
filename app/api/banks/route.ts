@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { apiJson, apiCsv, apiCorsPreflight, withApiProtection } from "@/lib/apiResponse";
 import { toCsv } from "@/lib/csv";
+import { normalizeForSearch } from "@/lib/utils";
 
 export function OPTIONS() {
   return apiCorsPreflight();
@@ -18,7 +19,7 @@ export const GET = withApiProtection(async (request: NextRequest) => {
     .order("name");
 
   if (q) {
-    query = query.ilike("name", `%${q}%`);
+    query = query.ilike("name_normalized", `%${normalizeForSearch(q)}%`);
   }
 
   const { data, error } = await query;

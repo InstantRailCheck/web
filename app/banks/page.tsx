@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Banknote, Landmark, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { normalizeForSearch } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function BanksDirectoryPage({
     .select("id, slug, name, fednow_participant, rtp_participant, zelle_participant", { count: "exact" })
     .order("name", { ascending: true });
 
-  if (q) query = query.ilike("name", `%${q}%`);
+  if (q) query = query.ilike("name_normalized", `%${normalizeForSearch(q)}%`);
   if (fednow === "true") query = query.eq("fednow_participant", true);
   if (rtp === "true") query = query.eq("rtp_participant", true);
   if (zelle === "true") query = query.eq("zelle_participant", true);
