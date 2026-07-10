@@ -97,36 +97,40 @@ export function RouteSearch({ banks }: RouteSearchProps) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-left shadow-2xl">
       <form className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-        <div className="text-center md:col-span-2">
+        <div className="text-center md:col-span-2 md:row-start-1">
           <h2 className="text-xl font-semibold">Check a transfer route</h2>
           <p className="mt-1 text-sm text-slate-400">
             Choose a sending bank and receiving bank.
           </p>
         </div>
 
-        <BankSelect
-          label="From bank"
-          placeholder="Search sender"
-          banks={banks}
-          value={fromBankId}
-          onChange={setFromBankId}
-          centerLabel
-          centerText
-        />
-        <BankSelect
-          label="To bank"
-          placeholder="Search receiver"
-          banks={banks}
-          value={toBankId}
-          onChange={setToBankId}
-          centerLabel
-          centerText
-        />
+        <div className="md:row-start-2">
+          <BankSelect
+            label="From bank"
+            placeholder="Search sender"
+            banks={banks}
+            value={fromBankId}
+            onChange={setFromBankId}
+            centerLabel
+            centerText
+          />
+        </div>
+        <div className="md:row-start-2">
+          <BankSelect
+            label="To bank"
+            placeholder="Search receiver"
+            banks={banks}
+            value={toBankId}
+            onChange={setToBankId}
+            centerLabel
+            centerText
+          />
+        </div>
         <button
           type="button"
           onClick={handleCheckRoute}
           disabled={!fromBankId || !toBankId || fromBankId === toBankId}
-          className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 md:row-start-2"
         >
           {loading ? "Checking..." : "Check Route"}
         </button>
