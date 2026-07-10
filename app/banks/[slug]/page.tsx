@@ -32,11 +32,14 @@ function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBy
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="flex flex-wrap justify-center gap-3">
       {rails.map((rail) => {
         const s = getRailStyle(rail.rail);
         return (
-          <div key={rail.rail} className={`rounded-lg border ${s.border} ${s.bg} p-3 text-sm ${s.text}`}>
+          <div
+            key={rail.rail}
+            className={`w-full rounded-lg border ${s.border} ${s.bg} p-3 text-sm ${s.text} sm:w-[calc(50%-0.375rem)]`}
+          >
             <div>
               {rail.rail}: {Math.round(rail.successRate * 100)}% success
               {rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}
