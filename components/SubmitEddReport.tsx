@@ -33,6 +33,10 @@ export function SubmitEddReport(props: Props) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // BankSelect manages its own selected-bank state internally, so clearing
+  // bankId here doesn't by itself clear what it visually shows — bumping
+  // this key forces a remount after a successful submit.
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -75,7 +79,10 @@ export function SubmitEddReport(props: Props) {
 
       if (insertError) throw insertError;
 
-      if (props.banks) setBankId("");
+      if (props.banks) {
+        setBankId("");
+        setResetKey((k) => k + 1);
+      }
       setDaysEarly("");
       setSuccess(true);
     } catch (err) {
@@ -131,6 +138,7 @@ export function SubmitEddReport(props: Props) {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {props.banks && (
             <BankSelect
+              key={resetKey}
               label="Bank"
               placeholder="Select bank"
               onChange={(bank) => setBankId(bank?.id ?? "")}

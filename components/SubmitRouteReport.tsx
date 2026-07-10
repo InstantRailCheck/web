@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BankSelect, type Bank } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
+import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { addBank } from "@/lib/actions/addBank";
@@ -15,7 +16,10 @@ type Props =
   | { bankId: string; bankName: string };
 
 function today() {
-  return new Date().toISOString().split("T")[0];
+  const d = new Date();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
 }
 
 export function SubmitRouteReport(props: Props) {
@@ -36,6 +40,10 @@ export function SubmitRouteReport(props: Props) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // BankSelect manages its own selected-bank state internally, so clearing
+  // fromBank/toBank here doesn't by itself clear what it visually shows —
+  // bumping this key forces a remount of whichever side needs to reset.
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -86,6 +94,9 @@ export function SubmitRouteReport(props: Props) {
       if (!fromBank || !toBank || !railUsed || !direction || !status) {
         throw new Error("Please fill in all required fields");
       }
+      if (fromBank.id === toBank.id) {
+        throw new Error("Sender and receiver banks must be different");
+      }
 
       const supabase = createClient();
       const { error: insertError } = await supabase
@@ -117,6 +128,7 @@ export function SubmitRouteReport(props: Props) {
         setFromBank(null);
         setToBank(null);
       }
+      setResetKey((k) => k + 1);
       setRailUsed("");
       setDirection("");
       setStatus("");
@@ -221,6 +233,7 @@ export function SubmitRouteReport(props: Props) {
               </div>
             ) : (
               <BankSelect
+                key={`from-${resetKey}`}
                 label="From bank"
                 placeholder="Sender bank"
                 onChange={setFromBank}
@@ -239,6 +252,7 @@ export function SubmitRouteReport(props: Props) {
               </div>
             ) : (
               <BankSelect
+                key={`to-${resetKey}`}
                 label="To bank"
                 placeholder="Receiver bank"
                 onChange={setToBank}
@@ -295,16 +309,8 @@ export function SubmitRouteReport(props: Props) {
               </Select>
             </div>
 
-            <div className="flex flex-col items-center gap-1">
-              <label className="text-center text-sm font-medium text-slate-300">Date tested</label>
-              <input
-                type="date"
-                value={testedAt}
-                max={today()}
-                onChange={(e) => setTestedAt(e.target.value)}
-                className="w-full flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-center text-white"
-              />
-            </div>
+            <DatePicker label="Date tested" value={testedAt} onChange={setTestedAt} max={today()} centerLabel />
+
 
             <input
               value={settlementTime}
