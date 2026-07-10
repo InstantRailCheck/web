@@ -209,36 +209,38 @@ export default async function BankProfilePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
-        <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
-        {profile.bank.website && (
-          <a
-            href={profile.bank.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 text-sm text-blue-400 hover:text-blue-300"
-          >
-            {profile.bank.website}
-          </a>
-        )}
-        {profile.bank.address && (
-          <p className="mt-1 text-sm text-slate-400">{profile.bank.address}</p>
-        )}
-        {profile.bank.phone && (
-          <p className="mt-1 text-sm text-slate-400">{formatPhone(profile.bank.phone)}</p>
-        )}
-        {(profile.bank.website || profile.bank.address || profile.bank.phone) && (
-          <p className="mt-1 text-xs text-slate-600">
-            Contact info sourced from{" "}
-            {profile.bank.name.toLowerCase().includes("credit union")
-              ? "NCUA's quarterly call report data"
-              : "FDIC BankFind"}
-            . See{" "}
-            <Link href="/methodology" className="text-slate-500 hover:text-slate-400 underline transition">
-              methodology
-            </Link>
-            .
-          </p>
-        )}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
+          {profile.bank.website && (
+            <a
+              href={profile.bank.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-block text-sm text-blue-400 hover:text-blue-300"
+            >
+              {profile.bank.website}
+            </a>
+          )}
+          {profile.bank.address && (
+            <p className="mt-1 text-sm text-slate-400">{profile.bank.address}</p>
+          )}
+          {profile.bank.phone && (
+            <p className="mt-1 text-sm text-slate-400">{formatPhone(profile.bank.phone)}</p>
+          )}
+          {(profile.bank.website || profile.bank.address || profile.bank.phone) && (
+            <p className="mt-1 text-xs text-slate-600">
+              Contact info sourced from{" "}
+              {profile.bank.name.toLowerCase().includes("credit union")
+                ? "NCUA's quarterly call report data"
+                : "FDIC BankFind"}
+              . See{" "}
+              <Link href="/methodology" className="text-slate-500 hover:text-slate-400 underline transition">
+                methodology
+              </Link>
+              .
+            </p>
+          )}
+        </div>
 
         {(profile.bank.fednow_participant || profile.bank.rtp_participant || profile.bank.zelle_participant) && (
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
