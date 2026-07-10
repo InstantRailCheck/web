@@ -1,21 +1,13 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { apiJson, apiError, apiCsv, apiCorsPreflight, legacyApiRedirect } from "@/lib/apiResponse";
-import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+import { apiJson, apiCsv, apiCorsPreflight, withApiProtection } from "@/lib/apiResponse";
 import { toCsv } from "@/lib/csv";
 
 export function OPTIONS() {
   return apiCorsPreflight();
 }
 
-export async function GET(request: NextRequest) {
-  const redirect = legacyApiRedirect(request);
-  if (redirect) return redirect;
-
-  if (await isRateLimited(getClientIp(request))) {
-    return apiError("Rate limit exceeded. Try again shortly.", 429);
-  }
-
+export const GET = withApiProtection(async (request: NextRequest) => {
   const q = request.nextUrl.searchParams.get("q");
   const format = request.nextUrl.searchParams.get("format");
 
@@ -37,4 +29,4 @@ export async function GET(request: NextRequest) {
   }
 
   return apiJson({ banks: data });
-}
+});

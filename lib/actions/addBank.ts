@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { slugify } from "@/lib/utils";
+import { slugify, uniqueSlug } from "@/lib/slugify";
 import { enrichBank } from "@/lib/actions/enrichBank";
 import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
 
@@ -44,12 +44,7 @@ export async function addBank(name: string): Promise<AddBankResult> {
     .ilike("slug", `${baseSlug}%`);
 
   const usedSlugs = new Set((similarSlugs ?? []).map((b) => b.slug));
-  let slug = baseSlug;
-  let suffix = 2;
-  while (usedSlugs.has(slug)) {
-    slug = `${baseSlug}-${suffix}`;
-    suffix++;
-  }
+  const slug = uniqueSlug(baseSlug, usedSlugs);
 
   const { data, error } = await admin
     .from("banks")

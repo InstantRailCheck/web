@@ -1,6 +1,12 @@
-import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
-import { legacyApiRedirect } from "./apiResponse";
+import { NextRequest, NextResponse } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { legacyApiRedirect, withApiProtection } from "./apiResponse";
+import { isRateLimited } from "./rateLimit";
+
+vi.mock("./rateLimit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./rateLimit")>();
+  return { ...actual, isRateLimited: vi.fn() };
+});
 
 function requestFor(url: string, host: string): NextRequest {
   return new NextRequest(url, { headers: { host } });
@@ -55,5 +61,60 @@ describe("legacyApiRedirect", () => {
       requestFor("https://web-git-feature-branch.vercel.app/api/banks", "web-git-feature-branch.vercel.app")
     );
     expect(result).toBeNull();
+  });
+});
+
+describe("withApiProtection", () => {
+  beforeEach(() => {
+    vi.mocked(isRateLimited).mockReset();
+  });
+
+  it("calls the wrapped handler and returns its response when allowed", async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(false);
+    const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+    const wrapped = withApiProtection(handler);
+
+    const request = requestFor("https://api.instantrailcheck.com/banks", "api.instantrailcheck.com");
+    const response = await wrapped(request);
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(await response.json()).toEqual({ ok: true });
+  });
+
+  it("redirects a legacy host without calling the handler", async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(false);
+    const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+    const wrapped = withApiProtection(handler);
+
+    const request = requestFor("https://www.instantrailcheck.com/api/banks", "www.instantrailcheck.com");
+    const response = await wrapped(request);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(response.status).toBe(308);
+  });
+
+  it("returns 429 without calling the handler when rate-limited", async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(true);
+    const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+    const wrapped = withApiProtection(handler);
+
+    const request = requestFor("https://api.instantrailcheck.com/banks", "api.instantrailcheck.com");
+    const response = await wrapped(request);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(response.status).toBe(429);
+  });
+
+  it("passes extra route arguments (e.g. dynamic route params) through to the handler", async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(false);
+    const handler = vi.fn(async (_request: NextRequest, context: { id: string }) =>
+      NextResponse.json({ id: context.id })
+    );
+    const wrapped = withApiProtection(handler);
+
+    const request = requestFor("https://api.instantrailcheck.com/banks/abc", "api.instantrailcheck.com");
+    const response = await wrapped(request, { id: "abc" });
+
+    expect(await response.json()).toEqual({ id: "abc" });
   });
 });

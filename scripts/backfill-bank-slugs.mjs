@@ -1,17 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { slugify, uniqueSlug } from "../lib/slugify.ts";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-function slugify(name) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 async function main() {
   const { data: banks, error } = await supabase
@@ -29,12 +22,7 @@ async function main() {
     }
 
     const base = slugify(bank.name);
-    let slug = base;
-    let suffix = 2;
-    while (usedSlugs.has(slug)) {
-      slug = `${base}-${suffix}`;
-      suffix++;
-    }
+    const slug = uniqueSlug(base, usedSlugs);
     usedSlugs.add(slug);
 
     const { error: updateError } = await supabase.from("banks").update({ slug }).eq("id", bank.id);

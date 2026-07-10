@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { API_URL } from "@/lib/siteConfig";
+import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -53,4 +54,24 @@ export function legacyApiRedirect(request: NextRequest): NextResponse | null {
   const path = request.nextUrl.pathname.replace(/^\/api/, "");
   const target = new URL(`${API_URL}${path}${request.nextUrl.search}`);
   return NextResponse.redirect(target, 308);
+}
+
+// Wraps a GET handler with the legacy-redirect and rate-limit checks every
+// API route needs, so a new route gets them by default instead of having
+// to remember to call legacyApiRedirect/isRateLimited itself — previously
+// each of the four route handlers duplicated this same boilerplate, which
+// meant a route that forgot it would silently ship without protection.
+export function withApiProtection<Args extends unknown[]>(
+  handler: (request: NextRequest, ...args: Args) => Promise<NextResponse>
+): (request: NextRequest, ...args: Args) => Promise<NextResponse> {
+  return async (request: NextRequest, ...args: Args) => {
+    const redirect = legacyApiRedirect(request);
+    if (redirect) return redirect;
+
+    if (await isRateLimited(getClientIp(request))) {
+      return apiError("Rate limit exceeded. Try again shortly.", 429);
+    }
+
+    return handler(request, ...args);
+  };
 }

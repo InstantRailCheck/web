@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 const STALE_DAYS = 180;
@@ -87,7 +88,9 @@ export async function getBankSlugById(id: string): Promise<string | null> {
   return data?.slug ?? null;
 }
 
-export async function getBankProfileBySlug(slug: string): Promise<BankProfile> {
+// Wrapped in React's cache() so generateMetadata and the page component
+// share one fetch per request instead of each triggering it independently.
+export const getBankProfileBySlug = cache(async (slug: string): Promise<BankProfile> => {
   const supabase = await createClient();
   const { data: bank } = await supabase
     .from("banks")
@@ -96,7 +99,7 @@ export async function getBankProfileBySlug(slug: string): Promise<BankProfile> {
     .maybeSingle();
 
   return buildProfile(bank);
-}
+});
 
 // Public API contract (/api/banks/:id) is stable and ID-based — kept
 // separate from the slug-based lookup the website itself uses.

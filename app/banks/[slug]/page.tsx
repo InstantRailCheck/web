@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -139,6 +140,29 @@ function EddCard({ evidence, bankName }: { evidence: EddEvidence; bankName: stri
       </p>
     </div>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  // UUID-style URLs redirect in the page component rather than resolving to
+  // a profile here, so there's no bank-specific metadata to build for them.
+  if (UUID_PATTERN.test(slug)) return {};
+
+  const profile = await getBankProfileBySlug(slug);
+  if (!profile.bank) return {};
+
+  const canonical = `${SITE_URL}/banks/${profile.bank.slug}`;
+
+  return {
+    title: `${profile.bank.name} — Bank Transfer Compatibility | InstantRailCheck`,
+    description: `Check which payment rails (RTP, FedNow, ACH, Wire, Zelle) ${profile.bank.name} supports, backed by official sources and real-world reports.`,
+    alternates: { canonical },
+  };
 }
 
 export default async function BankProfilePage({

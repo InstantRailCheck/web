@@ -1,26 +1,20 @@
 import { NextRequest } from "next/server";
 import { getBankProfileById } from "@/lib/bankProfile";
-import { apiJson, apiError, apiCorsPreflight, legacyApiRedirect } from "@/lib/apiResponse";
-import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+import { apiJson, apiError, apiCorsPreflight, withApiProtection } from "@/lib/apiResponse";
 
 export function OPTIONS() {
   return apiCorsPreflight();
 }
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const redirect = legacyApiRedirect(request);
-  if (redirect) return redirect;
+export const GET = withApiProtection(
+  async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const profile = await getBankProfileById(id);
 
-  if (await isRateLimited(getClientIp(request))) {
-    return apiError("Rate limit exceeded. Try again shortly.", 429);
+    if (!profile.bank) {
+      return apiError("Bank not found", 404);
+    }
+
+    return apiJson(profile);
   }
-
-  const { id } = await params;
-  const profile = await getBankProfileById(id);
-
-  if (!profile.bank) {
-    return apiError("Bank not found", 404);
-  }
-
-  return apiJson(profile);
-}
+);

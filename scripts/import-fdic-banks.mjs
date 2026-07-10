@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { slugify, uniqueSlug } from "../lib/slugify.ts";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -6,14 +7,6 @@ const supabase = createClient(
 );
 
 const TOP_N = Number(process.argv[2]) || 500;
-
-function slugify(name) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function normalizeWebsite(url) {
   if (!url) return null;
@@ -118,12 +111,7 @@ async function main() {
     usedNames.add(c.NAME);
 
     const baseSlug = slugify(c.NAME);
-    let slug = baseSlug;
-    let suffix = 2;
-    while (usedSlugs.has(slug)) {
-      slug = `${baseSlug}-${suffix}`;
-      suffix++;
-    }
+    const slug = uniqueSlug(baseSlug, usedSlugs);
     usedSlugs.add(slug);
     if (normalized) existingWebsites.add(normalized);
 

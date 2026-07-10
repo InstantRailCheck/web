@@ -1,21 +1,13 @@
 import { NextRequest } from "next/server";
 import { getActivityFeed } from "@/lib/activityFeed";
-import { apiJson, apiError, apiCsv, apiCorsPreflight, legacyApiRedirect } from "@/lib/apiResponse";
-import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+import { apiJson, apiCsv, apiCorsPreflight, withApiProtection } from "@/lib/apiResponse";
 import { toCsv } from "@/lib/csv";
 
 export function OPTIONS() {
   return apiCorsPreflight();
 }
 
-export async function GET(request: NextRequest) {
-  const redirect = legacyApiRedirect(request);
-  if (redirect) return redirect;
-
-  if (await isRateLimited(getClientIp(request))) {
-    return apiError("Rate limit exceeded. Try again shortly.", 429);
-  }
-
+export const GET = withApiProtection(async (request: NextRequest) => {
   const limitParam = request.nextUrl.searchParams.get("limit");
   const limit = Math.min(Math.max(Number(limitParam) || 50, 1), 200);
   const format = request.nextUrl.searchParams.get("format");
@@ -39,4 +31,4 @@ export async function GET(request: NextRequest) {
   }
 
   return apiJson({ activity: feed });
-}
+});
