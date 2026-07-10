@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BankSelect, type Bank } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { addBank } from "@/lib/actions/addBank";
 import { cn } from "@/lib/utils";
@@ -213,8 +214,8 @@ export function SubmitRouteReport(props: Props) {
 
             {fixedBank && fixedRole === "from" ? (
               <div className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-300">From bank</span>
-                <div className="flex w-full items-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-300">
+                <span className="mb-2 block text-center text-sm font-medium text-slate-300">From bank</span>
+                <div className="flex w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-slate-300">
                   {fixedBank.name}
                 </div>
               </div>
@@ -224,13 +225,15 @@ export function SubmitRouteReport(props: Props) {
                 placeholder="Sender bank"
                 onChange={setFromBank}
                 onAdd={handleAddBank}
+                centerLabel
+                centerText
               />
             )}
 
             {fixedBank && fixedRole === "to" ? (
               <div className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-300">To bank</span>
-                <div className="flex w-full items-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-300">
+                <span className="mb-2 block text-center text-sm font-medium text-slate-300">To bank</span>
+                <div className="flex w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-slate-300">
                   {fixedBank.name}
                 </div>
               </div>
@@ -240,64 +243,66 @@ export function SubmitRouteReport(props: Props) {
                 placeholder="Receiver bank"
                 onChange={setToBank}
                 onAdd={handleAddBank}
+                centerLabel
+                centerText
               />
             )}
 
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-300">Rail used</label>
-              <select
-                value={railUsed}
-                onChange={(e) => setRailUsed(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
-              >
-                <option value="">Select rail</option>
-                <option value="RTP">RTP</option>
-                <option value="FedNow">FedNow</option>
-                <option value="ACH">ACH</option>
-                <option value="Wire">Wire</option>
-                <option value="Zelle">Zelle</option>
-                <option value="Visa Direct">Visa Direct</option>
-                <option value="Mastercard Send">Mastercard Send</option>
-                <option value="Other">Other</option>
-                <option value="Unknown">Unknown</option>
-              </select>
+            <div className="flex flex-col items-center gap-1">
+              <label className="text-center text-sm font-medium text-slate-300">Rail used</label>
+              <Select value={railUsed} onValueChange={setRailUsed}>
+                <SelectTrigger className="w-full justify-center rounded-lg border-slate-700 bg-slate-950 p-3 text-white">
+                  <SelectValue placeholder="Select rail" />
+                </SelectTrigger>
+                <SelectContent className="border-slate-800 bg-slate-950 text-white">
+                  <SelectItem value="RTP" className="text-white focus:bg-slate-800 focus:text-white">RTP</SelectItem>
+                  <SelectItem value="FedNow" className="text-white focus:bg-slate-800 focus:text-white">FedNow</SelectItem>
+                  <SelectItem value="ACH" className="text-white focus:bg-slate-800 focus:text-white">ACH</SelectItem>
+                  <SelectItem value="Wire" className="text-white focus:bg-slate-800 focus:text-white">Wire</SelectItem>
+                  <SelectItem value="Zelle" className="text-white focus:bg-slate-800 focus:text-white">Zelle</SelectItem>
+                  <SelectItem value="Visa Direct" className="text-white focus:bg-slate-800 focus:text-white">Visa Direct</SelectItem>
+                  <SelectItem value="Mastercard Send" className="text-white focus:bg-slate-800 focus:text-white">Mastercard Send</SelectItem>
+                  <SelectItem value="Other" className="text-white focus:bg-slate-800 focus:text-white">Other</SelectItem>
+                  <SelectItem value="Unknown" className="text-white focus:bg-slate-800 focus:text-white">Unknown</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-300">Direction</label>
-              <select
-                value={direction}
-                onChange={(e) => setDirection(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
-              >
-                <option value="">Select direction</option>
-                <option value="push">Push (I sent money out)</option>
-                <option value="pull">Pull (money was pulled in)</option>
-              </select>
+            <div className="flex flex-col items-center gap-1">
+              <label className="text-center text-sm font-medium text-slate-300">Direction</label>
+              <Select value={direction} onValueChange={setDirection}>
+                <SelectTrigger className="w-full justify-center rounded-lg border-slate-700 bg-slate-950 p-3 text-white">
+                  <SelectValue placeholder="Select direction" />
+                </SelectTrigger>
+                <SelectContent className="border-slate-800 bg-slate-950 text-white">
+                  <SelectItem value="push" className="text-white focus:bg-slate-800 focus:text-white">Push (I sent money out)</SelectItem>
+                  <SelectItem value="pull" className="text-white focus:bg-slate-800 focus:text-white">Pull (money was pulled in)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-300">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
-              >
-                <option value="">Select status</option>
-                <option value="success">Success</option>
-                <option value="failed">Failed</option>
-                <option value="delayed">Delayed</option>
-              </select>
+            <div className="flex flex-col items-center gap-1">
+              <label className="text-center text-sm font-medium text-slate-300">Status</label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="w-full justify-center rounded-lg border-slate-700 bg-slate-950 p-3 text-white">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="border-slate-800 bg-slate-950 text-white">
+                  <SelectItem value="success" className="text-white focus:bg-slate-800 focus:text-white">Success</SelectItem>
+                  <SelectItem value="failed" className="text-white focus:bg-slate-800 focus:text-white">Failed</SelectItem>
+                  <SelectItem value="delayed" className="text-white focus:bg-slate-800 focus:text-white">Delayed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-300">Date tested</label>
+            <div className="flex flex-col items-center gap-1">
+              <label className="text-center text-sm font-medium text-slate-300">Date tested</label>
               <input
                 type="date"
                 value={testedAt}
                 max={today()}
                 onChange={(e) => setTestedAt(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-white"
               />
             </div>
 
