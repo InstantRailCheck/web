@@ -1,23 +1,23 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getBankProfileBySlug } from "@/lib/bankProfile";
+import { getBankProfileBySlug, describeRailEvidence } from "@/lib/bankProfile";
 import { ComparePicker } from "@/components/ComparePicker";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { formatPhone, telHref } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-function RailCell({ rail }: { rail: { successRate: number; avgTime: number | null; count: number; isStale: boolean } | undefined }) {
+function RailCell({
+  rail,
+}: {
+  rail: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"][number] | undefined;
+}) {
   if (!rail) return <span className="text-slate-600">No data</span>;
   return (
     <span>
-      {Math.round(rail.successRate * 100)}% success
+      {describeRailEvidence(rail)}
       {rail.avgTime !== null && ` · ~${rail.avgTime}m`}
-      <span className="text-slate-500">
-        {" "}
-        ({rail.count} report{rail.count !== 1 ? "s" : ""}
-        {rail.isStale ? ", stale" : ""})
-      </span>
+      {rail.isStale && <span className="text-yellow-400"> (stale)</span>}
     </span>
   );
 }

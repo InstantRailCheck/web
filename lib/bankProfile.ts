@@ -1,17 +1,42 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { dedupeToNewestPerReporter, type ReportStatus } from "@/lib/routeConfidence";
 
 const STALE_DAYS = 180;
 
+// Pooled across every counterparty bank for this rail+direction — a coarser
+// unit than routeConfidence's per-pair evidence states, so it intentionally
+// doesn't reuse those states. Still applies the same integrity rule (only
+// each reporter's newest report per counterparty route counts) and excludes
+// unattributed (user_id null) rows, so it can't be inflated by seed data or
+// a single repeat reporter the way a raw percentage could.
 type RailStats = {
   rail: string;
-  count: number;
-  successRate: number;
+  attributableCount: number;
+  successfulCount: number;
+  delayedCount: number;
+  unsuccessfulCount: number;
+  routeCount: number;
   avgTime: number | null;
-  lastTested: string | null;
+  latestObservationDate: string | null;
   isStale: boolean;
   sameDayCount: number | null;
 };
+
+// e.g. "3 attributable reports across 2 routes: 2 successful, 1 delayed."
+// Shared so the bank detail page and compare page describe the same rail
+// the same way rather than drifting apart.
+export function describeRailEvidence(rail: RailStats): string {
+  const parts: string[] = [];
+  if (rail.successfulCount > 0) parts.push(`${rail.successfulCount} successful`);
+  if (rail.delayedCount > 0) parts.push(`${rail.delayedCount} delayed`);
+  if (rail.unsuccessfulCount > 0) parts.push(`${rail.unsuccessfulCount} unsuccessful`);
+
+  return (
+    `${rail.attributableCount} attributable report${rail.attributableCount !== 1 ? "s" : ""} ` +
+    `across ${rail.routeCount} route${rail.routeCount !== 1 ? "s" : ""}: ${parts.join(", ")}`
+  );
+}
 
 export type RailEvidence = {
   source: string;
@@ -158,8 +183,12 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
         }
       : null;
 
-  const sendingRows = (reports ?? []).filter((r) => r.from_bank_id === bank.id);
-  const receivingRows = (reports ?? []).filter((r) => r.to_bank_id === bank.id);
+  const sendingRows = (reports ?? [])
+    .filter((r) => r.from_bank_id === bank.id)
+    .map((r) => ({ ...r, counterpartyId: r.to_bank_id as string }));
+  const receivingRows = (reports ?? [])
+    .filter((r) => r.to_bank_id === bank.id)
+    .map((r) => ({ ...r, counterpartyId: r.from_bank_id as string }));
   const sending = summarizeByRail(sendingRows);
   const receiving = summarizeByRail(receivingRows);
 
@@ -170,8 +199,8 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
     const confirmedAt = history?.find((h) => h.rail === rail)?.changed_at ?? null;
     const displayName = RAIL_DISPLAY_NAMES[rail];
     const communityConfirmations =
-      (sending.find((s) => s.rail === displayName)?.count ?? 0) +
-      (receiving.find((r) => r.rail === displayName)?.count ?? 0);
+      (sending.find((s) => s.rail === displayName)?.attributableCount ?? 0) +
+      (receiving.find((r) => r.rail === displayName)?.attributableCount ?? 0);
     railEvidence[rail] = {
       source: RAIL_SOURCES[rail].label,
       sourceUrl: RAIL_SOURCES[rail].url,
@@ -189,49 +218,72 @@ type RouteReportRow = {
   settlement_time_minutes: number | null;
   tested_at: string | null;
   same_day: boolean | null;
+  user_id: string | null;
+  counterpartyId: string;
 };
 
 function summarizeByRail(rows: RouteReportRow[]): RailStats[] {
   const rails = Array.from(new Set(rows.map((r) => r.rail_used || "unknown")));
 
-  return rails.map((rail) => {
-    const railRows = rows.filter((r) => (r.rail_used || "unknown") === rail);
-    const successCount = railRows.filter((r) => r.status === "success").length;
+  return rails
+    .map((rail) => {
+      const railRows = rows.filter((r) => (r.rail_used || "unknown") === rail);
 
-    const timingRows = railRows.filter(
-      (r): r is RouteReportRow & { settlement_time_minutes: number } => r.settlement_time_minutes != null
-    );
-    const avgTime =
-      timingRows.length > 0
-        ? Math.round(
-            timingRows.reduce((acc, r) => acc + r.settlement_time_minutes, 0) /
-              timingRows.length
-          )
-        : null;
+      // Apply the newest-report-per-reporter rule per counterparty route
+      // (same integrity rule as routeConfidence.ts's pairwise evidence),
+      // then pool the results across every counterparty for this rail.
+      const byCounterparty = new Map<string, RouteReportRow[]>();
+      for (const r of railRows) {
+        if (!byCounterparty.has(r.counterpartyId)) byCounterparty.set(r.counterpartyId, []);
+        byCounterparty.get(r.counterpartyId)!.push(r);
+      }
 
-    const dates = railRows
-      .map((r) => r.tested_at as string | null)
-      .filter((d): d is string => !!d)
-      .sort()
-      .reverse();
+      const attributableRows = Array.from(byCounterparty.values()).flatMap((counterpartyRows) =>
+        dedupeToNewestPerReporter(
+          counterpartyRows
+            .filter((r): r is RouteReportRow & { tested_at: string } => !!r.tested_at)
+            .map((r) => ({ ...r, userId: r.user_id, status: r.status as ReportStatus, testedAt: r.tested_at }))
+        )
+      );
 
-    const lastTested = dates[0] ?? null;
-    const isStale = lastTested
-      ? daysBetween(lastTested, new Date().toISOString().split("T")[0]) > STALE_DAYS
-      : false;
+      const routeCount = Array.from(byCounterparty.entries()).filter(([, counterpartyRows]) =>
+        counterpartyRows.some((r) => r.user_id !== null)
+      ).length;
 
-    const sameDayCount = rail === "ACH" ? railRows.filter((r) => r.same_day === true).length : null;
+      const timingRows = attributableRows.filter(
+        (r): r is typeof r & { settlement_time_minutes: number } => r.settlement_time_minutes != null
+      );
+      const avgTime =
+        timingRows.length > 0
+          ? Math.round(
+              timingRows.reduce((acc, r) => acc + r.settlement_time_minutes, 0) / timingRows.length
+            )
+          : null;
 
-    return {
-      rail,
-      count: railRows.length,
-      successRate: successCount / railRows.length,
-      avgTime,
-      lastTested,
-      isStale,
-      sameDayCount,
-    };
-  });
+      const dates = attributableRows.map((r) => r.testedAt).sort().reverse();
+      const latestObservationDate = dates[0] ?? null;
+      const isStale = latestObservationDate
+        ? daysBetween(latestObservationDate, new Date().toISOString().split("T")[0]) > STALE_DAYS
+        : false;
+
+      const sameDayCount = rail === "ACH" ? attributableRows.filter((r) => r.same_day === true).length : null;
+
+      return {
+        rail,
+        attributableCount: attributableRows.length,
+        successfulCount: attributableRows.filter((r) => r.status === "success").length,
+        delayedCount: attributableRows.filter((r) => r.status === "delayed").length,
+        unsuccessfulCount: attributableRows.filter((r) => r.status === "failed").length,
+        routeCount,
+        avgTime,
+        latestObservationDate,
+        isStale,
+        sameDayCount,
+      };
+    })
+    // A rail backed only by unattributed/seed rows has nothing to show —
+    // "blank over wrong" applies here too, not just to the pairwise states.
+    .filter((r) => r.attributableCount > 0);
 }
 
 function daysBetween(a: string, b: string): number {

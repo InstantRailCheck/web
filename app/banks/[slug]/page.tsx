@@ -3,7 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Banknote, CalendarCheck, Clock, Landmark, Zap } from "lucide-react";
-import { getBankProfileBySlug, getBankSlugById, type RailEvidence, type EddEvidence } from "@/lib/bankProfile";
+import { getBankProfileBySlug, getBankSlugById, describeRailEvidence, type RailEvidence, type EddEvidence } from "@/lib/bankProfile";
 import { formatPhone, telHref } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
@@ -52,9 +52,10 @@ function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBy
             className={`w-full rounded-lg border ${s.border} ${s.bg} p-3 text-sm ${s.text} sm:w-[calc(50%-0.375rem)]`}
           >
             <div>
-              {rail.rail}: {Math.round(rail.successRate * 100)}% success
+              {rail.rail}
               {rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}
             </div>
+            <div className="mt-1">{describeRailEvidence(rail)}</div>
             <div className="mt-1 flex flex-wrap gap-x-2 text-xs opacity-70">
               {rail.isStale && <span className="text-yellow-400">⚠ Stale</span>}
               {!!rail.sameDayCount && (
@@ -62,8 +63,7 @@ function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBy
                   Same-Day ACH in {rail.sameDayCount} report{rail.sameDayCount !== 1 ? "s" : ""}
                 </span>
               )}
-              {rail.lastTested && <span>Last tested {rail.lastTested}</span>}
-              <span>{rail.count} report{rail.count !== 1 ? "s" : ""}</span>
+              {rail.latestObservationDate && <span>Last observed {rail.latestObservationDate}</span>}
             </div>
           </div>
         );
