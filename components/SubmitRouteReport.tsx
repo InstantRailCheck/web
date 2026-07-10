@@ -251,7 +251,7 @@ export function SubmitRouteReport(props: Props) {
             <div className="flex flex-col items-center gap-1">
               <label className="text-center text-sm font-medium text-slate-300">Rail used</label>
               <Select value={railUsed} onValueChange={setRailUsed}>
-                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white">
+                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white">
                   <SelectValue placeholder="Select rail" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
@@ -271,7 +271,7 @@ export function SubmitRouteReport(props: Props) {
             <div className="flex flex-col items-center gap-1">
               <label className="text-center text-sm font-medium text-slate-300">Direction</label>
               <Select value={direction} onValueChange={setDirection}>
-                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white">
+                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white">
                   <SelectValue placeholder="Select direction" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
@@ -284,7 +284,7 @@ export function SubmitRouteReport(props: Props) {
             <div className="flex flex-col items-center gap-1">
               <label className="text-center text-sm font-medium text-slate-300">Status</label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white">
+                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
