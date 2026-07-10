@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTimingLeaderboard } from "@/lib/timingLeaderboard";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,8 @@ export default async function TimingLeaderboardPage() {
             ))}
           </div>
         )}
+
+        <LegalFooterLinks />
       </div>
     </main>
   );

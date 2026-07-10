@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Banknote, Landmark, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +145,8 @@ export default async function BanksDirectoryPage({
             )}
           </div>
         )}
+
+        <LegalFooterLinks />
       </div>
     </main>
   );

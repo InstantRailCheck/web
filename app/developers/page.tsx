@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { API_URL } from "@/lib/siteConfig";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,8 @@ export default function DevelopersPage() {
             fire-and-forget with no retry, so your endpoint should respond quickly with a 2xx.
           </p>
         </div>
+
+        <LegalFooterLinks />
       </div>
     </main>
   );

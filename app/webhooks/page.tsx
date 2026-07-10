@@ -1,4 +1,5 @@
 import { WebhooksManager } from "@/components/WebhooksManager";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export default function WebhooksPage() {
         <div className="mt-6">
           <WebhooksManager />
         </div>
+
+        <LegalFooterLinks />
       </div>
     </main>
   );

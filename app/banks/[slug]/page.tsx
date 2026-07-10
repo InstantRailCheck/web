@@ -7,6 +7,7 @@ import { getBankProfileBySlug, getBankSlugById, type RailEvidence, type EddEvide
 import { formatPhone, telHref } from "@/lib/utils";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -316,6 +317,8 @@ export default async function BankProfilePage({
             <RailList rails={profile.receiving} />
           </div>
         </section>
+
+        <LegalFooterLinks />
       </div>
     </main>
   );

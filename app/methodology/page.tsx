@@ -1,3 +1,5 @@
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+
 export const dynamic = "force-static";
 
 export default function MethodologyPage() {
@@ -102,6 +104,8 @@ export default function MethodologyPage() {
             </p>
           </section>
         </div>
+
+        <LegalFooterLinks />
       </div>
     </main>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getActivityFeed } from "@/lib/activityFeed";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,8 @@ export default async function ChangelogPage() {
             ))}
           </div>
         )}
+
+        <LegalFooterLinks />
       </div>
     </main>
   );
