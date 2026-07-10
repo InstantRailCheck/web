@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Banknote } from "lucide-react";
 import { BankSelect, type Bank } from "@/components/BankSelect";
 import { getRouteIntelligence, RouteIntelligence } from "@/lib/routingEngine";
+import { EVIDENCE_LABELS, type EvidenceState } from "@/lib/routeConfidence";
 
 type RouteSearchProps = {
   bankCount: number;
@@ -29,12 +30,38 @@ function getRailStyle(rail: string) {
   return RAIL_STYLES[rail] ?? { border: "border-slate-700", bg: "bg-slate-900", text: "text-slate-300", icon: "" };
 }
 
+// Not a claim of quality — just distinguishes "backed by evidence you can
+// trust" (green) from "backed by evidence, but read the label" (yellow/red)
+// from "not enough/too old to say anything" (slate).
+const EVIDENCE_STYLES: Record<EvidenceState, string> = {
+  observed_working: "text-green-400",
+  consistently_reported: "text-green-400",
+  limited_evidence: "text-slate-400",
+  variable_timing: "text-yellow-400",
+  reported_delayed: "text-yellow-400",
+  reported_unsuccessful: "text-red-400",
+  conflicting: "text-orange-400",
+  previously_observed: "text-slate-500",
+};
+
+function EvidenceLine({
+  evidence,
+}: {
+  evidence: { state: EvidenceState; reportCount: number; latestObservationDate: string; outcome?: string };
+}) {
+  return (
+    <div className={`mt-1 text-xs ${EVIDENCE_STYLES[evidence.state]}`}>
+      {EVIDENCE_LABELS[evidence.state]}
+      {evidence.outcome && ` (${evidence.outcome})`} · {evidence.reportCount} report
+      {evidence.reportCount !== 1 ? "s" : ""} · last observed {evidence.latestObservationDate}
+    </div>
+  );
+}
+
 function RailMeta({
   rail,
 }: {
   rail: {
-    lastTested: string | null;
-    isStale: boolean;
     directions: ("push" | "pull")[];
     sameDayCount?: number | null;
   };
@@ -44,18 +71,16 @@ function RailMeta({
     rail.directions[0] === "push" ? "Push only" :
     rail.directions[0] === "pull" ? "Pull only" : null;
 
-  if (!rail.lastTested && !dirLabel && !rail.sameDayCount) return null;
+  if (!dirLabel && !rail.sameDayCount) return null;
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs opacity-70">
-      {rail.isStale && <span className="text-yellow-400">⚠ Stale</span>}
       {dirLabel && <span>{dirLabel}</span>}
       {!!rail.sameDayCount && (
         <span>
           Same-Day ACH in {rail.sameDayCount} report{rail.sameDayCount !== 1 ? "s" : ""}
         </span>
       )}
-      {rail.lastTested && <span>Last tested {rail.lastTested}</span>}
     </div>
   );
 }
@@ -180,7 +205,8 @@ export function RouteSearch({ bankCount }: RouteSearchProps) {
                       const s = getRailStyle(rail.rail);
                       return (
                         <div key={rail.rail} className={`rounded-lg border ${s.border} ${s.bg} p-3 ${s.text}`}>
-                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{rail.rail}: {Math.round(rail.successRate * 100)}% success{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{rail.rail}{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <EvidenceLine evidence={rail.evidence} />
                           <RailMeta rail={rail} />
                         </div>
                       );
@@ -199,7 +225,8 @@ export function RouteSearch({ bankCount }: RouteSearchProps) {
                       const s = getRailStyle(rail.rail);
                       return (
                         <div key={rail.rail} className={`rounded-lg border ${s.border} ${s.bg} p-3 ${s.text}`}>
-                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{rail.rail}: {Math.round(rail.successRate * 100)}% success{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{rail.rail}{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <EvidenceLine evidence={rail.evidence} />
                           <RailMeta rail={rail} />
                         </div>
                       );
@@ -208,28 +235,11 @@ export function RouteSearch({ bankCount }: RouteSearchProps) {
                 </div>
               )}
 
-              <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-400">
-                Based on {result.sampleSize} report{result.sampleSize !== 1 ? "s" : ""}.{" "}
-                Confidence:{" "}
-                <span
-                  className={
-                    result.confidence === "HIGH"
-                      ? "text-green-400"
-                      : result.confidence === "MEDIUM"
-                        ? "text-yellow-400"
-                        : "text-slate-400"
-                  }
-                >
-                  {result.confidence}
-                </span>
-                .
-              </div>
-
               <div className="text-xs uppercase tracking-wider text-blue-400">
-                Instant Capability:{" "}
+                Instant rails with evidence:{" "}
                 {instantRails.length > 0
-                  ? `HIGH (${instantRails.map((r) => r.rail).join(", ")} supported)`
-                  : "NONE CONFIRMED"}
+                  ? instantRails.map((r) => r.rail).join(", ")
+                  : "None yet"}
               </div>
             </>
           )}

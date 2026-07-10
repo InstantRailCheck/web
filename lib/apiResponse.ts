@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { API_URL } from "@/lib/siteConfig";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
+// Bumped on any breaking response-shape change to a documented endpoint (see
+// app/developers/page.tsx) — e.g. v6 replaced /routes' confidence/successRate
+// fields and /banks/:id's rail successRate with evidence-based fields.
+const API_VERSION = "6";
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -9,6 +14,7 @@ const CORS_HEADERS = {
   // which hostname/path served the response, and works even against bots
   // that don't bother respecting robots.txt.
   "X-Robots-Tag": "noindex",
+  "X-Api-Version": API_VERSION,
 };
 
 export function apiJson(data: unknown, init?: { status?: number }) {

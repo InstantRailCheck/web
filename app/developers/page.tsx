@@ -1,6 +1,18 @@
 import Link from "next/link";
 import { API_URL } from "@/lib/siteConfig";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { EVIDENCE_LABELS } from "@/lib/routeConfidence";
+
+const EVIDENCE_DESCRIPTIONS: Record<keyof typeof EVIDENCE_LABELS, string> = {
+  limited_evidence: "Exactly one attributable reporter within the last 180 days.",
+  observed_working: "Two attributable reporters within 180 days, all successful.",
+  consistently_reported: "Three or more attributable reporters within 180 days, all successful.",
+  reported_unsuccessful: "Every attributable report within 180 days failed.",
+  reported_delayed: "Every attributable report within 180 days was delayed.",
+  variable_timing: "A mix of successful and delayed attributable reports within 180 days, with no failures.",
+  conflicting: "Attributable reports within 180 days disagree — at least one failure alongside a success or delay.",
+  previously_observed: "Attributable evidence exists, but all of it is older than 180 days.",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +26,15 @@ const ENDPOINTS = [
   {
     method: "GET",
     path: "/banks/:id",
-    description: "Full profile for one bank: contact info, network participation, and rail stats sending/receiving.",
+    description:
+      "Full profile for one bank: contact info, network participation, and per-rail evidence sending/receiving (attributable report counts by outcome, distinct routes observed, latest observation date — no success percentage).",
     example: "/banks/c681154f-c3c4-4f50-9031-a05c79b2d152",
   },
   {
     method: "GET",
     path: "/routes",
-    description: "Route intelligence between two banks. Requires ?from= and ?to= bank ids.",
+    description:
+      "Evidence between two specific banks, per rail. Requires ?from= and ?to= bank ids. Only rails with at least one attributable (signed-in, non-duplicate) report are included — see the evidence states below.",
     example: "/routes?from=<bank-id>&to=<bank-id>",
   },
   {
@@ -39,6 +53,8 @@ export default function DevelopersPage() {
         <p className="mt-1 text-center text-sm text-slate-400">
           Read-only, unauthenticated, and CORS-enabled — free to use in your own tools.
           Responses are JSON by default; list endpoints also support <code>&amp;format=csv</code>.
+          Every response includes an <code>X-Api-Version</code> header, bumped whenever a
+          documented response shape changes.
         </p>
 
         <div className="mt-8 space-y-6">
@@ -56,6 +72,40 @@ export default function DevelopersPage() {
               </code>
             </div>
           ))}
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold">Route evidence states</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            <code>/routes</code> and <code>/banks/:id</code> describe evidence rather than a
+            single confidence score. A report only counts if it&apos;s from a signed-in user
+            (unattributed/legacy rows never count), and only each reporter&apos;s newest report
+            for a given route and rail is used — so one person can&apos;t inflate the count.
+            A route or rail with no attributable reports is simply absent from the response,
+            not marked with a &quot;none&quot; state.
+          </p>
+          <dl className="mt-4 space-y-2 text-sm">
+            {(Object.keys(EVIDENCE_LABELS) as (keyof typeof EVIDENCE_LABELS)[]).map((state) => (
+              <div key={state} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
+                <dt className="shrink-0 font-medium text-slate-200 sm:w-48">{EVIDENCE_LABELS[state]}</dt>
+                <dd className="text-slate-400">{EVIDENCE_DESCRIPTIONS[state]}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold">v6 breaking change</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            <code>/routes</code>&apos; <code>confidence</code>{" "}
+            (a raw report-count threshold) and every rail&apos;s{" "}
+            <code>successRate</code> were removed — both could reach a
+            precise-looking number or a HIGH/MEDIUM/LOW label from unattributed or single-report
+            data. <code>/banks/:id</code>&apos;s per-rail <code>successRate</code> was removed
+            for the same reason. Both now expose an <code>evidence</code> object (or, on{" "}
+            <code>/banks/:id</code>, attributable/successful/delayed/unsuccessful report counts
+            and distinct-route counts) instead — see the evidence states above.
+          </p>
         </div>
 
         <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">

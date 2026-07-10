@@ -1,23 +1,32 @@
 import { createClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  computeRouteEvidence,
+  dedupeToNewestPerReporter,
+  type RouteEvidence,
+  type RouteReportInput,
+} from "@/lib/routeConfidence";
 
-const STALE_DAYS = 180;
+type RouteReportRow = {
+  rail_used: string | null;
+  direction: string | null;
+  status: string;
+  settlement_time_minutes: number | null;
+  tested_at: string | null;
+  same_day: boolean | null;
+  user_id: string | null;
+};
 
-type RailStats = {
+export type RailEvidence = {
   rail: string;
-  count: number;
-  successRate: number;
+  evidence: RouteEvidence;
   avgTime: number | null;
-  lastTested: string | null;
-  isStale: boolean;
   directions: ("push" | "pull")[];
   sameDayCount: number | null;
 };
 
 export type RouteIntelligence = {
-  rails: RailStats[];
-  confidence: string;
-  sampleSize?: number;
+  rails: RailEvidence[];
   message?: string;
 };
 
@@ -29,79 +38,79 @@ export async function getRouteIntelligence(
   const supabase = supabaseClient ?? createClient();
   const { data, error } = await supabase
     .from("route_reports")
-    .select("*")
+    .select("rail_used, direction, status, settlement_time_minutes, tested_at, same_day, user_id")
     .eq("from_bank_id", fromBankId)
     .eq("to_bank_id", toBankId);
 
   if (error || !data || data.length === 0) {
     return {
       rails: [],
-      confidence: "LOW",
       message: "No data available yet for this route",
     };
   }
 
-  const railsMap: Record<string, { rail: string; count: number }> = {};
-
-  for (const row of data) {
+  const railGroups = new Map<string, RouteReportRow[]>();
+  for (const row of data as RouteReportRow[]) {
     const rail = row.rail_used || "unknown";
-    if (!railsMap[rail]) {
-      railsMap[rail] = { rail, count: 0 };
-    }
-    railsMap[rail].count += 1;
+    if (!railGroups.has(rail)) railGroups.set(rail, []);
+    railGroups.get(rail)!.push(row);
   }
 
-  const rails: RailStats[] = Object.values(railsMap).map((r) => {
-    const rows = data.filter((d) => (d.rail_used || "unknown") === r.rail);
-    const successCount = rows.filter((d) => d.status === "success").length;
+  const rails: RailEvidence[] = [];
+  for (const [rail, rows] of railGroups) {
+    const asReportInputs: RouteReportInput[] = rows
+      .filter((r): r is RouteReportRow & { tested_at: string; status: RouteReportInput["status"] } =>
+        !!r.tested_at && (r.status === "success" || r.status === "failed" || r.status === "delayed")
+      )
+      .map((r) => ({ userId: r.user_id, status: r.status, testedAt: r.tested_at }));
 
-    const timingRows = rows.filter((d) => d.settlement_time_minutes != null);
+    const evidence = computeRouteEvidence(asReportInputs);
+    // A rail with zero attributable reports shows no evidence at all — not
+    // even in the list — per "blank over wrong."
+    if (!evidence) continue;
+
+    // Secondary stats (timing/direction) are informational, not confidence
+    // claims, so they're drawn from every attributable report for this rail
+    // rather than narrowed to the same fresh subset behind the evidence state.
+    const attributableRows = rows.filter((r) => r.user_id !== null);
+    const dedupedForStats = dedupeToNewestPerReporter(
+      attributableRows
+        .filter((r): r is RouteReportRow & { tested_at: string } => !!r.tested_at)
+        .map((r) => ({
+          userId: r.user_id,
+          status: (r.status as RouteReportInput["status"]) ?? "success",
+          testedAt: r.tested_at,
+        }))
+    );
+    const reporterIds = new Set(dedupedForStats.map((r) => r.userId));
+    const statsRows = attributableRows.filter((r) => reporterIds.has(r.user_id));
+
+    const timingRows = statsRows.filter((d) => d.settlement_time_minutes != null);
     const avgTime =
       timingRows.length > 0
         ? Math.round(
-            timingRows.reduce((acc, d) => acc + d.settlement_time_minutes, 0) /
-              timingRows.length
+            timingRows.reduce((acc, d) => acc + (d.settlement_time_minutes ?? 0), 0) / timingRows.length
           )
         : null;
 
-    const dates = rows
-      .map((d) => d.tested_at as string | null)
-      .filter((d): d is string => !!d)
-      .sort()
-      .reverse();
-
-    const lastTested = dates[0] ?? null;
-    const isStale = lastTested
-      ? daysBetween(lastTested, new Date().toISOString().split("T")[0]) > STALE_DAYS
-      : false;
-
     const directionSet = new Set(
-      rows.map((d) => d.direction as string | null).filter((d): d is "push" | "pull" => d === "push" || d === "pull")
+      statsRows.map((d) => d.direction).filter((d): d is "push" | "pull" => d === "push" || d === "pull")
     );
-    const directions = Array.from(directionSet) as ("push" | "pull")[];
 
-    const sameDayCount = r.rail === "ACH" ? rows.filter((d) => d.same_day === true).length : null;
+    const sameDayCount = rail === "ACH" ? statsRows.filter((d) => d.same_day === true).length : null;
 
-    return {
-      rail: r.rail,
-      count: r.count,
-      successRate: successCount / rows.length,
+    rails.push({
+      rail,
+      evidence,
       avgTime,
-      lastTested,
-      isStale,
-      directions,
+      directions: Array.from(directionSet),
       sameDayCount,
-    };
-  });
+    });
+  }
 
-  const total = data.length;
-  const confidence = total > 50 ? "HIGH" : total > 10 ? "MEDIUM" : "LOW";
+  if (rails.length === 0) {
+    return { rails: [], message: "No attributable data available yet for this route" };
+  }
 
-  return { rails, confidence, sampleSize: total };
-}
-
-function daysBetween(a: string, b: string): number {
-  return Math.abs(
-    (new Date(b).getTime() - new Date(a).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  return { rails };
 }
