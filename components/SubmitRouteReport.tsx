@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { BankSelect, type Bank } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
@@ -44,6 +44,9 @@ export function SubmitRouteReport(props: Props) {
   // fromBank/toBank here doesn't by itself clear what it visually shows —
   // bumping this key forces a remount of whichever side needs to reset.
   const [resetKey, setResetKey] = useState(0);
+  const railLabelId = useId();
+  const directionLabelId = useId();
+  const statusLabelId = useId();
 
   useEffect(() => {
     const supabase = createClient();
@@ -199,6 +202,7 @@ export function SubmitRouteReport(props: Props) {
                   <button
                     type="button"
                     onClick={() => handleRoleToggle("from")}
+                    aria-pressed={fixedRole === "from"}
                     className={cn(
                       "rounded-full border px-4 py-1.5 text-sm font-medium transition",
                       fixedRole === "from"
@@ -211,6 +215,7 @@ export function SubmitRouteReport(props: Props) {
                   <button
                     type="button"
                     onClick={() => handleRoleToggle("to")}
+                    aria-pressed={fixedRole === "to"}
                     className={cn(
                       "rounded-full border px-4 py-1.5 text-sm font-medium transition",
                       fixedRole === "to"
@@ -263,9 +268,12 @@ export function SubmitRouteReport(props: Props) {
             )}
 
             <div className="flex flex-col items-center gap-1">
-              <label className="text-center text-sm font-medium text-slate-300">Rail used</label>
+              <label id={railLabelId} className="text-center text-sm font-medium text-slate-300">Rail used</label>
               <Select value={railUsed} onValueChange={setRailUsed}>
-                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white">
+                <SelectTrigger
+                  aria-labelledby={railLabelId}
+                  className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white"
+                >
                   <SelectValue placeholder="Select rail" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
@@ -283,9 +291,12 @@ export function SubmitRouteReport(props: Props) {
             </div>
 
             <div className="flex flex-col items-center gap-1">
-              <label className="text-center text-sm font-medium text-slate-300">Direction</label>
+              <label id={directionLabelId} className="text-center text-sm font-medium text-slate-300">Direction</label>
               <Select value={direction} onValueChange={setDirection}>
-                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white">
+                <SelectTrigger
+                  aria-labelledby={directionLabelId}
+                  className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white"
+                >
                   <SelectValue placeholder="Select direction" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">
@@ -296,9 +307,12 @@ export function SubmitRouteReport(props: Props) {
             </div>
 
             <div className="flex flex-col items-center gap-1">
-              <label className="text-center text-sm font-medium text-slate-300">Status</label>
+              <label id={statusLabelId} className="text-center text-sm font-medium text-slate-300">Status</label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white">
+                <SelectTrigger
+                  aria-labelledby={statusLabelId}
+                  className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white"
+                >
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-800 bg-slate-950 text-white">

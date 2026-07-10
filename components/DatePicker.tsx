@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -36,20 +36,24 @@ function formatLocalDate(date: Date): string {
 }
 
 export function DatePicker({ label, value, onChange, max, centerLabel = false }: Props) {
+  const labelId = useId();
+  const triggerId = useId();
   const [open, setOpen] = useState(false);
   const selected = value ? parseLocalDate(value) : undefined;
   const maxDate = max ? parseLocalDate(max) : undefined;
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <label className={cn("text-sm font-medium text-slate-300", centerLabel && "text-center")}>
+      <label id={labelId} className={cn("text-sm font-medium text-slate-300", centerLabel && "text-center")}>
         {label}
       </label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            id={triggerId}
             type="button"
             variant="outline"
+            aria-labelledby={`${labelId} ${triggerId}`}
             className="w-full justify-center gap-2 rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-center font-medium text-white hover:bg-slate-900 hover:text-white"
           >
             {selected

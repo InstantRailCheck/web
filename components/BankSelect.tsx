@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ export function BankSelect({
   centerLabel = false,
   centerText = false,
 }: BankSelectProps) {
+  const labelId = useId();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
@@ -128,7 +129,7 @@ export function BankSelect({
 
   return (
     <div className="block">
-      <span className={cn("mb-2 block text-sm font-medium text-slate-300", centerLabel && "text-center")}>
+      <span id={labelId} className={cn("mb-2 block text-sm font-medium text-slate-300", centerLabel && "text-center")}>
         {label}
       </span>
 
@@ -139,6 +140,7 @@ export function BankSelect({
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            aria-labelledby={labelId}
             className={cn(
               "w-full rounded-xl border-slate-700 bg-slate-950 px-4 py-6 text-white hover:bg-slate-900 hover:text-white",
               centerText ? "justify-center text-center" : "justify-between text-left"

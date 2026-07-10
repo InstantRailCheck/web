@@ -26,12 +26,11 @@ function mockBankSearch(banks: Array<{ id: string; slug: string; name: string }>
   );
 }
 
-// See SubmitRouteReport.test.tsx for why text-based queries are used
-// instead of getByRole("combobox", { name }).
-async function openDropdown(user: ReturnType<typeof userEvent.setup>, visibleText: string) {
-  const el = screen.getByText(visibleText);
-  const trigger = el.closest("button") ?? el;
-  await user.click(trigger);
+// Each field's <label> is connected to its trigger via aria-labelledby, so
+// triggers are queryable by their field label as an accessible name.
+async function pickOption(user: ReturnType<typeof userEvent.setup>, fieldLabel: string, optionName: RegExp | string) {
+  await user.click(screen.getByRole("combobox", { name: fieldLabel }));
+  await user.click(await screen.findByRole("option", { name: optionName }));
 }
 
 beforeEach(() => {
@@ -46,11 +45,8 @@ describe("SubmitEddReport — submit behavior (bank-picker page)", () => {
 
     await waitFor(() => screen.getByText("Did a paycheck or benefit show up before the scheduled date?"));
 
-    await openDropdown(user, "Select bank");
-    await user.click(await screen.findByRole("option", { name: BANK.name }));
-
-    await openDropdown(user, "Select");
-    await user.click(await screen.findByRole("option", { name: /Not early/i }));
+    await pickOption(user, "Bank", BANK.name);
+    await pickOption(user, "How early", /Not early/i);
 
     await user.click(screen.getByRole("button", { name: "Submit Report" }));
 
@@ -64,7 +60,7 @@ describe("SubmitEddReport — submit behavior (bank-picker page)", () => {
     // The BankSelect field must visually reset, not keep showing the bank
     // from the previous submission (it's uncontrolled internally, so the
     // parent clearing bankId alone doesn't do this — see resetKey).
-    expect(screen.getByText("Select bank")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Bank" })).toBeInTheDocument();
     expect(screen.queryByText(BANK.name)).not.toBeInTheDocument();
   });
 });

@@ -31,32 +31,23 @@ function mockBankSearch(banks: Array<{ id: string; slug: string; name: string }>
   );
 }
 
-// Radix's `role="combobox"` triggers don't take their accessible name from
-// their own text content (per ARIA, combobox is "name from author" only),
-// so `getByRole("combobox", { name })` can't find them — query by the
-// visible placeholder/value text instead. Radix also marks the inner value
-// span `pointer-events: none`, so climb to the actual <button> before
-// clicking rather than clicking the text node itself.
-async function openDropdown(user: ReturnType<typeof userEvent.setup>, visibleText: string) {
-  const el = screen.getByText(visibleText);
-  const trigger = el.closest("button") ?? el;
-  await user.click(trigger);
-}
-
-async function pickBank(user: ReturnType<typeof userEvent.setup>, triggerText: string, bankName: string) {
-  await openDropdown(user, triggerText);
+// Each field's <label> is now connected to its trigger via aria-labelledby
+// (see BankSelect/SubmitRouteReport), so triggers are queryable by their
+// field label as an accessible name, same as any other form control.
+async function pickBank(user: ReturnType<typeof userEvent.setup>, fieldLabel: string, bankName: string) {
+  await user.click(screen.getByRole("combobox", { name: fieldLabel }));
   await user.click(await screen.findByRole("option", { name: bankName }));
 }
 
-async function pickOption(user: ReturnType<typeof userEvent.setup>, triggerText: string, optionName: RegExp) {
-  await openDropdown(user, triggerText);
+async function pickOption(user: ReturnType<typeof userEvent.setup>, fieldLabel: string, optionName: RegExp) {
+  await user.click(screen.getByRole("combobox", { name: fieldLabel }));
   await user.click(await screen.findByRole("option", { name: optionName }));
 }
 
 async function fillCommonFields(user: ReturnType<typeof userEvent.setup>) {
-  await pickOption(user, "Select rail", /ACH/i);
-  await pickOption(user, "Select direction", /Push/i);
-  await pickOption(user, "Select status", /Success/i);
+  await pickOption(user, "Rail used", /ACH/i);
+  await pickOption(user, "Direction", /Push/i);
+  await pickOption(user, "Status", /Success/i);
 }
 
 beforeEach(() => {
@@ -64,7 +55,7 @@ beforeEach(() => {
 });
 
 describe("SubmitRouteReport — role toggle (bank-scoped page)", () => {
-  it("defaults to the fixed bank as sender, and moves it to receiver on toggle", async () => {
+  it("defaults to the fixed bank as sender, and moves it to receiver on toggle, with aria-pressed reflecting the active side", async () => {
     const user = userEvent.setup();
     mockBankSearch([OTHER_BANK]);
     render(<SubmitRouteReport bankId={FIXED_BANK.id} bankName={FIXED_BANK.name} />);
@@ -72,17 +63,21 @@ describe("SubmitRouteReport — role toggle (bank-scoped page)", () => {
     await waitFor(() => screen.getByText(`Add a real transfer outcome involving ${FIXED_BANK.name}.`));
 
     // Sender by default: fixed bank shown as static text under "From bank",
-    // the "To bank" slot is a live BankSelect showing its placeholder.
+    // the "To bank" slot is a live BankSelect.
     expect(screen.getByText("From bank")).toBeInTheDocument();
     expect(screen.getAllByText(FIXED_BANK.name).length).toBeGreaterThan(0);
-    expect(screen.getByText("Receiver bank")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "To bank" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sender" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Receiver" })).toHaveAttribute("aria-pressed", "false");
 
     await user.click(screen.getByRole("button", { name: "Receiver" }));
 
     // After toggling, the fixed bank moves to "To bank" and "From bank"
     // becomes the live BankSelect instead.
-    expect(screen.getByText("Sender bank")).toBeInTheDocument();
-    expect(screen.queryByText("Receiver bank")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "From bank" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "To bank" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sender" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Receiver" })).toHaveAttribute("aria-pressed", "true");
   });
 });
 
@@ -93,7 +88,7 @@ describe("SubmitRouteReport — submit behavior (bank-scoped page)", () => {
     render(<SubmitRouteReport bankId={FIXED_BANK.id} bankName={FIXED_BANK.name} />);
     await waitFor(() => screen.getByText(`Add a real transfer outcome involving ${FIXED_BANK.name}.`));
 
-    await pickBank(user, "Receiver bank", OTHER_BANK.name);
+    await pickBank(user, "To bank", OTHER_BANK.name);
     await fillCommonFields(user);
 
     await user.click(screen.getByRole("button", { name: "Submit Report" }));
@@ -111,7 +106,7 @@ describe("SubmitRouteReport — submit behavior (bank-scoped page)", () => {
     // Fixed side ("From bank") still shows the pinned bank as static text.
     expect(screen.getAllByText(FIXED_BANK.name).length).toBeGreaterThan(0);
     // Free side reset back to an empty BankSelect.
-    expect(screen.getByText("Receiver bank")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "To bank" })).toBeInTheDocument();
   });
 });
 
@@ -122,8 +117,8 @@ describe("SubmitRouteReport — same bank on both sides (general page)", () => {
     render(<SubmitRouteReport />);
     await waitFor(() => screen.getByText("Add real transfer outcomes to improve routing intelligence."));
 
-    await pickBank(user, "Sender bank", OTHER_BANK.name);
-    await pickBank(user, "Receiver bank", OTHER_BANK.name);
+    await pickBank(user, "From bank", OTHER_BANK.name);
+    await pickBank(user, "To bank", OTHER_BANK.name);
     await fillCommonFields(user);
 
     await user.click(screen.getByRole("button", { name: "Submit Report" }));

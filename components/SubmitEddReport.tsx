@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { BankSelect } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
@@ -37,6 +37,7 @@ export function SubmitEddReport(props: Props) {
   // bankId here doesn't by itself clear what it visually shows — bumping
   // this key forces a remount after a successful submit.
   const [resetKey, setResetKey] = useState(0);
+  const daysEarlyLabelId = useId();
 
   useEffect(() => {
     const supabase = createClient();
@@ -148,9 +149,12 @@ export function SubmitEddReport(props: Props) {
           )}
 
           <div className={cn("block", !props.banks && "md:col-span-2")}>
-            <label className="mb-2 block text-center text-sm font-medium text-slate-300">How early</label>
+            <label id={daysEarlyLabelId} className="mb-2 block text-center text-sm font-medium text-slate-300">How early</label>
             <Select value={daysEarly} onValueChange={setDaysEarly}>
-              <SelectTrigger className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white">
+              <SelectTrigger
+                aria-labelledby={daysEarlyLabelId}
+                className="w-full justify-center rounded-xl border-slate-700 bg-slate-950 px-4 py-6 font-medium text-white data-placeholder:text-white"
+              >
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent className="border-slate-800 bg-slate-950 text-white">
