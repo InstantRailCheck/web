@@ -76,7 +76,7 @@ function RailEvidenceCard({
   footnote?: string;
 }) {
   return (
-    <div className={`rounded-xl border ${border} ${bg} p-4 text-sm`}>
+    <div className={`w-full rounded-xl border ${border} ${bg} p-4 text-sm sm:w-[calc(33.333%-0.5rem)]`}>
       <div className={`flex items-center gap-2 font-semibold ${text}`}>
         {icon} {label} participant
       </div>
@@ -243,7 +243,7 @@ export default async function BankProfilePage({
         </div>
 
         {(profile.bank.fednow_participant || profile.bank.rtp_participant || profile.bank.zelle_participant) && (
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 flex flex-wrap justify-center gap-3">
             {profile.bank.fednow_participant && (
               <RailEvidenceCard
                 icon={<Landmark className="h-4 w-4" />}
