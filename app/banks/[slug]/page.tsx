@@ -287,8 +287,8 @@ export default async function BankProfilePage({
         <SubmitEddReport bankId={profile.bank.id} bankName={profile.bank.name} />
 
         <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-          <h2 className="text-lg font-semibold">Sending from {profile.bank.name}</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <h2 className="text-center text-lg font-semibold">Sending from {profile.bank.name}</h2>
+          <p className="mt-1 text-center text-sm text-slate-400">
             Rails observed when {profile.bank.name} was the sending bank.
           </p>
           <div className="mt-4">
@@ -297,8 +297,8 @@ export default async function BankProfilePage({
         </section>
 
         <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-          <h2 className="text-lg font-semibold">Receiving into {profile.bank.name}</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <h2 className="text-center text-lg font-semibold">Receiving into {profile.bank.name}</h2>
+          <p className="mt-1 text-center text-sm text-slate-400">
             Rails observed when {profile.bank.name} was the receiving bank.
           </p>
           <div className="mt-4">
