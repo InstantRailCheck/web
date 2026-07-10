@@ -56,6 +56,11 @@ export function BankSelect({
 
   // Fetches immediately the moment the popover opens (so it isn't empty on
   // first click), then debounces on every subsequent keystroke while open.
+  // loading itself is flipped on by the event handlers below (typing,
+  // opening) rather than here, so it's visible during the debounce wait
+  // itself, not just once the network request starts — otherwise the list
+  // just sits there showing stale (pre-keystroke) results with no
+  // indication a new search is even queued.
   useEffect(() => {
     if (!open) {
       openedFetchedRef.current = false;
@@ -68,7 +73,6 @@ export function BankSelect({
     const handle = setTimeout(
       async () => {
         openedFetchedRef.current = true;
-        setLoading(true);
         try {
           const res = await fetch(`/api/bank-search?q=${encodeURIComponent(search.trim())}`, {
             signal: controller.signal,
@@ -89,6 +93,16 @@ export function BankSelect({
       controller.abort();
     };
   }, [search, open]);
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) setLoading(true);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setLoading(true);
+  }
 
   function handleSelect(bank: Bank) {
     const next = selectedBank?.id === bank.id ? null : bank;
@@ -118,7 +132,7 @@ export function BankSelect({
         {label}
       </span>
 
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -137,24 +151,29 @@ export function BankSelect({
 
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] border-slate-800 bg-slate-950 p-0 text-white">
           <Command className="bg-slate-950 text-white" shouldFilter={false}>
-            <CommandInput placeholder="Search banks..." onValueChange={setSearch} />
+            <CommandInput placeholder="Search banks..." onValueChange={handleSearchChange} />
             <CommandList>
+              {loading && (
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500">
+                  <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-700 border-t-slate-400" />
+                  Searching...
+                </div>
+              )}
               <CommandEmpty>
-                {loading ? (
-                  "Searching..."
-                ) : onAdd && search.trim() ? (
-                  <button
-                    onClick={handleAdd}
-                    disabled={adding}
-                    className="flex w-full items-center gap-2 px-2 py-1.5 text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50"
-                  >
-                    {adding ? "Adding..." : `+ Add "${search.trim()}"`}
-                  </button>
-                ) : (
-                  "No bank found."
-                )}
+                {!loading &&
+                  (onAdd && search.trim() ? (
+                    <button
+                      onClick={handleAdd}
+                      disabled={adding}
+                      className="flex w-full items-center gap-2 px-2 py-1.5 text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                    >
+                      {adding ? "Adding..." : `+ Add "${search.trim()}"`}
+                    </button>
+                  ) : (
+                    "No bank found."
+                  ))}
               </CommandEmpty>
-              <CommandGroup>
+              <CommandGroup className={cn(loading && "opacity-40")}>
                 {results.map((bank) => (
                   <CommandItem
                     key={bank.id}

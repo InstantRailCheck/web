@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { apiJson, apiError } from "@/lib/apiResponse";
 import { isRateLimited, getClientIp } from "@/lib/rateLimit";
+import { normalizeForSearch } from "@/lib/utils";
 
 // Backs the BankSelect dropdown's live search — not part of the documented
 // public API (that's /api/banks). Kept separate so a burst of on-page
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     .order("name", { ascending: true })
     .limit(RESULTS_LIMIT);
 
-  if (q) query = query.ilike("name", `%${q}%`);
+  if (q) query = query.ilike("name_normalized", `%${normalizeForSearch(q)}%`);
 
   const { data, error } = await query;
   if (error) return apiError(error.message, 500);

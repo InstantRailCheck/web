@@ -4,6 +4,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugify, uniqueSlug } from "@/lib/slugify";
+import { normalizeForSearch } from "@/lib/utils";
 import { enrichBank } from "@/lib/actions/enrichBank";
 import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
 
@@ -30,10 +31,15 @@ export async function addBank(name: string): Promise<AddBankResult> {
 
   const admin = createAdminClient();
 
+  // Normalized comparison so "US Bank National Association" (typed exactly,
+  // differing only by punctuation) still matches the real "U.S. Bank
+  // National Association" row instead of creating a duplicate. Doesn't
+  // catch a short/casual name ("US Bank") against a full legal name - that's
+  // a fuzzy-matching problem, not a punctuation one; still a real gap.
   const { data: existing } = await admin
     .from("banks")
     .select("id, slug, name")
-    .ilike("name", trimmed)
+    .eq("name_normalized", normalizeForSearch(trimmed))
     .maybeSingle();
 
   if (existing) return existing;

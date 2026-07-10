@@ -30,6 +30,15 @@ export function telHref(phone: string | null): string | null {
   return tenDigits ? `tel:+1${tenDigits}` : null;
 }
 
+// Strips everything but letters/digits so punctuation differences don't
+// break substring search — "US Bank" needs to find "U.S. Bank National
+// Association", which a plain ILIKE '%US Bank%' never will since the
+// periods break the literal substring. Must match banks.name_normalized
+// (a generated column using the same regexp) for search queries to work.
+export function normalizeForSearch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 // Re-exported from lib/slugify.ts, which has zero dependencies so the
 // plain Node scripts (backfill-bank-slugs.mjs, the bulk import scripts)
 // can import it directly without pulling in clsx/tailwind-merge.
