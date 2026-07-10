@@ -141,7 +141,7 @@ export function SubmitEddReport(props: Props) {
             <select
               value={daysEarly}
               onChange={(e) => setDaysEarly(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-white"
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-white"
             >
               <option value="">Select</option>
               {DAYS_OPTIONS.map((opt) => (
