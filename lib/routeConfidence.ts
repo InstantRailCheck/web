@@ -68,7 +68,13 @@ export function computeRouteEvidence(
   // 3. If no attributable reports: render no evidence badge.
   if (attributable.length === 0) return null;
 
-  const cutoffMs = now.getTime() - FRESHNESS_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  // testedAt is a date-only value (parsed as UTC midnight), so `now` must be
+  // truncated to the start of its own UTC day before diffing — otherwise a
+  // report exactly 180 calendar days old goes stale as soon as any time
+  // passes past midnight on the 180th day, rather than staying fresh for
+  // the whole day.
+  const nowUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const cutoffMs = nowUtcMidnight - FRESHNESS_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const fresh = attributable.filter((r) => r.testedAtMs >= cutoffMs);
   const latestOf = (rs: DedupedReport<RouteReportInput>[]) =>
     rs.reduce((latest, r) => (r.testedAt > latest ? r.testedAt : latest), rs[0].testedAt);

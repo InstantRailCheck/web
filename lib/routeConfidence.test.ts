@@ -45,6 +45,24 @@ describe("computeRouteEvidence", () => {
     expect(result?.state).toBe("limited_evidence");
   });
 
+  it("treats a report exactly 180 calendar days old as fresh even late in the current day", () => {
+    // testedAt is date-only (parsed as UTC midnight); `now` here is 23:59 on
+    // the 180th day, not midnight — this only passes if the freshness
+    // cutoff is computed from the start of now's calendar day, not the
+    // exact current time.
+    const eveningNow = new Date("2026-07-10T23:59:00Z");
+    const reports = [report("u1", "success", "2026-01-11")]; // exactly 180 days before 2026-07-10
+    const result = computeRouteEvidence(reports, eveningNow);
+    expect(result?.state).toBe("limited_evidence");
+  });
+
+  it("treats a report 181 calendar days old as stale regardless of time of day", () => {
+    const eveningNow = new Date("2026-07-10T23:59:00Z");
+    const reports = [report("u1", "success", "2026-01-10")]; // 181 days before 2026-07-10
+    const result = computeRouteEvidence(reports, eveningNow);
+    expect(result?.state).toBe("previously_observed");
+  });
+
   describe("limited_evidence (exactly one fresh reporter)", () => {
     it("shows the outcome for a single successful report", () => {
       const result = computeRouteEvidence([report("u1", "success", daysAgo(1))], NOW);

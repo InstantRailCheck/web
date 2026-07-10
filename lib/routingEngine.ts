@@ -72,18 +72,15 @@ export async function getRouteIntelligence(
     // Secondary stats (timing/direction) are informational, not confidence
     // claims, so they're drawn from every attributable report for this rail
     // rather than narrowed to the same fresh subset behind the evidence state.
+    // Still deduped to each reporter's newest, though — otherwise a repeat
+    // reporter could inflate avgTime/directions/sameDayCount even though
+    // the evidence label above only counted their newest report.
     const attributableRows = rows.filter((r) => r.user_id !== null);
-    const dedupedForStats = dedupeToNewestPerReporter(
+    const statsRows = dedupeToNewestPerReporter(
       attributableRows
         .filter((r): r is RouteReportRow & { tested_at: string } => !!r.tested_at)
-        .map((r) => ({
-          userId: r.user_id,
-          status: (r.status as RouteReportInput["status"]) ?? "success",
-          testedAt: r.tested_at,
-        }))
+        .map((r) => ({ ...r, userId: r.user_id, testedAt: r.tested_at }))
     );
-    const reporterIds = new Set(dedupedForStats.map((r) => r.userId));
-    const statsRows = attributableRows.filter((r) => reporterIds.has(r.user_id));
 
     const timingRows = statsRows.filter((d) => d.settlement_time_minutes != null);
     const avgTime =
