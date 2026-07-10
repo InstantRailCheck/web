@@ -40,6 +40,12 @@ export default function MethodologyPage() {
               treated as no match rather than picking one — a missing field is always safer than
               a wrong one.
             </p>
+            <p className="mt-3">
+              InstantRailCheck is an independent service. References to FDIC, NCUA, the Federal
+              Reserve, The Clearing House, Zelle, and listed financial institutions identify data
+              sources or payment networks only; they do not imply affiliation, endorsement,
+              sponsorship, or approval.
+            </p>
           </section>
 
           <section>

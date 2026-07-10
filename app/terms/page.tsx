@@ -33,6 +33,15 @@ export default function TermsPage() {
           </section>
 
           <section>
+            <h2 className="text-lg font-semibold text-white">No affiliation</h2>
+            <p className="mt-2">
+              InstantRailCheck is an independent service and is not affiliated with, endorsed by,
+              sponsored by, or approved by the FDIC, NCUA, Federal Reserve, The Clearing House,
+              Zelle, or any financial institution listed on the site.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-lg font-semibold text-white">Your account and submissions</h2>
             <p className="mt-2">
               Signing in requires a real email address (via Google or a one-time code) or a
