@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const limitParam = request.nextUrl.searchParams.get("limit");
-  const limit = Math.min(Number(limitParam) || 50, 200);
+  const limit = Math.min(Math.max(Number(limitParam) || 50, 1), 200);
   const format = request.nextUrl.searchParams.get("format");
 
   const feed = await getActivityFeed(limit);

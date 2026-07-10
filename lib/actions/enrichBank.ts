@@ -1,12 +1,22 @@
-"use server";
-
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lookupFdicBank } from "@/lib/fdicLookup";
 import { lookupNcuaCreditUnion } from "@/lib/ncuaLookup";
 import { lookupFinraBroker } from "@/lib/finraLookup";
 import { checkRailParticipation } from "@/lib/railParticipation";
 
-export async function enrichBank(bankId: string, bankName: string) {
+// Plain server-only function, not a Server Action — its only legitimate
+// caller is addBank.ts right after a verified insert. It used to accept a
+// caller-supplied bankName as well as bankId and was directly client-
+// callable via "use server", which let anyone overwrite an arbitrary
+// existing bank's contact info/rail flags with a *different* institution's
+// real data just by supplying a mismatched name. Deriving the name from
+// bankId here instead closes that off at the signature level.
+export async function enrichBank(bankId: string) {
+  const admin = createAdminClient();
+  const { data: bank } = await admin.from("banks").select("name").eq("id", bankId).maybeSingle();
+  if (!bank) return;
+  const bankName = bank.name;
+
   const [fdicMatch, ncuaMatchPromise, finraMatchPromise, railParticipation] = await Promise.all([
     lookupFdicBank(bankName),
     lookupNcuaCreditUnion(bankName),
@@ -21,18 +31,16 @@ export async function enrichBank(bankId: string, bankName: string) {
   const address = fdicMatch?.address ?? ncuaMatch?.address ?? finraMatch?.address ?? null;
   const phone = ncuaMatch?.phone ?? finraMatch?.phone ?? null;
 
-  const supabase = createAdminClient();
-
   // Never let an automated re-check downgrade a rail from true back to
   // false — a positive confirmation (even a manual one) outweighs an
   // absence in a source that can be incomplete (e.g. Zelle's directory).
-  const { data: current } = await supabase
+  const { data: current } = await admin
     .from("banks")
     .select("fednow_participant, rtp_participant, zelle_participant")
     .eq("id", bankId)
     .maybeSingle();
 
-  await supabase
+  await admin
     .from("banks")
     .update({
       fednow_participant: current?.fednow_participant || railParticipation.fednow,
@@ -43,7 +51,7 @@ export async function enrichBank(bankId: string, bankName: string) {
 
   if (!website && !address && !phone) return;
 
-  await supabase
+  await admin
     .from("banks")
     .update({ website, address, phone })
     .eq("id", bankId)

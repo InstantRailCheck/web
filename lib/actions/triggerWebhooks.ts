@@ -1,5 +1,11 @@
-"use server";
-
+// Plain server-only function, not a Server Action. It used to be "use
+// server", which made it directly callable from anywhere — since it signs
+// whatever payload it's given with each subscriber's real HMAC secret and
+// delivers it as a legitimately-signed webhook, that let anyone forge
+// arbitrary "bank_added" notifications to every registered subscriber,
+// indistinguishable from real ones (the signature only proves the server
+// signed it, not that the content is genuine). Its only legitimate caller
+// is addBank.ts, right after a verified insert.
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUrlSafeForWebhook } from "@/lib/webhookSafety";

@@ -5,9 +5,7 @@ import Link from "next/link";
 import { BankSelect } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { createClient } from "@/lib/supabase/client";
-import { enrichBank } from "@/lib/actions/enrichBank";
-import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
-import { slugify } from "@/lib/utils";
+import { addBank } from "@/lib/actions/addBank";
 import type { User } from "@supabase/supabase-js";
 
 type Bank = {
@@ -54,45 +52,12 @@ export function SubmitRouteReport({ banks }: Props) {
   }, []);
 
   async function handleAddBank(name: string): Promise<string> {
-    const supabase = createClient();
-    const { data: existing } = await supabase
-      .from("banks")
-      .select("id, slug, name")
-      .ilike("name", name.trim())
-      .maybeSingle();
-
-    if (existing) {
-      if (!allBanks.find((b) => b.id === existing.id)) {
-        setAllBanks((prev) => [...prev, existing]);
-      }
-      return existing.id;
+    const result = await addBank(name);
+    if ("error" in result) throw new Error(result.error);
+    if (!allBanks.find((b) => b.id === result.id)) {
+      setAllBanks((prev) => [...prev, result]);
     }
-
-    const baseSlug = slugify(name.trim());
-    const { data: similarSlugs } = await supabase
-      .from("banks")
-      .select("slug")
-      .ilike("slug", `${baseSlug}%`);
-
-    const usedSlugs = new Set((similarSlugs ?? []).map((b) => b.slug));
-    let slug = baseSlug;
-    let suffix = 2;
-    while (usedSlugs.has(slug)) {
-      slug = `${baseSlug}-${suffix}`;
-      suffix++;
-    }
-
-    const { data, error } = await supabase
-      .from("banks")
-      .insert({ name: name.trim(), slug })
-      .select("id, slug, name")
-      .single();
-
-    if (error) throw error;
-    setAllBanks((prev) => [...prev, data]);
-    enrichBank(data.id, data.name).catch(() => {});
-    triggerWebhooks("bank_added", { bankId: data.id, bankName: data.name }).catch(() => {});
-    return data.id;
+    return result.id;
   }
 
   async function handleSignOut() {
