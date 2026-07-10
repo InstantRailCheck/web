@@ -243,6 +243,38 @@ Can Bank A send money instantly to Bank B?
 - Extended the same centering treatment to every subpage's title and matching forms (`/compare`'s bank picker, `/banks`' filter bar), and centered the rail explorer's remaining column titles
 - Replaced the "← Back to search" link at the top of every subpage with the homepage's full nav footer (new shared `SiteFooterLinks` component) — the persistent header logo already covers the "back to home" case. Added Privacy/Terms links to that footer, on their own line so they always stay together
 
+## Version 5.0.0 (v5.0.0 — shipped July 10 2026)
+
+**Security audit, real test coverage, ADR-driven architecture docs, and lint enforcement**
+
+This release starts with a full security pass of every API route and RLS policy — three real, fixed vulnerabilities — and closes with the codebase's first enforced quality gate in CI. Also the first release built alongside `docs/adr/`, five Architecture Decision Records documenting *why* key decisions were made, cross-checked line-by-line against the actual implementation and commit history before merging (a collaboration with ChatGPT via its GitHub connector, which now handles independent review rather than authoring).
+
+**Security fixes**
+- `banks`' RLS INSERT policy had no column restrictions — any authenticated user could insert a row directly with `fednow_participant`/`rtp_participant`/`zelle_participant`/`total_assets` set to whatever they wanted, fabricating a fully "verified" bank from scratch. Removed the policy entirely; adding a bank now goes through a new authenticated server action (`lib/actions/addBank.ts`) using the service role instead
+- `enrichBank.ts` was an unauthenticated Server Action that trusted a caller-supplied bank name independent of the bank ID — directly callable regardless of the UI's sign-in gate, since client-side conditional rendering isn't a security boundary for Server Actions. Let anyone overwrite an arbitrary bank's contact info/rail flags with a *different* institution's real data. No longer `"use server"`; derives the name from the bank ID server-side instead
+- `triggerWebhooks.ts` was also an unauthenticated Server Action. Since it signs whatever payload it's given with each subscriber's real HMAC secret, anyone could forge a validly-signed `bank_added` delivery to every registered webhook. No longer `"use server"`
+- Added `import "server-only"` to all three so an accidental client-side import fails loudly at build time instead of subtly
+
+**Test coverage (previously none)**
+- Added Vitest and 69 tests across the areas identified as fragile: slug generation, CSP header construction, legacy API redirects, rate-limit IP extraction, webhook SSRF protection (mocked DNS, including boundary tests on every private/reserved IP range), and the new `withApiProtection`/`addBank` logic
+- All pure unit tests, no live DB dependency — verified by running the suite with `.env.local` removed entirely
+- `.github/workflows/test.yml` runs the suite, a type-check, and (as of this release) lint on every push and PR
+
+**Architecture Decision Records**
+- `docs/adr/0001` through `0005`: conservative institution name matching, webhook SSRF protection, nonce-based CSP, the public API subdomain, and SEO-friendly bank slugs
+- `docs/adr/README.md` documents two recurring date pitfalls found while reviewing drafts: migration filenames are UTC and can read a day ahead of `git log`'s local time, and `PROJECT.md` version headers record release dates, not necessarily the commit date of every change bundled into a release
+
+**ADR follow-through**
+- Consolidated slug generation (previously duplicated across four files) into `lib/slugify.ts`
+- Added real per-bank canonical URL metadata to bank profile pages (previously every page shared the same generic site-wide title)
+- New `withApiProtection` wrapper closes the "a new API route might forget to add rate limiting" gap called out in ADR-0004 — all four routes now get it by default instead of opting in per-route
+
+**Lint enforcement**
+- Fixed all 54 pre-existing lint errors before turning on `npm run lint` in CI (turning it on first would have made every future push fail immediately for unrelated reasons). Found two real bugs in the process: a type-safety gap in `bankProfile.ts` that an `any` had been masking, and a genuine race condition in `PasskeyManager.tsx` where a stale passkey-list response could overwrite state after the signed-in user changed
+
+**Cosmetic**
+- Centered the bank info block (name, website, address, phone) and the rail evidence/sending/receiving card rows on bank profile pages — previously grid-based layouts left a lopsided-looking row whenever a bank had fewer than the maximum number of cards
+
 ## Data Principles
 
 - Real-world reports only
