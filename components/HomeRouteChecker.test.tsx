@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HomeRouteChecker } from "./HomeRouteChecker";
 
 const pushMock = vi.fn();
@@ -30,6 +31,14 @@ vi.mock("@/lib/supabase/client", () => ({
 
 const BANK_A = { id: "bank-a", slug: "bank-a", name: "Bank A" };
 const BANK_B = { id: "bank-b", slug: "bank-b", name: "Bank B" };
+const BANK_C = { id: "bank-c", slug: "bank-c", name: "Bank C" };
+
+function mockBankSearch(banks: Array<{ id: string; slug: string; name: string }>) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(JSON.stringify({ banks }), { status: 200 }))
+  );
+}
 
 const NO_EVIDENCE = { rails: [], message: "No data available yet for this route" };
 const WITH_EVIDENCE = {
@@ -86,6 +95,28 @@ describe("HomeRouteChecker — shared URL restoration", () => {
 
     await new Promise((r) => setTimeout(r, 10));
     expect(getRouteIntelligenceMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("HomeRouteChecker — clearing stale evidence on selection change", () => {
+  it("clears the previous route's evidence as soon as a bank selection changes, before Check Route is clicked again", async () => {
+    const user = userEvent.setup();
+    getRouteIntelligenceMock.mockResolvedValue(WITH_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    await waitFor(() => screen.getByText(/Limited evidence/));
+
+    // RouteSearch and the always-rendered SubmitRouteReport form both have a
+    // "From bank" field — scope to RouteSearch's own container so the query
+    // is unambiguous.
+    const routeSearchSection = screen.getByText("Check a transfer route").closest<HTMLElement>("div.rounded-2xl")!;
+    mockBankSearch([BANK_C]);
+    await user.click(within(routeSearchSection).getByRole("combobox", { name: "From bank" }));
+    await user.click(await screen.findByRole("option", { name: BANK_C.name }));
+
+    // The A -> B evidence must be gone immediately — not still shown
+    // underneath a heading that now reads "Bank C -> Bank B".
+    expect(screen.queryByText(/Limited evidence/)).not.toBeInTheDocument();
+    expect(screen.queryByText("No data available yet for this route")).not.toBeInTheDocument();
   });
 });
 

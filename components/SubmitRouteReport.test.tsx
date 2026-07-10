@@ -163,6 +163,27 @@ describe("SubmitRouteReport — coordinated/prefilled mode (homepage route check
     expect(screen.getByText(PREFILLED_FROM.name)).toBeInTheDocument();
     expect(screen.getByText(PREFILLED_TO.name)).toBeInTheDocument();
     expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledWith({ fromBank: PREFILLED_FROM, toBank: PREFILLED_TO });
+  });
+
+  it("reports the edited banks to onSuccess, not the original prefilled ones", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn().mockResolvedValue(undefined);
+    mockBankSearch([OTHER_BANK]);
+    render(<SubmitRouteReport initialFromBank={PREFILLED_FROM} initialToBank={PREFILLED_TO} onSuccess={onSuccess} />);
+    await waitFor(() => screen.getByText("Add real transfer outcomes to improve routing intelligence."));
+
+    // Edit the prefilled "To bank" to a different bank before submitting.
+    await pickBank(user, "To bank", OTHER_BANK.name);
+    await fillCommonFields(user);
+    await user.click(screen.getByRole("button", { name: "Submit Report" }));
+
+    await waitFor(() => expect(insertMock).toHaveBeenCalledTimes(1));
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ from_bank_id: PREFILLED_FROM.id, to_bank_id: OTHER_BANK.id })
+    );
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(onSuccess).toHaveBeenCalledWith({ fromBank: PREFILLED_FROM, toBank: OTHER_BANK });
   });
 
   it("does not report a submit failure when onSuccess itself throws", async () => {

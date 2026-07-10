@@ -24,7 +24,10 @@ type Props =
       // the old standalone behavior (both sides start empty, clear on success).
       initialFromBank?: Bank | null;
       initialToBank?: Bank | null;
-      onSuccess?: () => void | Promise<void>;
+      // Receives the banks actually submitted — both sides stay editable in
+      // this mode, so what was submitted can differ from initialFromBank/
+      // initialToBank; the parent must not assume its own prior selection.
+      onSuccess?: (route: { fromBank: Bank; toBank: Bank }) => void | Promise<void>;
     };
 
 function today() {
@@ -42,7 +45,7 @@ export function SubmitRouteReport(props: Props) {
   // onSuccess so the parent can refetch route evidence in place.
   let initialFromBank: Bank | null = null;
   let initialToBank: Bank | null = null;
-  let onSuccessCallback: (() => void | Promise<void>) | undefined;
+  let onSuccessCallback: ((route: { fromBank: Bank; toBank: Bank }) => void | Promise<void>) | undefined;
   let coordinated = false;
   if (props.bankId === undefined) {
     initialFromBank = props.initialFromBank ?? null;
@@ -177,7 +180,7 @@ export function SubmitRouteReport(props: Props) {
 
       if (onSuccessCallback) {
         try {
-          await onSuccessCallback();
+          await onSuccessCallback({ fromBank, toBank });
         } catch (err) {
           // The submission itself already succeeded — a failure in the
           // parent's follow-up (e.g. refetching route evidence) must not

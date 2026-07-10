@@ -80,9 +80,26 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
     router.push(`/?from=${fromBank.slug}&to=${toBank.slug}#search`);
   }
 
-  async function handleReportSuccess() {
-    if (!fromBank || !toBank) return;
-    await checkRoute(fromBank, toBank);
+  // Changing either side must immediately drop the previous route's result
+  // (and with it, the contribution CTA) — otherwise the "X -> Y" heading
+  // updates to the newly selected banks while the evidence rendered below it
+  // still belongs to whatever route was last checked, visually misattributing
+  // real evidence to the wrong pair until "Check Route" is clicked again.
+  function handleFromBankChange(bank: Bank | null) {
+    setFromBank(bank);
+    setResult(null);
+  }
+
+  function handleToBankChange(bank: Bank | null) {
+    setToBank(bank);
+    setResult(null);
+  }
+
+  async function handleReportSuccess(route: { fromBank: Bank; toBank: Bank }) {
+    setFromBank(route.fromBank);
+    setToBank(route.toBank);
+    router.push(`/?from=${route.fromBank.slug}&to=${route.toBank.slug}#search`);
+    await checkRoute(route.fromBank, route.toBank);
     resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -97,8 +114,8 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
           bankCount={bankCount}
           fromBank={fromBank}
           toBank={toBank}
-          onFromBankChange={setFromBank}
-          onToBankChange={setToBank}
+          onFromBankChange={handleFromBankChange}
+          onToBankChange={handleToBankChange}
           onCheckRoute={handleCheckRoute}
           loading={loading}
           result={result}
