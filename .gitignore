@@ -42,3 +42,6 @@ next-env.d.ts
 
 # supabase
 supabase/.temp
+
+# claude code (personal-only overrides)
+.claude/settings.local.json

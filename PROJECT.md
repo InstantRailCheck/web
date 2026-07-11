@@ -449,6 +449,25 @@ This release starts with a full security pass of every API route and RLS policy 
 - New `lib/logger.ts` — a minimal structured JSON logger (Vercel captures stdout/stderr from serverless functions automatically, so this needed no new infrastructure). Applied to the two highest-value silent-failure spots found so far: the homepage's bank-count query was catching its own error but only ever displaying the raw Supabase error message to the visitor, with no server-side record at all (fixed to log server-side and show a generic message instead); `bankProfile.ts`'s three parallel bank-profile queries (`route_reports`/`bank_rail_history`/`edd_reports`) fell straight through to an empty-array fallback on failure with no record anything had gone wrong, indistinguishable from a bank that genuinely has zero reports. This is a starting point, not an exhaustive audit — the broader "silent Supabase failures" pattern likely exists elsewhere and the logger is now available for the next place it's found
 - Added `.github/dependabot.yml` (npm + github-actions ecosystems, weekly). Actions stay pinned to commit SHAs (v6.1.5's supply-chain hardening) — Dependabot still opens PRs to bump the pinned SHA forward on a new release, so pinning doesn't quietly calcify
 
+## Version 6.4.1 (v6.4.1 — shipped July 11 2026)
+
+**xlsx dependency swap (supply-chain fix)**
+- `xlsx` (SheetJS) was stuck on the npm registry's last published version, `0.18.5`, with a known vulnerability the registry's own advisory marks "no fix available" — SheetJS stopped publishing to npm and now distributes fixed builds only from their own CDN. Replaced the npm-registry dependency with `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` directly in `package.json`
+- `xlsx` is a devDependency, used only by `scripts/sync-rail-participants.mjs` to parse the FedNow XLSX download — never part of the app bundle
+- Verified: typecheck, lint, full test suite, and production build all pass; live-parsed the real FedNow participant file with the new build (1,801 records, matching the existing parser's expectations) before shipping
+
+## Version 6.4.2 (v6.4.2 — shipped July 11 2026)
+
+**Dependabot auto-merge for patch/minor updates**
+- New `.github/workflows/dependabot-automerge.yml`: patch/minor version-bump PRs from Dependabot now auto-merge once the `test` check passes; major-version bumps always stay open for manual review
+- Added minimal branch protection on `main` requiring the `test` check to pass before a PR can merge — doesn't require reviews or restrict direct pushes, so the existing direct-to-main workflow is unaffected; only gates PR merges
+- Prompted by manually reviewing the first real batch of 10 Dependabot PRs: 7 were clean (including `react`/`react-dom`, which must be merged as a pair — bumping either alone breaks every test, since React requires matching versions), but the grouped dev-dependencies PR broke both lint and the build outright (`eslint-config-next`'s bundled `typescript-eslint` doesn't yet support the TypeScript 7 major bump it included) — left open rather than merged
+
+## Version 6.4.3 (v6.4.3 — shipped July 11 2026)
+
+**react/react-dom 19.2.4 → 19.2.7**
+- Dependabot opened these as two separate PRs, but React requires `react` and `react-dom` to be the exact same version — applying either alone crashes the entire test suite. Applied as a single combined commit instead of merging the two PRs individually (which would have left `main` in a broken mismatched state between merges, risky since this repo auto-deploys to production on every push)
+
 ## Data Principles
 
 - Real-world reports only
