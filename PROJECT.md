@@ -401,3 +401,4 @@ This release starts with a full security pass of every API route and RLS policy 
 - Test before pushing
 - Keep MVP focused
 - No feature creep
+- Update PROJECT.md with the new version's release notes before pushing a feature (don't let it drift out of sync again — see the v5.0.2–v6.1.0 backfill)
