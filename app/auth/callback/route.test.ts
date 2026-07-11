@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeRedirectPath } from "./route";
+import { NextRequest } from "next/server";
+import { sanitizeRedirectPath, trustedRedirectBase } from "./route";
 
 describe("sanitizeRedirectPath", () => {
   it("defaults to / when next is missing", () => {
@@ -54,5 +55,27 @@ describe("sanitizeRedirectPath", () => {
 
   it("falls back to / for an unparseable value", () => {
     expect(sanitizeRedirectPath("http://")).toBe("/");
+  });
+});
+
+describe("trustedRedirectBase", () => {
+  it("uses the request's own origin for the production site", () => {
+    const request = new NextRequest("https://www.instantrailcheck.com/auth/callback");
+    expect(trustedRedirectBase(request)).toBe("https://www.instantrailcheck.com");
+  });
+
+  it("uses the request's own origin for local dev (localhost:3000)", () => {
+    const request = new NextRequest("http://localhost:3000/auth/callback");
+    expect(trustedRedirectBase(request)).toBe("http://localhost:3000");
+  });
+
+  it("falls back to the fixed trusted origin for a Vercel preview deployment", () => {
+    const request = new NextRequest("https://web-git-feature-branch.vercel.app/auth/callback");
+    expect(trustedRedirectBase(request)).toBe("https://www.instantrailcheck.com");
+  });
+
+  it("falls back to the fixed trusted origin for an arbitrary/spoofed Host", () => {
+    const request = new NextRequest("https://attacker.example/auth/callback");
+    expect(trustedRedirectBase(request)).toBe("https://www.instantrailcheck.com");
   });
 });

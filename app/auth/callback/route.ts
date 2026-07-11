@@ -20,17 +20,31 @@ export function sanitizeRedirectPath(next: string | null): string {
   }
 }
 
+// Not currently exploitable — Vercel routes by verified project domain, not
+// an arbitrary client-supplied Host — but request.nextUrl.origin is still
+// Host-derived, so the final redirect shouldn't rely on that being true
+// forever. Falls back to the fixed trusted origin for anything other than
+// the one legitimate case that origin can't cover: localhost during local
+// development (matching the same allowance lib/apiResponse.ts's
+// legacyApiRedirect already makes for localhost/preview requests).
+const TRUSTED_REDIRECT_ORIGINS = new Set([new URL(SITE_URL).origin, "http://localhost:3000"]);
+
+export function trustedRedirectBase(request: NextRequest): string {
+  return TRUSTED_REDIRECT_ORIGINS.has(request.nextUrl.origin) ? request.nextUrl.origin : SITE_URL;
+}
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const next = sanitizeRedirectPath(request.nextUrl.searchParams.get("next"));
+  const base = trustedRedirectBase(request);
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(new URL(next, request.url));
+      return NextResponse.redirect(new URL(next, base));
     }
   }
 
-  return NextResponse.redirect(new URL("/?auth_error=1", request.url));
+  return NextResponse.redirect(new URL("/?auth_error=1", base));
 }
