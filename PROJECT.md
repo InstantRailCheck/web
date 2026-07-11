@@ -449,6 +449,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - New `lib/logger.ts` — a minimal structured JSON logger (Vercel captures stdout/stderr from serverless functions automatically, so this needed no new infrastructure). Applied to the two highest-value silent-failure spots found so far: the homepage's bank-count query was catching its own error but only ever displaying the raw Supabase error message to the visitor, with no server-side record at all (fixed to log server-side and show a generic message instead); `bankProfile.ts`'s three parallel bank-profile queries (`route_reports`/`bank_rail_history`/`edd_reports`) fell straight through to an empty-array fallback on failure with no record anything had gone wrong, indistinguishable from a bank that genuinely has zero reports. This is a starting point, not an exhaustive audit — the broader "silent Supabase failures" pattern likely exists elsewhere and the logger is now available for the next place it's found
 - Added `.github/dependabot.yml` (npm + github-actions ecosystems, weekly). Actions stay pinned to commit SHAs (v6.1.5's supply-chain hardening) — Dependabot still opens PRs to bump the pinned SHA forward on a new release, so pinning doesn't quietly calcify
 
+## Version 6.4.1 (v6.4.1 — shipped July 11 2026)
+
+**xlsx dependency swap (supply-chain fix)**
+- `xlsx` (SheetJS) was stuck on the npm registry's last published version, `0.18.5`, with a known vulnerability the registry's own advisory marks "no fix available" — SheetJS stopped publishing to npm and now distributes fixed builds only from their own CDN. Replaced the npm-registry dependency with `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` directly in `package.json`
+- `xlsx` is a devDependency, used only by `scripts/sync-rail-participants.mjs` to parse the FedNow XLSX download — never part of the app bundle
+- Verified: typecheck, lint, full test suite, and production build all pass; live-parsed the real FedNow participant file with the new build (1,801 records, matching the existing parser's expectations) before shipping
+
 ## Data Principles
 
 - Real-world reports only
