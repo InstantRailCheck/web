@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// rateLimit.ts imports lib/supabase/admin.ts, which is marked server-only —
+// that package throws on import outside a real Next.js server build. Not
+// something to enforce in a vitest run, so it's a no-op here.
+vi.mock("server-only", () => ({}));
+
 import { getClientIp } from "./rateLimit";
 
 function requestWithHeaders(headers: Record<string, string>): NextRequest {

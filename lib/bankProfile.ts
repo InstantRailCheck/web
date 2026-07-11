@@ -159,13 +159,22 @@ export function computeEddProviderEvidence(rows: EddReportRow[]): EddProviderEvi
 
   const results: EddProviderEvidence[] = [];
   for (const [provider, providerRows] of byProvider) {
-    if (providerRows.length < EDD_PROVIDER_MIN_REPORTERS) continue;
+    // The context dedup above preserves one row per distinct (deposit_type,
+    // provider) a reporter genuinely experienced — but the public claim is
+    // "N distinct people", not "N distinct experiences": one person reporting
+    // the same provider under paycheck, gig_platform, and unknown would
+    // otherwise count 3 times toward the threshold. Collapse to one row per
+    // user before counting or averaging.
+    const perUser = dedupeToNewestPerReporter(
+      providerRows.map((r) => ({ ...r, userId: r.user_id, testedAt: r.created_at }))
+    );
+    if (perUser.length < EDD_PROVIDER_MIN_REPORTERS) continue;
     results.push({
       provider: provider as PayrollProvider,
       providerLabel: payrollProviderLabel(provider) ?? provider,
       avgDaysEarly:
-        Math.round((providerRows.reduce((acc, r) => acc + r.days_early, 0) / providerRows.length) * 10) / 10,
-      reportCount: providerRows.length,
+        Math.round((perUser.reduce((acc, r) => acc + r.days_early, 0) / perUser.length) * 10) / 10,
+      reportCount: perUser.length,
     });
   }
 

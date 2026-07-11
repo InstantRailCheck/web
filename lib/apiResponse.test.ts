@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// apiResponse.ts imports rateLimit.ts, which imports lib/supabase/admin.ts —
+// marked server-only, which throws on import outside a real Next.js server
+// build. Not something to enforce in a vitest run, so it's a no-op here.
+vi.mock("server-only", () => ({}));
+
 import { legacyApiRedirect, withApiProtection } from "./apiResponse";
 import { isRateLimited } from "./rateLimit";
 

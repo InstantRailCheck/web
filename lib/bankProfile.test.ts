@@ -131,6 +131,31 @@ describe("computeEddProviderEvidence", () => {
     expect(result.find((r) => r.provider === "workday")?.reportCount).toBe(3);
   });
 
+  it("does not let one reporter's multiple eligible contexts satisfy the provider threshold alone", () => {
+    // One person reporting the same provider under three different deposit
+    // types (e.g. paycheck, gig_platform, other) is still one person — the
+    // context-level dedup correctly keeps all three rows as distinct
+    // experiences, but a public "N distinct reporters" claim must count
+    // them once, not three times.
+    const rows = [
+      eddRow({ user_id: "u1", deposit_type: "paycheck", payroll_provider: "adp" }),
+      eddRow({ user_id: "u1", deposit_type: "gig_platform", payroll_provider: "adp" }),
+      eddRow({ user_id: "u1", deposit_type: "unknown", payroll_provider: "adp" }),
+    ];
+    expect(computeEddProviderEvidence(rows)).toEqual([]);
+  });
+
+  it("counts a reporter with multiple eligible contexts only once toward a provider that does clear the threshold", () => {
+    const rows = [
+      eddRow({ user_id: "u1", deposit_type: "paycheck", payroll_provider: "adp", days_early: 1 }),
+      eddRow({ user_id: "u1", deposit_type: "gig_platform", payroll_provider: "adp", days_early: 5 }),
+      eddRow({ user_id: "u2", deposit_type: "paycheck", payroll_provider: "adp", days_early: 3 }),
+      eddRow({ user_id: "u3", deposit_type: "paycheck", payroll_provider: "adp", days_early: 3 }),
+    ];
+    const result = computeEddProviderEvidence(rows);
+    expect(result[0].reportCount).toBe(3);
+  });
+
   it("never creates a payroll-provider claim for non-payroll deposit types", () => {
     const rows = Array.from({ length: 5 }, (_, i) =>
       eddRow({ user_id: `u${i}`, deposit_type: "tax_refund", payroll_provider: "government_treasury" })

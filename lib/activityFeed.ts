@@ -25,15 +25,21 @@ export async function getActivityFeed(limit = 30): Promise<ActivityItem[]> {
       .select("id, slug, name, created_at")
       .order("created_at", { ascending: false })
       .limit(limit),
+    // Unattributed (seed/legacy) reports are excluded — this feed is framed
+    // to the user as community activity, so it should only ever show real,
+    // signed-in submissions, same attributable-only rule as every other
+    // evidence surface on the site.
     supabase
       .from("route_reports")
       .select("id, from_bank_id, from_bank_name, to_bank_name, rail_used, status, created_at")
+      .not("user_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(limit),
     supabase
       .from("route_reports")
-      .select("id, from_bank_id, rail_used, created_at")
+      .select("id, from_bank_id, to_bank_id, rail_used, created_at")
       .eq("status", "success")
+      .not("user_id", "is", null)
       .order("created_at", { ascending: true }),
     // route_reports only stores from_bank_id/name denormalized, not slug —
     // need a full id->slug map to link report items to their bank pages.
@@ -42,10 +48,14 @@ export async function getActivityFeed(limit = 30): Promise<ActivityItem[]> {
 
   const slugById = new Map((allBanks ?? []).map((b) => [b.id, b.slug]));
 
+  // "First confirmed" is scored per directional route+rail (from+to+rail),
+  // the same unit of analysis routeConfidence.ts uses everywhere else on the
+  // site — not from+rail alone, which would let an unrelated route to a
+  // different receiving bank claim the badge first.
   const firstConfirmedIds = new Set<string>();
   const seenKeys = new Set<string>();
   for (const row of allSuccess ?? []) {
-    const key = `${row.from_bank_id}::${row.rail_used}`;
+    const key = `${row.from_bank_id}::${row.to_bank_id}::${row.rail_used}`;
     if (!seenKeys.has(key)) {
       seenKeys.add(key);
       firstConfirmedIds.add(row.id);

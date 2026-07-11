@@ -40,7 +40,7 @@ const ENDPOINTS = [
   {
     method: "GET",
     path: "/changelog",
-    description: "Recent activity feed — banks added and route reports submitted. Optional ?limit= (max 200, default 50). Add &format=csv for CSV instead of JSON.",
+    description: "Recent activity feed — banks added and attributable (signed-in) route reports submitted. Unattributed/legacy reports never appear. \"First confirmed\" is scored per directional route+rail, same unit as /routes. Optional ?limit= (max 200, default 50). Add &format=csv for CSV instead of JSON.",
     example: "/changelog?limit=10",
   },
 ];

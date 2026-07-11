@@ -377,6 +377,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - Non-payroll deposit types (government benefits, tax refunds, pensions) never contribute to a provider's count, even when a provider is recorded alongside them (e.g. "government_treasury" on a tax refund is a legitimate thing to record but never becomes a payroll-provider claim)
 - Wording rule: provider evidence describes what was reported, never what caused it — "were reported N days early by M reporters," not "arrive N days early" or any phrasing implying the provider caused the timing. Applies everywhere evidence appears (bank pages, `/developers` docs, future surfaces)
 
+## Version 6.1.1 (v6.1.1 — shipped July 10 2026)
+
+**Hardening fixes, per ChatGPT's review of v6.1.0**
+- `computeEddProviderEvidence()` counted one reporter multiple times toward the 3-reporter provider threshold if they'd submitted the same provider under different eligible deposit types (e.g. paycheck, gig_platform, other) — the per-context dedup correctly kept each as a distinct row, but the provider-level count needs one row per *person*, not per experience. Added a second collapse-by-`user_id` pass before the threshold check and the displayed average
+- `/changelog` (`lib/activityFeed.ts`) showed raw, unattributed route reports as if they were genuine community activity, and could assign "first confirmed" to the first successful row from a bank on a rail regardless of which bank received it. Now requires `user_id` (matching the attributable-evidence rule used everywhere else on the site) and scores "first confirmed" per directional route+rail, the same unit `routeConfidence.ts` uses
+- `lib/supabase/admin.ts` (the service-role client factory) now imports `"server-only"` directly, so an accidental client-side import of the credential-bearing module fails at build time instead of relying on every caller to remember the rule
+
 ## Data Principles
 
 - Real-world reports only
