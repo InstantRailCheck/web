@@ -1,3 +1,5 @@
+import { fetchWithTimeoutAndRetry } from "@/lib/externalFetch";
+
 export type FinraMatch = {
   address: string | null;
   phone: string | null;
@@ -35,8 +37,8 @@ async function searchFinra(name: string): Promise<FinraMatch | null> {
     name
   )}&filter=active=true&includePrevious=true&hl=true&nrows=1&start=0&r=25&wt=json`;
 
-  const res = await fetch(url);
-  if (!res.ok) return null;
+  const res = await fetchWithTimeoutAndRetry(url);
+  if (!res || !res.ok) return null;
 
   const json: FinraApiResponse = await res.json();
   const hit = json.hits?.hits?.[0]?._source;

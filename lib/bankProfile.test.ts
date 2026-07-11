@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-function fakeQueryBuilder(data: unknown) {
+const logErrorMock = vi.fn();
+vi.mock("@/lib/logger", () => ({ logError: logErrorMock }));
+
+let tableData: Record<string, unknown[]> = {};
+let tableErrors: Record<string, string> = {};
+
+function fakeQueryBuilder(table: string, data: unknown) {
   const builder: Record<string, unknown> = {};
   const chain = () => builder;
   builder.select = chain;
@@ -10,15 +16,18 @@ function fakeQueryBuilder(data: unknown) {
   builder.or = chain;
   builder.order = chain;
   builder.maybeSingle = () => Promise.resolve({ data: (data as unknown[])[0] ?? null, error: null });
-  builder.then = (resolve: (v: { data: unknown; error: null }) => void) => resolve({ data, error: null });
+  builder.then = (resolve: (v: { data: unknown; error: { message: string } | null }) => void) =>
+    resolve(
+      tableErrors[table]
+        ? { data: null, error: { message: tableErrors[table] } }
+        : { data, error: null }
+    );
   return builder;
 }
 
-let tableData: Record<string, unknown[]> = {};
-
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
-    from: (table: string) => fakeQueryBuilder(tableData[table] ?? []),
+    from: (table: string) => fakeQueryBuilder(table, tableData[table] ?? []),
   }),
 }));
 
@@ -33,6 +42,8 @@ const {
 
 beforeEach(() => {
   tableData = {};
+  tableErrors = {};
+  logErrorMock.mockClear();
 });
 
 function eddRow(overrides: Partial<{
@@ -235,5 +246,26 @@ describe("getBankProfileById — EDD evidence and payroll context", () => {
     expect(profile.eddEvidence?.providers).toEqual([
       { provider: "gusto", providerLabel: "Gusto", avgDaysEarly: 1, reportCount: EDD_PROVIDER_MIN_REPORTERS },
     ]);
+  });
+
+  it("logs an error (and still falls back to an empty result) when a query fails, instead of failing silently", async () => {
+    setup([]);
+    tableErrors.route_reports = "connection reset";
+
+    const profile = await getBankProfileById("bank-a");
+
+    expect(profile.sending).toEqual([]);
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "Failed to load route_reports for bank profile",
+      expect.objectContaining({ bankId: "bank-a", error: "connection reset" })
+    );
+  });
+
+  it("does not log anything when every query succeeds", async () => {
+    setup([]);
+
+    await getBankProfileById("bank-a");
+
+    expect(logErrorMock).not.toHaveBeenCalled();
   });
 });

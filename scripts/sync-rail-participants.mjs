@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 import { replaceTableSafely } from "./lib/syncTableReplace.mjs";
+import { fetchWithTimeoutAndRetry } from "./lib/fetchWithTimeout.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,7 +19,7 @@ function normalize(name) {
 
 async function syncFedNow() {
   console.log("Downloading FedNow participant list...");
-  const res = await fetch(FEDNOW_URL);
+  const res = await fetchWithTimeoutAndRetry(FEDNOW_URL);
   if (!res.ok) throw new Error(`FedNow download failed: ${res.status}`);
   const buffer = Buffer.from(await res.arrayBuffer());
 
@@ -41,7 +42,7 @@ async function syncFedNow() {
 
 async function syncRtp() {
   console.log("Downloading RTP participant list...");
-  const res = await fetch(RTP_URL);
+  const res = await fetchWithTimeoutAndRetry(RTP_URL);
   if (!res.ok) throw new Error(`RTP download failed: ${res.status}`);
   const html = await res.text();
 

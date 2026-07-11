@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { replaceTableSafely } from "./lib/syncTableReplace.mjs";
+import { fetchWithTimeoutAndRetry } from "./lib/fetchWithTimeout.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,7 +19,7 @@ function sleep(ms) {
 }
 
 async function fetchPage(page, attempt = 1) {
-  const res = await fetch(`${BASE_URL}?page=${page}`);
+  const res = await fetchWithTimeoutAndRetry(`${BASE_URL}?page=${page}`);
   if (!res.ok) throw new Error(`Page ${page} failed: ${res.status}`);
   const html = await res.text();
 

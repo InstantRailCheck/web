@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dedupeToNewestPerReporter, type ReportStatus } from "@/lib/routeConfidence";
 import { NON_PAYROLL_DEPOSIT_TYPES, payrollProviderLabel, type DepositType, type PayrollProvider } from "@/lib/eddContext";
+import { logError } from "@/lib/logger";
 
 const STALE_DAYS = 180;
 
@@ -291,7 +292,11 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
   }
 
   const supabase = createAdminClient();
-  const [{ data: reports }, { data: history }, { data: eddRows }] = await Promise.all([
+  const [
+    { data: reports, error: reportsError },
+    { data: history, error: historyError },
+    { data: eddRows, error: eddError },
+  ] = await Promise.all([
     supabase
       .from("route_reports")
       .select("*")
@@ -307,6 +312,18 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
       .select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider")
       .eq("bank_id", bank.id),
   ]);
+
+  // These previously fell straight through to `?? []` on failure with no
+  // record anywhere that anything went wrong — indistinguishable from a
+  // bank that genuinely has zero reports. "Blank over wrong" is meant for
+  // insufficient evidence, not an unlogged query failure.
+  for (const [label, err] of [
+    ["route_reports", reportsError],
+    ["bank_rail_history", historyError],
+    ["edd_reports", eddError],
+  ] as const) {
+    if (err) logError(`Failed to load ${label} for bank profile`, { bankId: bank.id, error: err.message });
+  }
 
   const attributableEddRows = dedupeEddReportsByReporterAndBank(eddRows ?? []);
   const eddEvidence: EddEvidence | null =

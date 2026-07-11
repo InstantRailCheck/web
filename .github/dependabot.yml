@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # npm dependencies — Dependabot's security-update path (separate from this
+  # schedule) opens PRs for known-vulnerable versions as soon as an advisory
+  # is published, regardless of this weekly cadence; this section covers
+  # routine version-bump PRs so dependencies don't just quietly go stale.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      # Most @types/*, eslint, and other dev-only bumps are low-risk and
+      # noisy one at a time — bundle them into a single PR to review instead
+      # of a dozen near-identical ones.
+      dev-dependencies:
+        dependency-type: "development"
+
+  # Actions are pinned to commit SHAs (see .github/workflows/*.yml) as
+  # defense in depth against a compromised/republished version tag —
+  # Dependabot still tracks and opens PRs to bump the pinned SHA forward
+  # when a new release exists, so that pinning doesn't silently calcify.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"

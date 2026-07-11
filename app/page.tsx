@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getBankBySlug } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
+import { logError } from "@/lib/logger";
 
 export default async function Home({
   searchParams,
@@ -20,7 +21,7 @@ export default async function Home({
   ]);
   const supabase = await createClient();
   let bankCount = 0;
-  let error: { message: string } | null = null;
+  let hasError = false;
   try {
     const { count, error: countError } = await supabase
       .from("banks")
@@ -28,7 +29,14 @@ export default async function Home({
     if (countError) throw countError;
     bankCount = count ?? 0;
   } catch (err) {
-    error = { message: err instanceof Error ? err.message : "Failed to load banks" };
+    hasError = true;
+    // Previously this raw error message was shown directly to the visitor
+    // instead of being logged anywhere server-side — the only place a
+    // failure was recorded at all was a public-facing error string.
+    logError("Failed to load bank count on homepage", {
+      route: "/",
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Nonce required even for a non-executing script tag — script-src governs
@@ -83,9 +91,9 @@ export default async function Home({
               Your account has been deleted.
             </p>
           )}
-          {error ? (
+          {hasError ? (
             <p className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-red-200">
-              Supabase error: {error.message}
+              Something went wrong loading this page. Please try again shortly.
             </p>
           ) : (
             // Keyed on the resolved slugs (not the raw URL params) so a

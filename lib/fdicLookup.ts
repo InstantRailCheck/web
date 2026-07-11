@@ -1,3 +1,5 @@
+import { fetchWithTimeoutAndRetry } from "@/lib/externalFetch";
+
 type FdicInstitution = {
   NAME: string;
   WEBADDR: string;
@@ -66,8 +68,8 @@ async function searchFdic(name: string): Promise<FdicInstitution[]> {
     `NAME:${quoteIfNeeded(name)}`
   )}&filters=ACTIVE:1&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET&sort_by=ASSET&sort_order=DESC&limit=5`;
 
-  const res = await fetch(url);
-  if (!res.ok) return [];
+  const res = await fetchWithTimeoutAndRetry(url);
+  if (!res || !res.ok) return [];
 
   const json: FdicApiResponse = await res.json();
   return (json.data ?? []).map((d) => d.data);

@@ -15,6 +15,13 @@ const CORS_HEADERS = {
   // that don't bother respecting robots.txt.
   "X-Robots-Tag": "noindex",
   "X-Api-Version": API_VERSION,
+  // A conservative shared default across all four endpoints — short enough
+  // that /changelog (the most write-heavy one) never serves meaningfully
+  // stale activity, long enough to give CDNs/browsers real cache benefit
+  // for the slower-moving ones (/banks, /banks/:id, /routes). No endpoint
+  // varies by caller identity (no auth-scoped data), so a shared public
+  // cache is safe everywhere this header is applied.
+  "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
 };
 
 export function apiJson(data: unknown, init?: { status?: number }) {

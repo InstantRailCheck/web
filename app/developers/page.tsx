@@ -20,8 +20,9 @@ const ENDPOINTS = [
   {
     method: "GET",
     path: "/banks",
-    description: "List all banks. Optional ?q= to search by name. Add &format=csv for CSV instead of JSON.",
-    example: "/banks?q=chase",
+    description:
+      "List all banks. Optional ?q= to search by name. Optional ?limit=/&offset= to page through results (max limit 500) — omitting them still returns the full directory in one response, capped at 5000 as a safety net, so this remains additive rather than a breaking change. The response includes total (the full matching count, independent of limit/offset) alongside banks. Add &format=csv for CSV instead of JSON.",
+    example: "/banks?q=chase&limit=50&offset=0",
   },
   {
     method: "GET",
