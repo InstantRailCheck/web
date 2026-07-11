@@ -14,8 +14,19 @@ updates:
       # Most @types/*, eslint, and other dev-only bumps are low-risk and
       # noisy one at a time — bundle them into a single PR to review instead
       # of a dozen near-identical ones.
+      #
+      # Restricted to patch releases only: dependabot-automerge.yml's 0.x
+      # guard checks fetch-metadata's singular `previous-version` output,
+      # which for a grouped PR is just the *first* dependency in the group,
+      # not an aggregate — so a minor/major bump hiding among several
+      # grouped patch bumps could dodge the guard by reporting an unrelated
+      # dependency's version. Keeping minor/major dev bumps ungrouped means
+      # each becomes its own PR, where the singular outputs are always
+      # correct for that one dependency.
       dev-dependencies:
         dependency-type: "development"
+        update-types:
+          - "patch"
 
   # Actions are pinned to commit SHAs (see .github/workflows/*.yml) as
   # defense in depth against a compromised/republished version tag —

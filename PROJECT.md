@@ -486,6 +486,13 @@ This release starts with a full security pass of every API route and RLS policy 
 **Fixes a bug in v6.4.5's own 0.x guard**
 - v6.4.5's fix was correct that a 0.x *minor* bump needed to lose auto-merge eligibility, but the condition as written also blocked 0.x *patch* bumps (e.g. `server-only` 0.0.1 → 0.0.2) from auto-merging, which was never the intent — SemVer's stability disclaimer for pre-1.0 packages specifically concerns minor bumps having no compatibility guarantee, not patches. Caught by simulating the decision logic against five representative cases (0.x minor, 0.x patch, stable patch, stable minor, stable major) before considering it verified — the 0.x-patch case was the one that came back wrong. Narrowed the condition so only the minor branch checks pre-1.0 status
 
+## Version 6.4.7 (v6.4.7 — shipped July 11 2026)
+
+**Fixes a real gap in v6.4.5's 0.x guard, per ChatGPT's continued review**
+- The 0.x guard added in v6.4.5 checks `dependabot-automerge.yml`'s singular `previous-version` metadata output, but confirmed against the action's own source: for a *grouped* PR, that output isn't an aggregate across the group — it's just whichever dependency happens to be first in the array, while `update-type` (correctly) reports the most severe level across the whole group. So a grouped dev-dependency PR containing a 0.x minor bump alongside stable ones could report an unrelated stable package's version, let the guard pass, and auto-merge — silently defeating the point of v6.4.5's fix for exactly the case (the grouped dev-dependencies PR) that had already caused problems once (#4, the TypeScript 7 break)
+- Fixed at the `dependabot.yml` level instead of adding more fragile per-dependency parsing to the workflow: the `dev-dependencies` group now only includes patch releases (`update-types: ["patch"]`). Any minor/major dev-dependency bump becomes its own individual PR, where the singular metadata outputs are always correct for that one dependency and the existing guard works as intended. Verified `update-types` is a real, documented `groups` option (not guessed) before applying it
+- Tradeoff, accepted deliberately: this partially reverses the grouping's original noise-reduction goal — dev-dependency minor/major bumps (e.g. `@types/node`, `eslint`, `typescript`) go back to individual PRs instead of being bundled. Patch-level dev bumps are unaffected and still group as before
+
 ## Data Principles
 
 - Real-world reports only
