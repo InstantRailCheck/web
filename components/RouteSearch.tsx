@@ -148,9 +148,11 @@ export function RouteSearch({
         >
           {loading ? "Checking..." : "Check Route"}
         </button>
-      </form>
 
-      <p className="mt-5 text-center text-sm text-slate-500">{bankCount} banks currently available.</p>
+        <p className="text-center text-sm text-slate-500 md:col-span-2 md:row-start-3">
+          {bankCount} banks currently available.
+        </p>
+      </form>
 
       {fromBank && toBank && fromBank.id === toBank.id && (
         <p className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
