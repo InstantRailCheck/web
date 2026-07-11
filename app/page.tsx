@@ -11,9 +11,9 @@ import { SITE_URL } from "@/lib/siteConfig";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ auth_error?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ auth_error?: string; account_deleted?: string; from?: string; to?: string }>;
 }) {
-  const { auth_error, from, to } = await searchParams;
+  const { auth_error, account_deleted, from, to } = await searchParams;
   const [initialFromBank, initialToBank] = await Promise.all([
     from ? getBankBySlug(from) : Promise.resolve(null),
     to ? getBankBySlug(to) : Promise.resolve(null),
@@ -76,6 +76,11 @@ export default async function Home({
           {auth_error && (
             <p className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
               Sign-in failed. Please try again.
+            </p>
+          )}
+          {account_deleted && (
+            <p className="mb-4 rounded-xl border border-slate-700 bg-slate-900/70 p-4 text-sm text-slate-300">
+              Your account has been deleted.
             </p>
           )}
           {error ? (

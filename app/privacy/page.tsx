@@ -9,7 +9,7 @@ export default function PrivacyPage() {
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <div className="mx-auto w-full max-w-3xl">
           <h1 className="text-center text-3xl font-bold">Privacy Policy</h1>
-          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 8, 2026.</p>
+          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 11, 2026.</p>
 
           <div className="mt-8 space-y-8 text-sm leading-relaxed text-slate-300">
             <section>
@@ -45,9 +45,9 @@ export default function PrivacyPage() {
               <h2 className="text-lg font-semibold text-white">Who we share it with</h2>
               <p className="mt-2">
                 InstantRailCheck runs on Supabase (authentication and database), Vercel (hosting
-                and analytics), Google (if you choose to sign in with Google), and Cloudflare
-                (security and network routing). Each processes data only as needed to run the
-                service — we don&apos;t sell or otherwise share your data with anyone else.
+                and analytics), and Google (if you choose to sign in with Google). Each processes
+                data only as needed to run the service — we don&apos;t sell or otherwise share your
+                data with anyone else.
               </p>
             </section>
 
@@ -62,8 +62,16 @@ export default function PrivacyPage() {
                 <Link href="/webhooks" className="text-blue-400 hover:text-blue-300 transition">
                   /webhooks
                 </Link>
-                . To request deletion of your account or any data associated with it, contact us
-                below.
+                . You can also delete your account entirely from{" "}
+                <Link href="/account" className="text-blue-400 hover:text-blue-300 transition">
+                  /account
+                </Link>
+                , which removes your sign-in, passkeys, and webhooks immediately. Route reports,
+                EDD reports, and corrections you&apos;ve submitted remain as anonymous community
+                data rather than being deleted outright, since other people&apos;s view of a bank
+                or route may depend on them — they&apos;re no longer linked to you in any way once
+                your account is deleted. If you&apos;d like those removed entirely instead of
+                anonymized, contact us below.
               </p>
             </section>
 

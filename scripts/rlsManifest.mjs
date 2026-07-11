@@ -66,9 +66,24 @@ export const EXPECTED_POLICIES = {
 // be able to EXECUTE it directly. `service_role` only, everywhere — none
 // of these are meant to be callable by an end user's session, whether
 // they're a real callable RPC (increment_rate_limit) or a trigger-only
-// function (the rest; trigger execution doesn't require the firing role to
-// hold EXECUTE on the trigger function itself, so locking these down too
-// is intentional hardening, not a functional requirement).
+// function (the rest; trigger execution does NOT require the firing role
+// to hold EXECUTE on the trigger function itself — confirmed directly via
+// a raw SQL simulation, see the false-alarm note below).
+//
+// A 2026-07-11 investigation briefly (incorrectly) concluded this needed
+// changing after authenticated INSERTs into route_reports/edd_reports
+// started failing with a "row-level security policy" error. The real
+// cause: the verification scripts chained .insert(...).select(...), which
+// makes PostgREST add a RETURNING clause — and since route_reports/
+// edd_reports deliberately have no SELECT policy for authenticated (Phase
+// 1b, v6.1.0 lockdown), RETURNING can't read the row back, and Postgres
+// reports that under the same 42501 code as an RLS violation. Confirmed
+// via a raw SQL simulation (SET ROLE authenticated + request.jwt.claims,
+// rolled back): the same INSERT succeeds without RETURNING and fails only
+// once RETURNING is added — regardless of trigger-function EXECUTE grants.
+// The real application code never chains .select() after .insert() and
+// was never affected. See migrations 20260711034000 (the incorrect fix)
+// and 20260711035000 (its revert) for the full history.
 export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   increment_rate_limit: ["service_role"],
   check_route_report_quota: ["service_role"],
