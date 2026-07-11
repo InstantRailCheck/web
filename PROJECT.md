@@ -463,6 +463,11 @@ This release starts with a full security pass of every API route and RLS policy 
 - Added minimal branch protection on `main` requiring the `test` check to pass before a PR can merge — doesn't require reviews or restrict direct pushes, so the existing direct-to-main workflow is unaffected; only gates PR merges
 - Prompted by manually reviewing the first real batch of 10 Dependabot PRs: 7 were clean (including `react`/`react-dom`, which must be merged as a pair — bumping either alone breaks every test, since React requires matching versions), but the grouped dev-dependencies PR broke both lint and the build outright (`eslint-config-next`'s bundled `typescript-eslint` doesn't yet support the TypeScript 7 major bump it included) — left open rather than merged
 
+## Version 6.4.3 (v6.4.3 — shipped July 11 2026)
+
+**react/react-dom 19.2.4 → 19.2.7**
+- Dependabot opened these as two separate PRs, but React requires `react` and `react-dom` to be the exact same version — applying either alone crashes the entire test suite. Applied as a single combined commit instead of merging the two PRs individually (which would have left `main` in a broken mismatched state between merges, risky since this repo auto-deploys to production on every push)
+
 ## Data Principles
 
 - Real-world reports only
