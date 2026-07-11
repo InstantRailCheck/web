@@ -401,6 +401,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - `triggerWebhooks.ts` created a fresh `undici` `Agent` per delivery for DNS pinning but never closed it — closed in a `finally` block now, on both success and failure
 - Webhook fan-out (`Promise.all` over every active subscriber for an event) had no concurrency bound — one `bank_added` event could open unboundedly many simultaneous connections as webhook adoption grows. Capped at 10 concurrent deliveries via a small worker-pool helper. Not urgent at today's scale (0 registered webhooks) but cheap to fix ahead of it mattering
 
+## Version 6.1.4 (v6.1.4 — shipped July 11 2026)
+
+**Hardening fixes, per ChatGPT's follow-up review of `e642e22`**
+- `increment_rate_limit` (the rate-limiter's atomic Postgres counter RPC) was directly callable by `anon`/`authenticated` via PostgREST — confirmed live. Supabase grants EXECUTE to those roles explicitly per-function on creation (not just via the `PUBLIC` default), so a caller could inflate someone else's rate-limit bucket or fill `api_rate_limits` with arbitrary keys. Revoked from `public`/`anon`/`authenticated` on this and all 4 other `SECURITY DEFINER` functions, re-granted only to `service_role`
+- `bank_corrections` retained a direct authenticated INSERT (and SELECT) policy from before `submitCorrection()` existed as the real path — a direct client insert could set arbitrary `field`/`status`/`previous_value`, bypassing throttling and polluting the review queue. Dropped both policies (table is now server-only, same treatment `banks` already got in v5.0.0) and added CHECK constraints on `field`/`status` as defense in depth
+- `/auth/callback` resolved a client-supplied `?next=` redirect with `new URL(next, request.url)` — accepted absolute URLs and protocol-relative `//host` values, an open redirect after a real OAuth login. Found while fixing it: a third bypass beyond what was flagged — the URL parser silently strips tab/newline/CR before resolving, so `/\t/attacker.example` also escaped a naive "starts with single `/`" string check. Fixed by resolving against a fixed trusted origin and checking the *result's* origin rather than pattern-matching the input, which closes all three bypass classes (and any others) at once
+
 ## Data Principles
 
 - Real-world reports only
