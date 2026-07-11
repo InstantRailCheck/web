@@ -423,6 +423,14 @@ This release starts with a full security pass of every API route and RLS policy 
 - Added a `concurrency` guard to both `sync-data.yml` jobs so two runs (e.g. a manual trigger overlapping the schedule) can't interleave and delete each other's freshly-inserted rows — queues rather than cancels, since an in-progress sync shouldn't be killed mid-run
 - `escapeCsvValue()`'s quoting check covered commas/quotes/newlines but not a bare carriage return, which could still disrupt row structure in some CSV consumers even with formula injection already neutralized
 
+## Version 6.2.0 (v6.2.0 — shipped July 11 2026)
+
+**First batch off the post-hardening backlog (see PROJECT.md's own history above for the v6.0.1–v6.1.6 hardening run this follows)**
+- Added composite `(user_id, created_at)` indexes to `route_reports`/`edd_reports` — the v6.1.2 rolling-quota triggers run exactly this filter on every insert, previously a full sequential scan
+- Added a daily `pg_cron` cleanup of `webhook_deliveries` older than 30 days, matching the existing `api_rate_limits` cleanup pattern — delivery logs have real short-term debugging value (unlike the rate-limit counters), so a longer retention window than the 10-minute one already in place
+- Added a `maxLength={254}` bound on the sign-in email field — minor hygiene; the actual OTP send/verify flow goes straight to Supabase's own GoTrue service, which has its own validation and rate limiting, so this isn't a security boundary of ours
+- New `scripts/rlsManifest.mjs` + `scripts/audit-rls-manifest.mjs`: a hand-reviewed, version-controlled baseline of every table's expected RLS policies and every `SECURITY DEFINER` function's expected `EXECUTE` grants, diffed against live production via a new `service_role`-only introspection RPC (`audit_rls_manifest`). Runs daily via `.github/workflows/audit-rls.yml` and fails loudly on drift in either direction (missing expected policy/grant, or an unexpected extra one) — built specifically to catch the *next* undocumented-dashboard-change class of bug automatically, the same category Phase 1b (v6.1.0) and v6.1.4 each had to catch by hand. Verified against production both ways: passes clean as-is, and correctly flags a deliberately wrong expectation
+
 ## Data Principles
 
 - Real-world reports only

@@ -1,0 +1,23 @@
+name: Audit RLS/privilege manifest
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily — this is meant to catch drift (e.g. a policy or grant changed
+    # directly via the Supabase dashboard, bypassing migration review) soon
+    # after it happens, not just whenever someone thinks to check.
+    - cron: "0 12 * * *"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node scripts/audit-rls-manifest.mjs
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

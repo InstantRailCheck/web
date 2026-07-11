@@ -167,6 +167,11 @@ export function AuthModal({ open, onOpenChange }: Props) {
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="you@example.com"
+              // RFC 5321's own limit — this call goes straight to Supabase's
+              // GoTrue auth service (not through any of our own API code),
+              // which has its own request validation and OTP rate limiting;
+              // this is just basic input hygiene, not a security boundary.
+              maxLength={254}
               className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white placeholder-slate-500 outline-none focus:border-blue-500"
               autoFocus
             />
