@@ -37,7 +37,7 @@ jobs:
       # those are exactly the kind of thing likely to break the build in
       # ways the "test" check alone doesn't always catch cleanly.
       - name: Enable auto-merge for patch/minor updates
-        if: (steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor') && steps.pre1.outputs.is-pre-1-0 != 'true'
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || (steps.metadata.outputs.update-type == 'version-update:semver-minor' && steps.pre1.outputs.is-pre-1-0 != 'true')
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

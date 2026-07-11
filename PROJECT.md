@@ -479,7 +479,12 @@ This release starts with a full security pass of every API route and RLS policy 
 
 **Dependabot auto-merge hardening, per ChatGPT's review of v6.4.4**
 - `main`'s branch protection had `required_status_checks.strict: false` — a PR's check only had to pass against its own (possibly stale) branch, not after being brought current with `main`. Two independently-passing dependency PRs could merge back to back without their *combined* state ever being tested — the exact issue v6.4.4's own release note describes hitting live (3 of 7 merged PRs picked up lockfile conflicts from sequential merges against a moving `main`). Flipped to `strict: true`, closing the gap at its root rather than just resolving conflicts as they occur
-- `dependabot-automerge.yml` treated any `semver-minor` bump as auto-mergeable, but SemVer explicitly disclaims stability for 0.x releases ("anything MAY change at any time") — a "minor" bump on a pre-1.0 package (e.g. `@supabase/ssr` `^0.12.0`, `server-only` `^0.0.1`) carries the same risk profile as a major bump on a 1.0+ package. Added a check against Dependabot's `previous-version` metadata output; a 0.x minor bump now stays open for manual review instead of auto-merging
+- `dependabot-automerge.yml` treated any `semver-minor` bump as auto-mergeable, but SemVer explicitly disclaims stability for 0.x releases ("anything MAY change at any time") — a "minor" bump on a pre-1.0 package (e.g. `@supabase/ssr` `^0.12.0`, `server-only` `^0.0.1`) carries the same risk profile as a major bump on a 1.0+ package. Added a check against Dependabot's `previous-version` metadata output so a 0.x minor bump stays open for manual review instead of auto-merging
+
+## Version 6.4.6 (v6.4.6 — shipped July 11 2026)
+
+**Fixes a bug in v6.4.5's own 0.x guard**
+- v6.4.5's fix was correct that a 0.x *minor* bump needed to lose auto-merge eligibility, but the condition as written also blocked 0.x *patch* bumps (e.g. `server-only` 0.0.1 → 0.0.2) from auto-merging, which was never the intent — SemVer's stability disclaimer for pre-1.0 packages specifically concerns minor bumps having no compatibility guarantee, not patches. Caught by simulating the decision logic against five representative cases (0.x minor, 0.x patch, stable patch, stable minor, stable major) before considering it verified — the 0.x-patch case was the one that came back wrong. Narrowed the condition so only the minor branch checks pre-1.0 status
 
 ## Data Principles
 
