@@ -456,6 +456,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - `xlsx` is a devDependency, used only by `scripts/sync-rail-participants.mjs` to parse the FedNow XLSX download — never part of the app bundle
 - Verified: typecheck, lint, full test suite, and production build all pass; live-parsed the real FedNow participant file with the new build (1,801 records, matching the existing parser's expectations) before shipping
 
+## Version 6.4.2 (v6.4.2 — shipped July 11 2026)
+
+**Dependabot auto-merge for patch/minor updates**
+- New `.github/workflows/dependabot-automerge.yml`: patch/minor version-bump PRs from Dependabot now auto-merge once the `test` check passes; major-version bumps always stay open for manual review
+- Added minimal branch protection on `main` requiring the `test` check to pass before a PR can merge — doesn't require reviews or restrict direct pushes, so the existing direct-to-main workflow is unaffected; only gates PR merges
+- Prompted by manually reviewing the first real batch of 10 Dependabot PRs: 7 were clean (including `react`/`react-dom`, which must be merged as a pair — bumping either alone breaks every test, since React requires matching versions), but the grouped dev-dependencies PR broke both lint and the build outright (`eslint-config-next`'s bundled `typescript-eslint` doesn't yet support the TypeScript 7 major bump it included) — left open rather than merged
+
 ## Data Principles
 
 - Real-world reports only
