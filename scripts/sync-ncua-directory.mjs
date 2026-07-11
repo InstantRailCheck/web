@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import AdmZip from "adm-zip";
+import { readZipCsvEntry } from "./lib/zipCsv.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -66,59 +66,13 @@ const QUARTER = await findLatestQuarter();
 const ZIP_URL = zipUrlFor(QUARTER);
 console.log(`Using quarter: ${QUARTER}`);
 
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  const header = parseCsvLine(lines[0]);
-  return lines.slice(1).map((line) => {
-    const values = parseCsvLine(line);
-    const row = {};
-    header.forEach((key, i) => (row[key] = values[i]));
-    return row;
-  });
-}
-
-function parseCsvLine(line) {
-  const fields = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-
-    if (inQuotes) {
-      if (char === '"' && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else if (char === '"') {
-        inQuotes = false;
-      } else {
-        current += char;
-      }
-    } else if (char === '"') {
-      inQuotes = true;
-    } else if (char === ",") {
-      fields.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  fields.push(current);
-  return fields;
-}
-
 async function main() {
   console.log(`Downloading ${ZIP_URL}...`);
   const res = await fetchWithRetry(ZIP_URL);
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   const buffer = Buffer.from(await res.arrayBuffer());
 
-  const zip = new AdmZip(buffer);
-  const readEntry = (name) => {
-    const entry = zip.getEntry(name);
-    if (!entry) throw new Error(`Missing file in ZIP: ${name}`);
-    return parseCsv(entry.getData().toString("utf8"));
-  };
+  const readEntry = (name) => readZipCsvEntry(buffer, name);
 
   console.log("Parsing FOICU (names)...");
   const foicu = readEntry("FOICU.txt");

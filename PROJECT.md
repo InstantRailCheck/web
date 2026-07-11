@@ -493,6 +493,12 @@ This release starts with a full security pass of every API route and RLS policy 
 - Fixed at the `dependabot.yml` level instead of adding more fragile per-dependency parsing to the workflow: the `dev-dependencies` group now only includes patch releases (`update-types: ["patch"]`). Any minor/major dev-dependency bump becomes its own individual PR, where the singular metadata outputs are always correct for that one dependency and the existing guard works as intended. Verified `update-types` is a real, documented `groups` option (not guessed) before applying it
 - Tradeoff, accepted deliberately: this partially reverses the grouping's original noise-reduction goal — dev-dependency minor/major bumps (e.g. `@types/node`, `eslint`, `typescript`) go back to individual PRs instead of being bundled. Patch-level dev bumps are unaffected and still group as before
 
+## Version 6.4.8 (v6.4.8 — shipped July 11 2026)
+
+**@types/node runtime mismatch + NCUA zip parser test coverage, per ChatGPT's review**
+- `@types/node` had drifted to `^26` (a major-bump PR merged as part of the split-out dev-dependency work) while every workflow (`test.yml`, `sync-data.yml`, `audit-rls.yml`) targets Node 22 — green CI wouldn't have caught a case where the typechecker approved a Node 26-only API that doesn't exist in the Node 22 runtime actually used. Reverted to `^22` to match the declared target; regenerated the lockfile and refreshed `node_modules` (the adm-zip 0.6.0 merged in the same batch hadn't actually been locally reinstalled until now)
+- `scripts/sync-ncua-directory.mjs`'s ZIP-reading path (via `adm-zip`) had zero test coverage — the 251-test suite proved installation/build compatibility for the adm-zip 0.6.0 bump, not that a real archive still parses. Extracted the zip-read-and-CSV-parse logic (previously inlined) into `scripts/lib/zipCsv.mjs`, matching the existing `scripts/lib/` pattern (`fetchWithTimeout.mjs`, `syncTableReplace.mjs`); new `zipCsv.test.mjs` builds real zips in-memory with the actual installed adm-zip version (not a static fixture file, so it can't go stale) and covers quoted/comma CSV fields, multi-entry zips, and a missing-entry error
+
 ## Data Principles
 
 - Real-world reports only
