@@ -468,6 +468,13 @@ This release starts with a full security pass of every API route and RLS policy 
 **react/react-dom 19.2.4 → 19.2.7**
 - Dependabot opened these as two separate PRs, but React requires `react` and `react-dom` to be the exact same version — applying either alone crashes the entire test suite. Applied as a single combined commit instead of merging the two PRs individually (which would have left `main` in a broken mismatched state between merges, risky since this repo auto-deploys to production on every push)
 
+## Version 6.4.4 (v6.4.4 — shipped July 11 2026)
+
+**xlsx dependency-section fix + CI build-step gap**
+- The v6.4.1 xlsx swap had been placed under `dependencies` instead of `devDependencies` — the handoff command used `npm i --save` instead of `--save-dev`, and it wasn't caught before shipping. `xlsx` is only ever imported by `scripts/sync-rail-participants.mjs`, confirmed nothing under `app/`/`lib/`/`components/` references it. Moved back to `devDependencies`; verified the module still resolves and round-trip parses correctly at 0.20.3
+- `test.yml`'s required `test` check ran `vitest`, `tsc --noEmit`, and `eslint`, but never `next build` — meaning a Dependabot bump that only broke the production build could still pass the check gating the new auto-merge workflow (v6.4.2) and land on `main`, which auto-deploys to production on every push. Added `npm run build` as a step; confirmed it needs no new secrets (it succeeds even with `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_SERVICE_ROLE_KEY` all unset, since no route is statically prerendered against a live Supabase call)
+- Also merged the 7 open Dependabot PRs (#3, #5, #6, #7, #10, #11, #12) that had been queued waiting on this session's permission classifier — left open the one grouped dev-dependencies PR (#4) already known to break lint/build. Three of the seven (undici, next, radix-ui) picked up lockfile conflicts from being merged sequentially against a moving `main`; resolved by merging `main` into each branch, regenerating `package-lock.json`, and re-verifying test/typecheck/lint/build before pushing
+
 ## Data Principles
 
 - Real-world reports only
