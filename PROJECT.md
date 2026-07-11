@@ -393,6 +393,14 @@ This release starts with a full security pass of every API route and RLS policy 
 - `addBank`/`submitCorrection`/`registerWebhook` had no throttling of their own (each triggers real external lookups or webhook delivery) — added `isActionRateLimited()`, checked by both user ID (primary) and IP (secondary)
 - Webhook SSRF: `isUrlSafeForWebhook()` validated a resolved IP, then delivery's separate `fetch()` re-resolved DNS independently — a classic rebinding TOCTOU window. Delivery now pins the connection to the exact validated address via a custom `undici` dispatcher, while the `Host` header/TLS SNI still use the real hostname. The hand-rolled private/reserved IP blocklist was also replaced with `ipaddr.js`, checked as an allowlist (only `range() === "unicast"` passes) instead of a denylist that could miss a range
 
+## Version 6.1.3 (v6.1.3 — shipped July 11 2026)
+
+**Hardening fixes, per ChatGPT's follow-up review of `73dd522a`**
+- v6.1.2's submission-quota triggers counted rows by `created_at`, but nothing forced that column server-side — a direct client insert could supply an old timestamp and stay outside the rolling window indefinitely, bypassing the quota entirely. Both triggers now force `created_at := now()` before counting
+- The same triggers' "count, then permit if under the limit" was a check-then-act race: concurrent inserts from one user could all observe the same pre-insert count and all proceed. Serialized per user (not globally) via a transaction-scoped `pg_advisory_xact_lock`, keyed separately per table. Verified live: 25 simultaneous inserts from one account produced exactly 20 successes, not more
+- `triggerWebhooks.ts` created a fresh `undici` `Agent` per delivery for DNS pinning but never closed it — closed in a `finally` block now, on both success and failure
+- Webhook fan-out (`Promise.all` over every active subscriber for an event) had no concurrency bound — one `bank_added` event could open unboundedly many simultaneous connections as webhook adoption grows. Capped at 10 concurrent deliveries via a small worker-pool helper. Not urgent at today's scale (0 registered webhooks) but cheap to fix ahead of it mattering
+
 ## Data Principles
 
 - Real-world reports only

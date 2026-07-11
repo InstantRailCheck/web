@@ -15,6 +15,14 @@ import { isUrlSafeForWebhook } from "@/lib/webhookSafety";
 
 const DELIVERY_TIMEOUT_MS = 5000;
 
+// The 5-webhooks-per-user cap bounds one account, not total subscribers
+// across the whole system — a plain Promise.all over every active
+// subscriber would fan out unboundedly as adoption grows (one bank_added
+// event dispatching hundreds/thousands of simultaneous connections+agents).
+// Not urgent at today's scale (0 registered webhooks), fixed ahead of it
+// mattering rather than after.
+const MAX_CONCURRENT_DELIVERIES = 10;
+
 export async function triggerWebhooks(event: string, payload: Record<string, unknown>) {
   const supabase = createAdminClient();
   const { data: webhooks } = await supabase
@@ -25,7 +33,18 @@ export async function triggerWebhooks(event: string, payload: Record<string, unk
 
   if (!webhooks || webhooks.length === 0) return;
 
-  await Promise.all(webhooks.map((webhook) => deliverOne(webhook, event, payload)));
+  await mapWithConcurrency(webhooks, MAX_CONCURRENT_DELIVERIES, (webhook) => deliverOne(webhook, event, payload));
+}
+
+async function mapWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex++];
+      await fn(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }
 
 async function deliverOne(
@@ -94,5 +113,10 @@ async function deliverOne(
       success: false,
       error: err instanceof Error ? err.message : "Delivery failed",
     });
+  } finally {
+    // A dedicated Agent is created per delivery (so its pinned lookup only
+    // ever resolves this one webhook's validated address) — it must be
+    // closed afterward or its connection pool/sockets are never released.
+    await pinnedDispatcher.close();
   }
 }

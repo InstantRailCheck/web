@@ -21,8 +21,10 @@ vi.mock("@/lib/webhookSafety", () => ({
 }));
 
 const undiciFetchMock = vi.fn();
+const agentCloseMock = vi.fn(() => Promise.resolve());
 class FakeAgent {
   opts: unknown;
+  close = agentCloseMock;
   constructor(opts: unknown) {
     this.opts = opts;
   }
@@ -40,6 +42,7 @@ beforeEach(() => {
   selectMock.mockClear();
   isUrlSafeForWebhookMock.mockReset();
   undiciFetchMock.mockReset();
+  agentCloseMock.mockClear();
   selectResult = { data: [{ id: "wh1", url: "https://example.com/hook", secret: "s3cr3t" }] };
 });
 
@@ -112,5 +115,59 @@ describe("triggerWebhooks — delivery safety", () => {
 
     expect(isUrlSafeForWebhookMock).not.toHaveBeenCalled();
     expect(undiciFetchMock).not.toHaveBeenCalled();
+  });
+
+  it("closes the pinned dispatcher after a successful delivery", async () => {
+    isUrlSafeForWebhookMock.mockResolvedValue({ safe: true, address: "93.184.216.34" });
+    undiciFetchMock.mockResolvedValue({ status: 200 });
+
+    await triggerWebhooks("bank_added", { bankId: "b1" });
+
+    expect(agentCloseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the pinned dispatcher even when fetch throws", async () => {
+    isUrlSafeForWebhookMock.mockResolvedValue({ safe: true, address: "93.184.216.34" });
+    undiciFetchMock.mockRejectedValue(new Error("boom"));
+
+    await triggerWebhooks("bank_added", { bankId: "b1" });
+
+    expect(agentCloseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not create a dispatcher (nothing to close) when blocked before fetch", async () => {
+    isUrlSafeForWebhookMock.mockResolvedValue({ safe: false, reason: "blocked" });
+
+    await triggerWebhooks("bank_added", { bankId: "b1" });
+
+    expect(agentCloseMock).not.toHaveBeenCalled();
+  });
+
+  it("caps simultaneous deliveries instead of firing every webhook at once", async () => {
+    const webhookCount = 25;
+    selectResult = {
+      data: Array.from({ length: webhookCount }, (_, i) => ({
+        id: `wh${i}`,
+        url: `https://example${i}.com/hook`,
+        secret: "s3cr3t",
+      })),
+    };
+    isUrlSafeForWebhookMock.mockResolvedValue({ safe: true, address: "93.184.216.34" });
+
+    let inFlight = 0;
+    let maxInFlight = 0;
+    undiciFetchMock.mockImplementation(async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight--;
+      return { status: 200 };
+    });
+
+    await triggerWebhooks("bank_added", { bankId: "b1" });
+
+    expect(undiciFetchMock).toHaveBeenCalledTimes(webhookCount);
+    expect(maxInFlight).toBeLessThanOrEqual(10);
+    expect(maxInFlight).toBeGreaterThan(1); // proves it's actually concurrent, not serialized to 1
   });
 });
