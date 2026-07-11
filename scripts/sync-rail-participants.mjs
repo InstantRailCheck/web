@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import { replaceTableSafely } from "./lib/syncTableReplace.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,52 +12,8 @@ const FEDNOW_URL =
 const RTP_URL =
   "https://www.theclearinghouse.org/payment-systems/rtp/RTP-Participating-Financial-Institutions";
 
-// A harmless upstream HTML/layout change could otherwise parse zero or
-// very few records, and a naive delete-then-insert would then wipe out a
-// fully populated table with almost nothing. Below this fraction of the
-// table's current size, abort instead of proceeding — these lists only
-// grow gradually (banks onboarding), so a large drop means the parser
-// broke, not that hundreds of institutions left the network overnight.
-const MIN_RETENTION_FRACTION = 0.8;
-
 function normalize(name) {
   return name.toLowerCase().trim().replace(/\s+/g, " ");
-}
-
-// Never leaves the table empty at any intermediate point: inserts the new
-// rows first (stamped with this run's timestamp), and only removes the
-// previous rows — identified by predating that timestamp — once every new
-// row has been inserted successfully. A failure partway through an insert
-// throws before any deletion happens, so the table still holds the last
-// good sync's data rather than a partially-replaced mix.
-async function replaceTable(table, records) {
-  const { count: currentCount, error: countError } = await supabase
-    .from(table)
-    .select("id", { count: "exact", head: true });
-  if (countError) throw countError;
-
-  if (currentCount > 0 && records.length < currentCount * MIN_RETENTION_FRACTION) {
-    throw new Error(
-      `${table}: parsed ${records.length} records, but ${currentCount} are currently stored — ` +
-        `a drop below ${MIN_RETENTION_FRACTION * 100}% looks like a parsing failure, not a real change. Aborting without touching the table.`
-    );
-  }
-
-  const syncStartedAt = new Date().toISOString();
-  const stamped = records.map((r) => ({ ...r, updated_at: syncStartedAt }));
-
-  console.log(`${table}: inserting ${stamped.length} new records...`);
-  const chunkSize = 500;
-  for (let i = 0; i < stamped.length; i += chunkSize) {
-    const chunk = stamped.slice(i, i + chunkSize);
-    const { error } = await supabase.from(table).insert(chunk);
-    if (error) throw error;
-    console.log(`  ${Math.min(i + chunkSize, stamped.length)}/${stamped.length}`);
-  }
-
-  console.log(`${table}: removing rows from before this sync...`);
-  const { error: deleteError } = await supabase.from(table).delete().lt("updated_at", syncStartedAt);
-  if (deleteError) throw deleteError;
 }
 
 async function syncFedNow() {
@@ -79,7 +36,7 @@ async function syncFedNow() {
     }));
 
   console.log(`Parsed ${records.length} FedNow participants.`);
-  await replaceTable("fednow_participants", records);
+  await replaceTableSafely(supabase, "fednow_participants", records);
 }
 
 async function syncRtp() {
@@ -102,7 +59,7 @@ async function syncRtp() {
     });
 
   console.log(`Parsed ${records.length} RTP participants.`);
-  await replaceTable("rtp_participants", records);
+  await replaceTableSafely(supabase, "rtp_participants", records);
 }
 
 async function main() {

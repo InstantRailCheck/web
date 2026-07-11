@@ -27,6 +27,6 @@ function escapeCsvValue(value: unknown): string {
   if (typeof value === "string" && FORMULA_INJECTION_PATTERN.test(str)) {
     str = `'${str}`;
   }
-  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  if (/[",\r\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
 }

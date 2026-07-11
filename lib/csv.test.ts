@@ -16,6 +16,14 @@ describe("toCsv", () => {
     );
   });
 
+  it("quotes a value containing a bare carriage return", () => {
+    expect(toCsv([{ a: "line1\rline2" }])).toBe('a\n"line1\rline2"');
+  });
+
+  it("quotes a value containing a CRLF sequence", () => {
+    expect(toCsv([{ a: "line1\r\nline2" }])).toBe('a\n"line1\r\nline2"');
+  });
+
   it("renders null/undefined as an empty cell", () => {
     expect(toCsv([{ a: null, b: undefined }])).toBe("a,b\n,");
   });

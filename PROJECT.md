@@ -416,6 +416,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - `.github/workflows/sync-data.yml` set Supabase secrets at job level, so `npm ci` inherited the production service-role key — a compromised dependency's install script could have exfiltrated it. Moved secrets to only the individual sync steps that need them; also pinned both workflows' Actions to commit SHAs (defense in depth against a compromised/republished version tag)
 - `sync-rail-participants.mjs`/`sync-zelle-participants.mjs` deleted their entire target table before reinserting — a harmless upstream HTML/layout change could have parsed near-zero records and wiped out a fully populated table, and a mid-insert failure left a partial replacement with no rollback. Both now insert the new data first, only removing the previous run's rows (identified by an `updated_at` cutoff) once every new row is in, and abort before touching anything if the new count drops more than 20% from what's currently stored
 
+## Version 6.1.6 (v6.1.6 — shipped July 11 2026)
+
+**Fixes a real bug in v6.1.5's own sync-script fix, per ChatGPT's review**
+- v6.1.5's insert-then-delete-stale approach was correct that the *old* dataset survived a failed run, but a mid-insert failure left that old data sitting alongside a *partial* new-generation duplicate (nothing cleaned it up) — which then inflated the next run's raw-row-count sanity baseline enough to wrongly reject a perfectly valid parse. Fixed by (a) deleting this run's own rows immediately if the insert phase fails, restoring the table to exactly its pre-run state, and (b) basing the retention check on the size of the table's *largest single generation* (rows sharing one `updated_at` stamp) rather than a raw count, so it stays correct even if a cleanup step ever fails too. Extracted into a shared `scripts/lib/syncTableReplace.mjs` (with real test coverage, including a test that reproduces the exact bug ChatGPT found) so both sync scripts can no longer drift out of sync with each other the way the original delete-then-insert duplication did
+- Added a `concurrency` guard to both `sync-data.yml` jobs so two runs (e.g. a manual trigger overlapping the schedule) can't interleave and delete each other's freshly-inserted rows — queues rather than cancels, since an in-progress sync shouldn't be killed mid-run
+- `escapeCsvValue()`'s quoting check covered commas/quotes/newlines but not a bare carriage return, which could still disrupt row structure in some CSV consumers even with formula injection already neutralized
+
 ## Data Principles
 
 - Real-world reports only
