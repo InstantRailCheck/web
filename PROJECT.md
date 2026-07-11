@@ -475,6 +475,12 @@ This release starts with a full security pass of every API route and RLS policy 
 - `test.yml`'s required `test` check ran `vitest`, `tsc --noEmit`, and `eslint`, but never `next build` — meaning a Dependabot bump that only broke the production build could still pass the check gating the new auto-merge workflow (v6.4.2) and land on `main`, which auto-deploys to production on every push. Added `npm run build` as a step; confirmed it needs no new secrets (it succeeds even with `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_SERVICE_ROLE_KEY` all unset, since no route is statically prerendered against a live Supabase call)
 - Also merged the 7 open Dependabot PRs (#3, #5, #6, #7, #10, #11, #12) that had been queued waiting on this session's permission classifier — left open the one grouped dev-dependencies PR (#4) already known to break lint/build. Three of the seven (undici, next, radix-ui) picked up lockfile conflicts from being merged sequentially against a moving `main`; resolved by merging `main` into each branch, regenerating `package-lock.json`, and re-verifying test/typecheck/lint/build before pushing
 
+## Version 6.4.5 (v6.4.5 — shipped July 11 2026)
+
+**Dependabot auto-merge hardening, per ChatGPT's review of v6.4.4**
+- `main`'s branch protection had `required_status_checks.strict: false` — a PR's check only had to pass against its own (possibly stale) branch, not after being brought current with `main`. Two independently-passing dependency PRs could merge back to back without their *combined* state ever being tested — the exact issue v6.4.4's own release note describes hitting live (3 of 7 merged PRs picked up lockfile conflicts from sequential merges against a moving `main`). Flipped to `strict: true`, closing the gap at its root rather than just resolving conflicts as they occur
+- `dependabot-automerge.yml` treated any `semver-minor` bump as auto-mergeable, but SemVer explicitly disclaims stability for 0.x releases ("anything MAY change at any time") — a "minor" bump on a pre-1.0 package (e.g. `@supabase/ssr` `^0.12.0`, `server-only` `^0.0.1`) carries the same risk profile as a major bump on a 1.0+ package. Added a check against Dependabot's `previous-version` metadata output; a 0.x minor bump now stays open for manual review instead of auto-merging
+
 ## Data Principles
 
 - Real-world reports only

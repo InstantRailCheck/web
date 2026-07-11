@@ -17,12 +17,27 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
+      # SemVer treats 0.x releases as still-unstable ("anything MAY change
+      # at any time") — a "minor" bump on a pre-1.0 package (0.12.0 ->
+      # 0.13.0) carries no more stability guarantee than a major bump does
+      # on a 1.0+ package. Dependabot's own update-type classification
+      # doesn't account for this, so treat a 0.x minor bump as ineligible
+      # for auto-merge even though it'd otherwise qualify.
+      - name: Check for a pre-1.0 package
+        id: pre1
+        run: |
+          if [[ "${{ steps.metadata.outputs.previous-version }}" == 0.* ]]; then
+            echo "is-pre-1-0=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is-pre-1-0=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Only patch/minor bumps auto-merge; major-version bumps (like a
       # framework/language major jump) stay open for manual review, since
       # those are exactly the kind of thing likely to break the build in
       # ways the "test" check alone doesn't always catch cleanly.
       - name: Enable auto-merge for patch/minor updates
-        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        if: (steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor') && steps.pre1.outputs.is-pre-1-0 != 'true'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
