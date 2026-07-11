@@ -499,6 +499,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - `@types/node` had drifted to `^26` (a major-bump PR merged as part of the split-out dev-dependency work) while every workflow (`test.yml`, `sync-data.yml`, `audit-rls.yml`) targets Node 22 — green CI wouldn't have caught a case where the typechecker approved a Node 26-only API that doesn't exist in the Node 22 runtime actually used. Reverted to `^22` to match the declared target; regenerated the lockfile and refreshed `node_modules` (the adm-zip 0.6.0 merged in the same batch hadn't actually been locally reinstalled until now)
 - `scripts/sync-ncua-directory.mjs`'s ZIP-reading path (via `adm-zip`) had zero test coverage — the 251-test suite proved installation/build compatibility for the adm-zip 0.6.0 bump, not that a real archive still parses. Extracted the zip-read-and-CSV-parse logic (previously inlined) into `scripts/lib/zipCsv.mjs`, matching the existing `scripts/lib/` pattern (`fetchWithTimeout.mjs`, `syncTableReplace.mjs`); new `zipCsv.test.mjs` builds real zips in-memory with the actual installed adm-zip version (not a static fixture file, so it can't go stale) and covers quoted/comma CSV fields, multi-entry zips, and a missing-entry error
 
+## Version 6.4.9 (v6.4.9 — shipped July 11 2026)
+
+**Explicit Node version, per ChatGPT's WSL environment review**
+- Local dev had been running Node 24 while every CI workflow targets Node 22, with nothing in the repo making the intended version explicit. Added `.node-version` (`22`, for local version managers like `fnm`/`nvm`) and `engines.node: "22.x"` in `package.json`
+- `engines.node` is also read by Vercel to select its build/runtime Node version — verified no `vercel.json` or prior `engines` field existed to compare against, so this is a genuine (low-risk, intended) production-facing change, not just a local-tooling hint. `npm install` still succeeds under a mismatched local Node version (warns, doesn't fail — no `engine-strict` set)
+- Also set this repo's local `core.autocrlf` to `input` (git config, not a versioned file) — not because it was misconfigured (it wasn't set to anything, contrary to what prompted this), but as cheap defensive hygiene given this project's real prior history of CRLF pain on its Windows-based sessions
+
 ## Data Principles
 
 - Real-world reports only

@@ -1,7 +1,10 @@
 {
   "name": "instantrailcheck",
-  "version": "6.4.8",
+  "version": "6.4.9",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
