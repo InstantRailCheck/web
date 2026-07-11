@@ -1,7 +1,7 @@
 import dns from "node:dns/promises";
-import net from "node:net";
+import ipaddr from "ipaddr.js";
 
-export type UrlSafetyResult = { safe: true } | { safe: false; reason: string };
+export type UrlSafetyResult = { safe: true; address: string } | { safe: false; reason: string };
 
 export async function isUrlSafeForWebhook(urlString: string): Promise<UrlSafetyResult> {
   let url: URL;
@@ -34,39 +34,38 @@ export async function isUrlSafeForWebhook(urlString: string): Promise<UrlSafetyR
   }
 
   for (const addr of addresses) {
-    if (isPrivateOrReservedIp(addr)) {
+    if (!isGloballyRoutableIp(addr)) {
       return { safe: false, reason: `Resolves to a private/reserved IP address (${addr})` };
     }
   }
 
-  return { safe: true };
+  // The caller pins the actual delivery connection to this exact address
+  // (see triggerWebhooks.ts) rather than letting fetch() re-resolve the
+  // hostname — a second, independent DNS lookup milliseconds later is
+  // exactly the DNS-rebinding window a hostile nameserver can exploit,
+  // returning a safe address here and a private one moments later.
+  return { safe: true, address: addresses[0] };
 }
 
-function isPrivateOrReservedIp(ip: string): boolean {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split(".").map(Number);
-
-    if (a === 127) return true; // loopback
-    if (a === 10) return true; // private
-    if (a === 172 && b >= 16 && b <= 31) return true; // private
-    if (a === 192 && b === 168) return true; // private
-    if (a === 169 && b === 254) return true; // link-local — includes cloud metadata endpoints
-    if (a === 0) return true; // "this" network
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-    return false;
+// Allowlist, not a denylist: an address must parse and its ipaddr.js range
+// must be exactly "unicast" (their term for "ordinary globally routable
+// address") — anything unrecognized fails closed instead of silently
+// passing through a range the list happened not to name. Covers both IPv4
+// (private/loopback/linkLocal/multicast/broadcast/reserved/carrierGradeNat/
+// as112/amt) and IPv6 (loopback/linkLocal/uniqueLocal/multicast/reserved/
+// deprecatedSiteLocal/discard/6to4/teredo/benchmarking/orchid/and more) —
+// see ipaddr.js's SpecialRanges tables, which track the IANA registries
+// directly rather than a hand-maintained partial list.
+function isGloballyRoutableIp(ip: string): boolean {
+  let addr: ipaddr.IPv4 | ipaddr.IPv6;
+  try {
+    // process() also unwraps an IPv4-mapped IPv6 address (::ffff:a.b.c.d)
+    // into a plain IPv4 one, so it's checked against the IPv4 ranges rather
+    // than only being recognized as the generic "ipv4Mapped" IPv6 range.
+    addr = ipaddr.process(ip);
+  } catch {
+    return false; // unparseable — fail closed
   }
 
-  if (net.isIPv6(ip)) {
-    const lower = ip.toLowerCase();
-    if (lower === "::1") return true; // loopback
-    if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // unique local
-    if (lower.startsWith("fe80")) return true; // link-local
-
-    const v4Mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (v4Mapped) return isPrivateOrReservedIp(v4Mapped[1]);
-
-    return false;
-  }
-
-  return true; // unrecognized format — fail closed
+  return addr.range() === "unicast";
 }

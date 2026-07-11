@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { lookupFdicBank } from "@/lib/fdicLookup";
 import { lookupNcuaCreditUnion } from "@/lib/ncuaLookup";
 import { lookupFinraBroker } from "@/lib/finraLookup";
+import { isActionRateLimited } from "@/lib/rateLimit";
 
 export type CorrectionField = "website" | "phone";
 
@@ -25,6 +26,12 @@ export async function submitCorrection(
 
   if (!user) {
     return { status: "error", message: "You must be signed in to submit a correction." };
+  }
+
+  // Each call re-runs the same FDIC/NCUA/FINRA lookups enrichment uses —
+  // real outbound requests to external services, not just a DB write.
+  if (await isActionRateLimited("submitCorrection", user.id, { userLimit: 15, ipLimit: 30, windowSeconds: 600 })) {
+    return { status: "error", message: "Too many corrections submitted recently. Please wait a few minutes and try again." };
   }
 
   const trimmed = value.trim();

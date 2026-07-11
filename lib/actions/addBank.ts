@@ -7,6 +7,7 @@ import { slugify, uniqueSlug } from "@/lib/slugify";
 import { normalizeForSearch } from "@/lib/utils";
 import { enrichBank } from "@/lib/actions/enrichBank";
 import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
+import { isActionRateLimited } from "@/lib/rateLimit";
 
 export type AddBankResult = { id: string; slug: string; name: string } | { error: string };
 
@@ -25,6 +26,14 @@ export async function addBank(name: string): Promise<AddBankResult> {
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "You must be signed in." };
+
+  // Each call triggers a normalized-name lookup, a slug uniqueness scan, an
+  // insert, and (on success) an FDIC/NCUA/FINRA enrichment lookup plus
+  // webhook delivery — cheap to call, not cheap to run repeatedly. RLS
+  // proves ownership of the resulting row, not reasonable call volume.
+  if (await isActionRateLimited("addBank", user.id, { userLimit: 10, ipLimit: 20, windowSeconds: 600 })) {
+    return { error: "Too many banks added recently. Please wait a few minutes and try again." };
+  }
 
   const trimmed = name.trim();
   if (!trimmed) return { error: "Please enter a bank name." };

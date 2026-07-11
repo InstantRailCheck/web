@@ -8,6 +8,8 @@
 // is addBank.ts, right after a verified insert.
 import "server-only";
 import crypto from "node:crypto";
+import net from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUrlSafeForWebhook } from "@/lib/webhookSafety";
 
@@ -50,8 +52,24 @@ async function deliverOne(
 
   const signature = crypto.createHmac("sha256", webhook.secret).update(body).digest("hex");
 
+  // Pin the actual TCP connection to the exact address just validated,
+  // instead of letting fetch() re-resolve the hostname itself — a plain
+  // fetch(webhook.url) would perform its own independent DNS lookup, and a
+  // hostile nameserver could return a safe address to isUrlSafeForWebhook
+  // and a private one moments later to this second lookup (DNS rebinding).
+  // The custom `lookup` only overrides the raw connect target; the Host
+  // header and TLS SNI still come from the URL's real hostname.
+  const pinnedFamily = net.isIPv6(safety.address) ? 6 : 4;
+  const pinnedDispatcher = new Agent({
+    connect: {
+      lookup: (_hostname, _options, callback) => {
+        callback(null, safety.address, pinnedFamily);
+      },
+    },
+  });
+
   try {
-    const res = await fetch(webhook.url, {
+    const res = await undiciFetch(webhook.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -60,6 +78,7 @@ async function deliverOne(
       body,
       redirect: "manual", // never follow redirects — a safe URL could redirect to an unsafe one
       signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
+      dispatcher: pinnedDispatcher,
     });
 
     await supabase.from("webhook_deliveries").insert({
