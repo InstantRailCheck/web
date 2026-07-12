@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { pickFdicMatch } from "./lib/bankAkaNames.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -8,7 +9,7 @@ const supabase = createClient(
 async function searchFdic(name) {
   const url = `https://api.fdic.gov/banks/institutions?search=${encodeURIComponent(
     `NAME:${quoteIfNeeded(name)}`
-  )}&filters=ACTIVE:1&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET&sort_by=ASSET&sort_order=DESC&limit=5`;
+  )}&filters=ACTIVE:1&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET,CERT&sort_by=ASSET&sort_order=DESC&limit=5`;
 
   const res = await fetch(url);
   if (!res.ok) return [];
@@ -21,21 +22,28 @@ function quoteIfNeeded(name) {
   return name.includes(" ") ? `"${name}"` : name;
 }
 
+// Word-boundary + exactly-one-distinct-match rule (same as
+// scripts/lib/bankAkaNames.mjs's pickFdicMatch, added after this function
+// was found live-mismatching institutions to unrelated mega-banks -
+// FDIC's `search=` parameter is a loose relevance search, not an exact
+// match, so naively taking the highest-asset candidate trusts whatever the
+// fuzzy search happened to rank first regardless of whether it's actually
+// the same institution). Floor of 3, not 2, for the same reason as that
+// module: a bare 2-word candidate is often just a city/region name, which
+// can still pass the uniqueness check by coincidentally being the only
+// FDIC-regulated bank with that location in its name.
 async function lookupFdicBank(name) {
   const words = name.trim().split(/\s+/);
-  const floor = Math.min(2, words.length);
+  const floor = Math.min(3, words.length);
 
   for (let i = words.length; i >= floor; i--) {
     const candidateName = words.slice(0, i).join(" ");
     const variants = new Set([candidateName, candidateName.replace(/\bUS\b/gi, "U.S.")]);
 
-    const candidateLists = await Promise.all(
-      Array.from(variants).map((variant) => searchFdic(variant))
-    );
-
-    const candidates = candidateLists.flat();
-    if (candidates.length > 0) {
-      const best = candidates.reduce((a, b) => (b.ASSET > a.ASSET ? b : a));
+    for (const variant of variants) {
+      const candidates = await searchFdic(variant);
+      const best = pickFdicMatch(candidates, variant);
+      if (!best) continue;
 
       const website = best.WEBADDR
         ? best.WEBADDR.startsWith("http")
@@ -162,7 +170,12 @@ async function main() {
   console.log(`Processing ${banks.length} bank(s).`);
 
   for (const bank of banks) {
-    const fdicMatch = await lookupFdicBank(bank.name);
+    // Credit unions are never FDIC-member institutions - querying FDIC for
+    // one can only ever produce a false positive (confirmed live during the
+    // aka_names backfill: several credit unions matched an unrelated bank
+    // via generic word overlap), never a real match.
+    const isCreditUnion = /credit union/i.test(bank.name);
+    const fdicMatch = isCreditUnion ? null : await lookupFdicBank(bank.name);
     const ncuaMatch = fdicMatch ? null : await lookupNcuaCreditUnion(bank.name);
     const finraMatch = fdicMatch || ncuaMatch ? null : await lookupFinraBroker(bank.name);
     const match = fdicMatch ?? ncuaMatch ?? finraMatch;
