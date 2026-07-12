@@ -168,14 +168,24 @@ async function main() {
   // ncua_credit_unions itself, never on the actual bank profile page.
   console.log("Refreshing aka_names for banks already linked to an NCUA charter...");
   const searchNamesByCharter = new Map(records.map((r) => [r.charter_number, r.search_names]));
-  const { data: linkedBanks, error: linkedBanksError } = await supabase
-    .from("banks")
-    .select("id, name, ncua_charter_number")
-    .not("ncua_charter_number", "is", null);
-  if (linkedBanksError) throw linkedBanksError;
+  // Supabase caps a single select() at 1000 rows by default - with 3,770+
+  // banks now linked, an unpaginated query here would silently refresh only
+  // the first 1000 and leave the rest stale (the exact bug class v2.2.0
+  // fixed for the bulk import scripts).
+  const linkedBanks = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase
+      .from("banks")
+      .select("id, name, ncua_charter_number")
+      .not("ncua_charter_number", "is", null)
+      .range(offset, offset + 999);
+    if (error) throw error;
+    linkedBanks.push(...data);
+    if (data.length < 1000) break;
+  }
 
   let refreshed = 0;
-  for (const bank of linkedBanks ?? []) {
+  for (const bank of linkedBanks) {
     const searchNames = searchNamesByCharter.get(bank.ncua_charter_number);
     if (!searchNames) continue; // charter no longer in this run's data - leave as is
     const akaNames = computeAkaNamesFromSearchNames(bank.name, searchNames);

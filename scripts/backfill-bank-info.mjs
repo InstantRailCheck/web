@@ -77,14 +77,22 @@ async function tryNcuaMatch(name) {
 
   if (exact && (exact.website || exact.address || exact.phone)) return exact;
 
+  // Same word-boundary + exactly-one-distinct-match rule as the FDIC
+  // lookup above (pickFdicMatch) - this previously took whichever row
+  // ILIKE happened to return first, with no check that only one distinct
+  // credit union actually matched.
   const { data: partial } = await supabase
     .from("ncua_credit_unions")
-    .select("website, address, phone")
-    .ilike("name", `%${normalized}%`)
-    .limit(1)
-    .maybeSingle();
+    .select("charter_number, website, address, phone")
+    .ilike("name", `%${normalized}%`);
 
-  if (partial && (partial.website || partial.address || partial.phone)) return partial;
+  if (partial && partial.length > 0) {
+    const distinctCharters = new Set(partial.map((p) => p.charter_number));
+    if (distinctCharters.size === 1) {
+      const match = partial[0];
+      if (match.website || match.address || match.phone) return match;
+    }
+  }
 
   return null;
 }
