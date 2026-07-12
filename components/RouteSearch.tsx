@@ -80,13 +80,22 @@ function EvidenceLine({
 // directly from the two slugs rather than reading window.location — avoids
 // any dependency on the router push having already committed.
 function CopyLinkButton({ fromSlug, toSlug }: { fromSlug: string; toSlug: string }) {
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   async function handleCopy() {
     const url = `${window.location.origin}/?from=${fromSlug}&to=${toSlug}`;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      // clipboard.writeText is unavailable in some contexts (e.g. non-HTTPS,
+      // certain in-app browsers) and can also reject on permission denial —
+      // either way, fail visibly rather than leaving an unhandled rejection
+      // and no feedback that nothing was actually copied.
+      await navigator.clipboard.writeText(url);
+      setStatus("copied");
+    } catch {
+      setStatus("failed");
+    } finally {
+      setTimeout(() => setStatus("idle"), 2000);
+    }
   }
 
   return (
@@ -95,10 +104,12 @@ function CopyLinkButton({ fromSlug, toSlug }: { fromSlug: string; toSlug: string
       onClick={handleCopy}
       className="inline-flex items-center gap-1.5 text-slate-400 transition hover:text-blue-300"
     >
-      {copied ? (
+      {status === "copied" ? (
         <>
           <Check className="h-3.5 w-3.5" /> Copied
         </>
+      ) : status === "failed" ? (
+        "Couldn't copy"
       ) : (
         <>
           <Copy className="h-3.5 w-3.5" /> Copy link

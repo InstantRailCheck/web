@@ -44,7 +44,10 @@ function mockFetch(banks: Array<{ id: string; slug: string; name: string }> = []
       if (url.pathname === "/api/routes") {
         const from = url.searchParams.get("from")!;
         const to = url.searchParams.get("to")!;
-        const data = routeApiMock(from, to);
+        // Awaited (not just returned) so a test can hand back a pending
+        // promise it controls the resolution of, e.g. to exercise the
+        // stale-response race — a plain value still resolves immediately.
+        const data = await routeApiMock(from, to);
         return new Response(JSON.stringify(data), { status: 200 });
       }
       return new Response("{}", { status: 404 });
@@ -193,6 +196,34 @@ describe("HomeRouteChecker — swap, copy link, reverse check, compare", () => {
     expect(routeApiMock).not.toHaveBeenCalled();
   });
 
+  it("ignores a stale response that resolves after the selection has already moved on (async race)", async () => {
+    const user = userEvent.setup();
+    let resolveFirst!: (data: unknown) => void;
+    const firstRequest = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    // Only the initial A->B auto-fetch is deferred; anything else (there
+    // shouldn't be another call in this test) would resolve immediately.
+    routeApiMock.mockImplementation((from: string) => (from === BANK_A.id ? firstRequest : WITH_EVIDENCE));
+
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    // The A -> B auto-fetch is now in flight and deliberately left unresolved.
+
+    await user.click(screen.getByRole("button", { name: "Swap from and to banks" }));
+    expect(screen.getByRole("combobox", { name: "From bank" })).toHaveTextContent(BANK_B.name);
+    expect(screen.getByRole("combobox", { name: "To bank" })).toHaveTextContent(BANK_A.name);
+
+    // Resolve the stale A -> B request now that the selection has moved on.
+    resolveFirst(WITH_EVIDENCE);
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Must not misattribute the A->B evidence to the now-displayed B->A
+    // pair, and swapping must have cleared "loading" rather than leaving it
+    // stuck waiting for a resolution that's now ignored.
+    expect(screen.queryByText(/Limited evidence/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Analyzing Routes")).not.toBeInTheDocument();
+  });
+
   it("copies the shareable route URL to the clipboard and shows 'Copied' feedback", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -205,6 +236,19 @@ describe("HomeRouteChecker — swap, copy link, reverse check, compare", () => {
 
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/?from=${BANK_A.slug}&to=${BANK_B.slug}`);
     await screen.findByRole("button", { name: "Copied" });
+  });
+
+  it("shows 'Couldn't copy' feedback (not an unhandled rejection) when the clipboard write fails", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    routeApiMock.mockReturnValue(WITH_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    await waitFor(() => screen.getByText(/Limited evidence/));
+
+    await user.click(screen.getByRole("button", { name: "Copy link" }));
+
+    await screen.findByRole("button", { name: "Couldn't copy" });
   });
 
   it("checks the reverse direction and pushes the swapped URL when the reverse-check link is clicked", async () => {

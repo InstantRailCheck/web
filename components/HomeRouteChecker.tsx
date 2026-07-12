@@ -44,15 +44,22 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
   const [result, setResult] = useState<RouteIntelligence | null>(null);
   const [swapKey, setSwapKey] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
+  // Guards against a stale in-flight request resolving after the selection
+  // has already changed (e.g. swap or pick a new bank while a check is still
+  // pending) and overwriting result/loading with evidence for the wrong
+  // pair. Bumped by every action that changes what "the current route" is —
+  // only a resolution whose id still matches the latest is applied.
+  const requestIdRef = useRef(0);
 
   async function checkRoute(from: Bank, to: Bank) {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setResult(null);
     try {
       const data = await fetchRouteIntelligence(from.id, to.id);
-      setResult(data);
+      if (requestIdRef.current === requestId) setResult(data);
     } finally {
-      setLoading(false);
+      if (requestIdRef.current === requestId) setLoading(false);
     }
   }
 
@@ -65,8 +72,9 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
   useEffect(() => {
     if (!shouldAutoFetch(initialFromBank, initialToBank)) return;
     let cancelled = false;
+    const requestId = ++requestIdRef.current;
     fetchRouteIntelligence(initialFromBank!.id, initialToBank!.id).then((data) => {
-      if (!cancelled) {
+      if (!cancelled && requestIdRef.current === requestId) {
         setResult(data);
         setLoading(false);
       }
@@ -89,9 +97,20 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
     router.push(`/?from=${from.slug}&to=${to.slug}#search`);
   }
 
+  // Invalidates whatever request is currently in flight (if any) and drops
+  // its result/loading state — used whenever the selection changes without
+  // starting a new check, so an old response can never land after the fact
+  // (misattributing evidence to the wrong pair) and "Checking..." doesn't
+  // get stuck on forever waiting for a resolution that's now ignored.
+  function invalidatePendingRequest() {
+    requestIdRef.current++;
+    setResult(null);
+    setLoading(false);
+  }
+
   function handleCheckRoute() {
     if (!fromBank || !toBank || fromBank.id === toBank.id) {
-      setResult(null);
+      invalidatePendingRequest();
       return;
     }
     runCheck(fromBank, toBank);
@@ -106,7 +125,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
     if (!fromBank && !toBank) return;
     setFromBank(toBank);
     setToBank(fromBank);
-    setResult(null);
+    invalidatePendingRequest();
     setSwapKey((k) => k + 1);
   }
 
@@ -132,12 +151,12 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
   // real evidence to the wrong pair until "Check Route" is clicked again.
   function handleFromBankChange(bank: Bank | null) {
     setFromBank(bank);
-    setResult(null);
+    invalidatePendingRequest();
   }
 
   function handleToBankChange(bank: Bank | null) {
     setToBank(bank);
-    setResult(null);
+    invalidatePendingRequest();
   }
 
   async function handleReportSuccess(route: { fromBank: Bank; toBank: Bank }) {

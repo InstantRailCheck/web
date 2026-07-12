@@ -517,6 +517,15 @@ This release starts with a full security pass of every API route and RLS policy 
 - 5 new tests in `HomeRouteChecker.test.tsx` (swap, copy-link, reverse-check, compare-link, stale CTA copy), covering the actual rendered DOM/click handlers via React Testing Library, not just type-checking
 - Not verified in a live browser — this WSL environment has no Supabase credentials configured, and the app fails hard at the `proxy.ts` middleware layer before rendering anything without them
 
+## Version 6.5.1 (v6.5.1 — shipped July 11 2026)
+
+**Fixes a real async race in v6.5.0's new swap feature, per ChatGPT's review**
+- `checkRoute` and the initial-mount auto-fetch both called `setResult(data)`/`setLoading(false)` unconditionally once their fetch resolved. Swapping (or changing a bank) while a check was still in flight cleared `result` synchronously, but the earlier request's own resolution would then silently reapply — misattributing one route's evidence to whatever pair the heading had since moved on to. The new swap button made this trivial to trigger (start A→B, swap before it resolves)
+- Fixed with a monotonically increasing request ID ref (`requestIdRef`): only a resolution whose ID still matches the latest is applied. Bumped on every action that changes what "the current route" is — a real check start, a swap, a bank-picker change, or the same-bank guard — not just on a new fetch, since the bug was equally triggerable by just changing a selection with no new request in flight yet
+- Caught a second-order bug of my own fix while writing it: invalidating a pending request without also resetting `loading` would leave the UI stuck on "Checking..." indefinitely, since nothing else would ever flip it back to `false` for a request that's now deliberately ignored. Added `invalidatePendingRequest()` (bumps the ref, clears `result` and `loading` together) to every place that was clearing `result` alone
+- New test starts an A→B check, swaps to B→A before it resolves, then resolves the stale request and confirms nothing renders from it — verified this test actually fails against the unfixed code before confirming it passes against the fix
+- Low-priority fix, same review: `CopyLinkButton`'s clipboard write had no error handling — a rejection (permission denied, non-HTTPS context) surfaced as an unhandled promise rejection with no user feedback. Now catches and shows "Couldn't copy", with its own test
+
 ## Data Principles
 
 - Real-world reports only
