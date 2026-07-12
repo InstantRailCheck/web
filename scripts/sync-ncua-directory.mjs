@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { readZipCsvEntry } from "./lib/zipCsv.mjs";
+import { computeAkaNamesFromSearchNames } from "./lib/bankAkaNames.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -160,6 +161,29 @@ async function main() {
     if (error) throw error;
     console.log(`  ${Math.min(i + chunkSize, records.length)}/${records.length}`);
   }
+
+  // Keep already-linked banks' aka_names current on every sync (not just at
+  // initial backfill time) - new trade names NCUA adds for an already-linked
+  // credit union would otherwise only ever be reflected in
+  // ncua_credit_unions itself, never on the actual bank profile page.
+  console.log("Refreshing aka_names for banks already linked to an NCUA charter...");
+  const searchNamesByCharter = new Map(records.map((r) => [r.charter_number, r.search_names]));
+  const { data: linkedBanks, error: linkedBanksError } = await supabase
+    .from("banks")
+    .select("id, name, ncua_charter_number")
+    .not("ncua_charter_number", "is", null);
+  if (linkedBanksError) throw linkedBanksError;
+
+  let refreshed = 0;
+  for (const bank of linkedBanks ?? []) {
+    const searchNames = searchNamesByCharter.get(bank.ncua_charter_number);
+    if (!searchNames) continue; // charter no longer in this run's data - leave as is
+    const akaNames = computeAkaNamesFromSearchNames(bank.name, searchNames);
+    const { error } = await supabase.from("banks").update({ aka_names: akaNames }).eq("id", bank.id);
+    if (error) throw error;
+    refreshed++;
+  }
+  console.log(`Refreshed aka_names for ${refreshed} linked bank(s).`);
 
   console.log("Done.");
 }

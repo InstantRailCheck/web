@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { slugify, uniqueSlug } from "../lib/slugify.ts";
+import { computeAkaNamesFromSearchNames } from "./lib/bankAkaNames.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -75,7 +76,7 @@ async function main() {
   console.log("Loading synced NCUA credit unions...");
   // Supabase caps a single select() at 1000 rows by default — the table has
   // 4,336, so this must be paginated with .range() or it silently truncates.
-  const creditUnions = await fetchAll("ncua_credit_unions", "charter_number, name, website, address, phone", "charter_number");
+  const creditUnions = await fetchAll("ncua_credit_unions", "charter_number, name, website, address, phone, search_names", "charter_number");
   const candidates = creditUnions.slice(0, LIMIT);
   console.log(`Loaded ${candidates.length} credit unions.`);
 
@@ -131,6 +132,8 @@ async function main() {
       website: c.website,
       address: c.address,
       phone: c.phone,
+      ncua_charter_number: Number(c.charter_number),
+      aka_names: computeAkaNamesFromSearchNames(displayName, c.search_names),
     });
   }
 

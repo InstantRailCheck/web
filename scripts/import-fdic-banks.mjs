@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { slugify, uniqueSlug } from "../lib/slugify.ts";
+import { extractFdicAkaNames } from "./lib/bankAkaNames.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -67,10 +68,17 @@ async function fetchAllBanks() {
   return rows;
 }
 
+// TE01N529 through TE10N529 are FDIC's trade/DBA name slots (paired with a
+// TE0{n}N528 website field this doesn't need) - most banks have none
+// populated, but multi-brand ones do (e.g. Chase's record lists "Chase",
+// "J.P.Morgan", "JPMorgan Chase" here). CERT is needed so future re-checks
+// can look a bank back up directly instead of matching by name again.
+const TRADE_NAME_FIELDS = Array.from({ length: 10 }, (_, i) => `TE${String(i + 1).padStart(2, "0")}N529`).join(",");
+
 async function main() {
   console.log(`Fetching top ${TOP_N} active FDIC banks by asset size...`);
   const res = await fetch(
-    `https://api.fdic.gov/banks/institutions?filters=ACTIVE:1&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET&sort_by=ASSET&sort_order=DESC&limit=${TOP_N}&offset=0`
+    `https://api.fdic.gov/banks/institutions?filters=ACTIVE:1&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET,CERT,${TRADE_NAME_FIELDS}&sort_by=ASSET&sort_order=DESC&limit=${TOP_N}&offset=0`
   );
   if (!res.ok) throw new Error(`FDIC fetch failed: ${res.status}`);
   const json = await res.json();
@@ -117,12 +125,16 @@ async function main() {
 
     const address = c.ADDRESS ? [c.ADDRESS, c.CITY, c.STALP, c.ZIP].filter(Boolean).join(", ") : null;
 
+    const akaNames = extractFdicAkaNames(c, c.NAME);
+
     toInsert.push({
       name: c.NAME,
       slug,
       website,
       address,
       phone: null,
+      fdic_cert: c.CERT ?? null,
+      aka_names: akaNames.length > 0 ? akaNames : null,
     });
   }
 

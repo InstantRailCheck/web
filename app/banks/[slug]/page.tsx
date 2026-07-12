@@ -186,9 +186,20 @@ export async function generateMetadata({
 
   const canonical = `${SITE_URL}/banks/${profile.bank.slug}`;
 
+  // Only the first alternate name goes in the title (titles get truncated
+  // in search results past ~60 characters, and most banks have at most
+  // one anyway) - the meta description has more room to list every one.
+  const primaryAka = profile.bank.aka_names?.[0];
+  const title = primaryAka
+    ? `${profile.bank.name} (${primaryAka}) — Bank Transfer Compatibility | InstantRailCheck`
+    : `${profile.bank.name} — Bank Transfer Compatibility | InstantRailCheck`;
+  const akaClause = profile.bank.aka_names?.length
+    ? ` Also known as ${profile.bank.aka_names.join(", ")}.`
+    : "";
+
   return {
-    title: `${profile.bank.name} — Bank Transfer Compatibility | InstantRailCheck`,
-    description: `Check which payment rails (RTP, FedNow, ACH, Wire, Zelle) ${profile.bank.name} supports, backed by official sources and real-world reports.`,
+    title,
+    description: `Check which payment rails (RTP, FedNow, ACH, Wire, Zelle) ${profile.bank.name} supports, backed by official sources and real-world reports.${akaClause}`,
     alternates: { canonical },
   };
 }
@@ -224,6 +235,9 @@ export default async function BankProfilePage({
     "@type": "BankOrCreditUnion",
     name: profile.bank.name,
     mainEntityOfPage: `${SITE_URL}/banks/${profile.bank.slug}`,
+    ...(profile.bank.aka_names && profile.bank.aka_names.length > 0
+      ? { alternateName: profile.bank.aka_names }
+      : {}),
     ...(profile.bank.website ? { url: profile.bank.website } : {}),
     ...(profile.bank.address ? { address: profile.bank.address } : {}),
     ...(profile.bank.phone ? { telephone: profile.bank.phone } : {}),
@@ -239,6 +253,9 @@ export default async function BankProfilePage({
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <div className="text-center">
           <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
+          {profile.bank.aka_names && profile.bank.aka_names.length > 0 && (
+            <p className="mt-1 text-sm text-slate-500">Also known as {profile.bank.aka_names.join(", ")}</p>
+          )}
           {profile.bank.website && (
             <a
               href={profile.bank.website}

@@ -31,7 +31,7 @@ export const GET = withApiProtection(async (request: NextRequest) => {
   const supabase = await createClient();
   let query = supabase
     .from("banks")
-    .select("id, slug, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant", {
+    .select("id, slug, name, website, address, phone, aka_names, fednow_participant, rtp_participant, zelle_participant", {
       count: "exact",
     })
     .order("name")

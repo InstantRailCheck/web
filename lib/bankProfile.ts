@@ -200,6 +200,10 @@ export type BankProfile = {
     website: string | null;
     address: string | null;
     phone: string | null;
+    // Official-source alternate/trade names (NCUA's TradeNames.txt for
+    // credit unions, FDIC's trade-name fields for banks) — never
+    // user-submitted, so trusted at the same level as website/address/phone.
+    aka_names: string[] | null;
     fednow_participant: boolean | null;
     rtp_participant: boolean | null;
     zelle_participant: boolean | null;
@@ -260,7 +264,7 @@ export const getBankProfileBySlug = cache(async (slug: string): Promise<BankProf
   const supabase = createAdminClient();
   const { data: bank } = await supabase
     .from("banks")
-    .select("id, slug, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
+    .select("id, slug, name, website, address, phone, aka_names, fednow_participant, rtp_participant, zelle_participant")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -273,7 +277,7 @@ export async function getBankProfileById(id: string): Promise<BankProfile> {
   const supabase = createAdminClient();
   const { data: bank } = await supabase
     .from("banks")
-    .select("id, slug, name, website, address, phone, fednow_participant, rtp_participant, zelle_participant")
+    .select("id, slug, name, website, address, phone, aka_names, fednow_participant, rtp_participant, zelle_participant")
     .eq("id", id)
     .maybeSingle();
 
