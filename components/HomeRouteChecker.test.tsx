@@ -64,6 +64,17 @@ const WITH_EVIDENCE = {
     },
   ],
 };
+const STALE_ONLY_EVIDENCE = {
+  rails: [
+    {
+      rail: "RTP",
+      evidence: { state: "previously_observed" as const, reportCount: 2, latestObservationDate: "2025-11-01" },
+      avgTime: null,
+      directions: ["push" as const],
+      sameDayCount: null,
+    },
+  ],
+};
 
 beforeEach(() => {
   pushMock.mockClear();
@@ -152,5 +163,74 @@ describe("HomeRouteChecker — contribution CTA", () => {
   it("does not show the CTA before a route has been checked", () => {
     render(<HomeRouteChecker bankCount={100} initialFromBank={null} initialToBank={null} />);
     expect(screen.queryByText("No community evidence yet for this route. Have you tried it?")).not.toBeInTheDocument();
+  });
+
+  it("shows the stale-evidence CTA (distinct copy) when every rail is previously_observed", async () => {
+    routeApiMock.mockReturnValue(STALE_ONLY_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+
+    await waitFor(() =>
+      screen.getByText("This route needs a fresh report — the evidence on file is over 180 days old.")
+    );
+    expect(screen.getByRole("button", { name: "Report this route" })).toBeInTheDocument();
+    expect(screen.queryByText("No community evidence yet for this route. Have you tried it?")).not.toBeInTheDocument();
+  });
+});
+
+describe("HomeRouteChecker — swap, copy link, reverse check, compare", () => {
+  it("swaps the two selections without re-checking, clearing the previous result", async () => {
+    const user = userEvent.setup();
+    routeApiMock.mockReturnValue(WITH_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    await waitFor(() => screen.getByText(/Limited evidence/));
+    routeApiMock.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Swap from and to banks" }));
+
+    expect(screen.getByRole("combobox", { name: "From bank" })).toHaveTextContent(BANK_B.name);
+    expect(screen.getByRole("combobox", { name: "To bank" })).toHaveTextContent(BANK_A.name);
+    expect(screen.queryByText(/Limited evidence/)).not.toBeInTheDocument();
+    expect(routeApiMock).not.toHaveBeenCalled();
+  });
+
+  it("copies the shareable route URL to the clipboard and shows 'Copied' feedback", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    routeApiMock.mockReturnValue(WITH_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    await waitFor(() => screen.getByText(/Limited evidence/));
+
+    await user.click(screen.getByRole("button", { name: "Copy link" }));
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/?from=${BANK_A.slug}&to=${BANK_B.slug}`);
+    await screen.findByRole("button", { name: "Copied" });
+  });
+
+  it("checks the reverse direction and pushes the swapped URL when the reverse-check link is clicked", async () => {
+    const user = userEvent.setup();
+    routeApiMock.mockReturnValue(WITH_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    await waitFor(() => screen.getByText(/Limited evidence/));
+    routeApiMock.mockClear();
+    pushMock.mockClear();
+
+    await user.click(screen.getByRole("button", { name: `Check ${BANK_B.name} → ${BANK_A.name}` }));
+
+    await waitFor(() => expect(routeApiMock).toHaveBeenCalledWith(BANK_B.id, BANK_A.id));
+    expect(pushMock).toHaveBeenCalledWith(`/?from=${BANK_B.slug}&to=${BANK_A.slug}#search`);
+    expect(screen.getByRole("combobox", { name: "From bank" })).toHaveTextContent(BANK_B.name);
+    expect(screen.getByRole("combobox", { name: "To bank" })).toHaveTextContent(BANK_A.name);
+  });
+
+  it("links to the compare page with both bank slugs once a result is shown", async () => {
+    routeApiMock.mockReturnValue(WITH_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    await waitFor(() => screen.getByText(/Limited evidence/));
+
+    expect(screen.getByRole("link", { name: "Compare these banks" })).toHaveAttribute(
+      "href",
+      `/compare?banks=${BANK_A.slug},${BANK_B.slug}`
+    );
   });
 });

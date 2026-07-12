@@ -1,8 +1,8 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import Link from "next/link";
-import { Banknote } from "lucide-react";
+import { ArrowLeftRight, Banknote, Check, Copy } from "lucide-react";
 import { BankSelect, type Bank } from "@/components/BankSelect";
 import { RouteIntelligence } from "@/lib/routingEngine";
 import { EVIDENCE_LABELS, type EvidenceState } from "@/lib/routeConfidence";
@@ -18,6 +18,12 @@ type RouteSearchProps = {
   onFromBankChange: (bank: Bank | null) => void;
   onToBankChange: (bank: Bank | null) => void;
   onCheckRoute: () => void;
+  onSwap: () => void;
+  onCheckReverse: () => void;
+  // Bumped by the parent on every swap/reverse — BankSelect is uncontrolled,
+  // so this forces both pickers to remount with their new initial bank
+  // rather than trying to resync an already-mounted, uncontrolled input.
+  swapKey: number;
   loading: boolean;
   result: RouteIntelligence | null;
 };
@@ -69,6 +75,39 @@ function EvidenceLine({
   );
 }
 
+// The route URL is already shareable/bookmarkable (HomeRouteChecker pushes
+// ?from=<slug>&to=<slug> on every check), so this just builds that same URL
+// directly from the two slugs rather than reading window.location — avoids
+// any dependency on the router push having already committed.
+function CopyLinkButton({ fromSlug, toSlug }: { fromSlug: string; toSlug: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    const url = `${window.location.origin}/?from=${fromSlug}&to=${toSlug}`;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1.5 text-slate-400 transition hover:text-blue-300"
+    >
+      {copied ? (
+        <>
+          <Check className="h-3.5 w-3.5" /> Copied
+        </>
+      ) : (
+        <>
+          <Copy className="h-3.5 w-3.5" /> Copy link
+        </>
+      )}
+    </button>
+  );
+}
+
 function RailMeta({
   rail,
 }: {
@@ -103,6 +142,9 @@ export function RouteSearch({
   onFromBankChange,
   onToBankChange,
   onCheckRoute,
+  onSwap,
+  onCheckReverse,
+  swapKey,
   loading,
   result,
 }: RouteSearchProps) {
@@ -112,8 +154,8 @@ export function RouteSearch({
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-left shadow-2xl">
-      <form className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-        <div className="text-center md:col-span-2 md:row-start-1">
+      <form className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_auto_1fr_auto] md:items-end">
+        <div className="text-center md:col-span-4 md:row-start-1">
           <h2 className="text-xl font-semibold">Check a transfer route</h2>
           <p className="mt-1 text-sm text-slate-400">
             Choose a sending bank and receiving bank.
@@ -122,6 +164,7 @@ export function RouteSearch({
 
         <div className="md:row-start-2">
           <BankSelect
+            key={`from-${swapKey}`}
             label="From bank"
             placeholder="Search sender"
             initialBank={fromBank}
@@ -130,8 +173,21 @@ export function RouteSearch({
             centerText
           />
         </div>
+        <div className="flex justify-center md:row-start-2 md:pb-3">
+          <button
+            type="button"
+            onClick={onSwap}
+            disabled={!fromBank && !toBank}
+            aria-label="Swap from and to banks"
+            title="Swap from and to banks"
+            className="rounded-full border border-slate-700 bg-slate-800 p-2 text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+          </button>
+        </div>
         <div className="md:row-start-2">
           <BankSelect
+            key={`to-${swapKey}`}
             label="To bank"
             placeholder="Search receiver"
             initialBank={toBank}
@@ -149,7 +205,7 @@ export function RouteSearch({
           {loading ? "Checking..." : "Check Route"}
         </button>
 
-        <p className="text-center text-sm text-slate-500 md:col-span-2 md:row-start-3">
+        <p className="text-center text-sm text-slate-500 md:col-span-4 md:row-start-3">
           {bankCount} banks currently available.
         </p>
       </form>
@@ -176,21 +232,38 @@ export function RouteSearch({
         </div>
       )}
 
-      {result && !loading && (
+      {result && !loading && fromBank && toBank && (
         <div className="mt-6 space-y-6 rounded-xl border border-slate-800 bg-slate-950 p-5">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-blue-400">
               Route Intelligence Report
             </p>
             <h3 className="mt-2 text-2xl font-semibold">
-              <Link href={`/banks/${fromBank?.slug}`} className="hover:text-blue-300 transition">
-                {fromBank?.name}
+              <Link href={`/banks/${fromBank.slug}`} className="hover:text-blue-300 transition">
+                {fromBank.name}
               </Link>
               {" → "}
-              <Link href={`/banks/${toBank?.slug}`} className="hover:text-blue-300 transition">
-                {toBank?.name}
+              <Link href={`/banks/${toBank.slug}`} className="hover:text-blue-300 transition">
+                {toBank.name}
               </Link>
             </h3>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <CopyLinkButton fromSlug={fromBank.slug} toSlug={toBank.slug} />
+              <button
+                type="button"
+                onClick={onCheckReverse}
+                className="text-slate-400 underline-offset-2 transition hover:text-blue-300 hover:underline"
+              >
+                Check {toBank.name} → {fromBank.name}
+              </button>
+              <Link
+                href={`/compare?banks=${fromBank.slug},${toBank.slug}`}
+                className="text-slate-400 underline-offset-2 transition hover:text-blue-300 hover:underline"
+              >
+                Compare these banks
+              </Link>
+            </div>
           </div>
 
           {!hasData ? (

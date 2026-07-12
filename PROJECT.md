@@ -506,6 +506,17 @@ This release starts with a full security pass of every API route and RLS policy 
 - `engines.node` is also read by Vercel to select its build/runtime Node version — verified no `vercel.json` or prior `engines` field existed to compare against, so this is a genuine (low-risk, intended) production-facing change, not just a local-tooling hint. `npm install` still succeeds under a mismatched local Node version (warns, doesn't fail — no `engine-strict` set)
 - Also set this repo's local `core.autocrlf` to `input` (git config, not a versioned file) — not because it was misconfigured (it wasn't set to anything, contrary to what prompted this), but as cheap defensive hygiene given this project's real prior history of CRLF pain on its Windows-based sessions
 
+## Version 6.5.0 (v6.5.0 — shipped July 11 2026)
+
+**Route Explorer polish, per ChatGPT's "ship today" feature review**
+- Swap button between the two bank selectors — genuinely useful rather than cosmetic, since route evidence is directional (A→B and B→A are tracked as separate routes)
+- Copy-link button on a checked result, with "Copied" feedback — the route URL (`?from=<slug>&to=<slug>`) was already shareable/bookmarkable (`HomeRouteChecker` already pushed it on every check); this just adds the affordance to grab it
+- "Check [B] → [A]" one-click reverse-direction shortcut below a result, so reversing a route doesn't require manually re-swapping and re-clicking Check Route
+- Widened the existing contribution CTA to also fire when a route has evidence but every rail is stale (`previously_observed`, >180 days old per `routeConfidence.ts`) — previously it only fired when there was zero evidence at all, with different copy for the two cases ("needs a fresh report" vs. "no evidence yet"). The form-prefill and profile-link pieces ChatGPT's proposal also called out were already built in earlier releases, so this was the one real gap in the "stale evidence" case
+- "Compare these banks" link from a checked result (`/compare?banks=<slugA>,<slugB>`) — profile links from results already existed
+- 5 new tests in `HomeRouteChecker.test.tsx` (swap, copy-link, reverse-check, compare-link, stale CTA copy), covering the actual rendered DOM/click handlers via React Testing Library, not just type-checking
+- Not verified in a live browser — this WSL environment has no Supabase credentials configured, and the app fails hard at the `proxy.ts` middleware layer before rendering anything without them
+
 ## Data Principles
 
 - Real-world reports only

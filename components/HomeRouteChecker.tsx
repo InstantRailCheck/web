@@ -42,6 +42,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
   // before a mount-time auto-fetch's own setState would otherwise fire.
   const [loading, setLoading] = useState(() => shouldAutoFetch(initialFromBank, initialToBank));
   const [result, setResult] = useState<RouteIntelligence | null>(null);
+  const [swapKey, setSwapKey] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
 
   async function checkRoute(from: Bank, to: Bank) {
@@ -78,15 +79,50 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Shared by both a normal "Check Route" click and the reverse-direction
+  // shortcut below — fetches evidence and pushes the shareable URL for
+  // whichever from/to pair is passed in. Fire-and-forget on the URL push;
+  // it doesn't gate the fetch, so there's no round trip before results
+  // start loading.
+  function runCheck(from: Bank, to: Bank) {
+    void checkRoute(from, to);
+    router.push(`/?from=${from.slug}&to=${to.slug}#search`);
+  }
+
   function handleCheckRoute() {
     if (!fromBank || !toBank || fromBank.id === toBank.id) {
       setResult(null);
       return;
     }
-    void checkRoute(fromBank, toBank);
-    // Shareable/bookmarkable URL — fire-and-forget; doesn't gate the fetch
-    // above, so there's no round trip before results start loading.
-    router.push(`/?from=${fromBank.slug}&to=${toBank.slug}#search`);
+    runCheck(fromBank, toBank);
+  }
+
+  // Swaps the two selections without checking. BankSelect is uncontrolled
+  // (initialBank only seeds first mount), so swapKey forces both pickers to
+  // remount with their new initial values rather than trying to resync an
+  // already-mounted, uncontrolled input — same reasoning as the parent
+  // component's own remount-on-slug-change design.
+  function handleSwap() {
+    if (!fromBank && !toBank) return;
+    setFromBank(toBank);
+    setToBank(fromBank);
+    setResult(null);
+    setSwapKey((k) => k + 1);
+  }
+
+  // One-click "check the other direction" from an existing result — route
+  // evidence is directional, so someone looking at A->B's result is often
+  // specifically curious about B->A next. Swaps (same remount reasoning as
+  // handleSwap) and immediately re-checks rather than requiring a manual
+  // swap + Check Route.
+  function handleCheckReverse() {
+    if (!fromBank || !toBank) return;
+    const newFrom = toBank;
+    const newTo = fromBank;
+    setFromBank(newFrom);
+    setToBank(newTo);
+    setSwapKey((k) => k + 1);
+    runCheck(newFrom, newTo);
   }
 
   // Changing either side must immediately drop the previous route's result
@@ -113,8 +149,15 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
   }
 
   const hasEvidence = !!result && result.rails.length > 0;
+  // All rails present but every one of them stale (>180 days, per
+  // lib/routeConfidence.ts's FRESHNESS_WINDOW_DAYS) is functionally the same
+  // "needs a fresh report" situation as no evidence at all — a mix of fresh
+  // and stale rails is left alone, since at least one rail already has
+  // current evidence.
+  const isStaleOnly =
+    !!result && result.rails.length > 0 && result.rails.every((r) => r.evidence.state === "previously_observed");
   const showContributionCta =
-    !loading && !!result && !hasEvidence && !!fromBank && !!toBank && fromBank.id !== toBank.id;
+    !loading && !!result && (!hasEvidence || isStaleOnly) && !!fromBank && !!toBank && fromBank.id !== toBank.id;
 
   return (
     <>
@@ -126,6 +169,9 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
           onFromBankChange={handleFromBankChange}
           onToBankChange={handleToBankChange}
           onCheckRoute={handleCheckRoute}
+          onSwap={handleSwap}
+          onCheckReverse={handleCheckReverse}
+          swapKey={swapKey}
           loading={loading}
           result={result}
         />
@@ -133,7 +179,11 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
 
       {showContributionCta && (
         <div className="mt-6 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6 text-center">
-          <p className="text-sm text-blue-100">No community evidence yet for this route. Have you tried it?</p>
+          <p className="text-sm text-blue-100">
+            {isStaleOnly
+              ? "This route needs a fresh report — the evidence on file is over 180 days old."
+              : "No community evidence yet for this route. Have you tried it?"}
+          </p>
           <button
             type="button"
             onClick={() =>
