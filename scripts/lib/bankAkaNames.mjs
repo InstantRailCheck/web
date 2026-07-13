@@ -19,6 +19,21 @@ export function computeAkaNamesFromSearchNames(primaryName, searchNames) {
   return akaNames.length > 0 ? akaNames : null;
 }
 
+// Combines an official-source aka list (NCUA/FDIC, refreshed each sync)
+// with the domain-derived acronym (re-verified fresh each time against the
+// bank's current name/website, not just carried over) - overwriting
+// aka_names with only the freshly-recomputed official list, as the NCUA
+// sync's refresh step originally did, would silently erase a domain-derived
+// acronym on every run, since NCUA's own data never contained it to begin
+// with (confirmed live for FNFCU/OTPFCU/ASCU).
+export function mergeAkaNames(officialAka, domainAka) {
+  const base = officialAka ?? [];
+  if (!domainAka) return base.length > 0 ? base : null;
+  const alreadyPresent = base.some((n) => n.toLowerCase() === domainAka.toLowerCase());
+  const merged = alreadyPresent ? base : [...base, domainAka];
+  return merged.length > 0 ? merged : null;
+}
+
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

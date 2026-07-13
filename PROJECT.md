@@ -575,6 +575,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - Verified end-to-end on the live site: read a bank's current `aka_names`, wrote the identical value back (zero real data change), confirmed `updated_at` bumped from the trigger while every other field stayed byte-for-byte the same, then confirmed `/sitemap.xml` itself reflects it — 4,680 URLs total (10 static + 4,670 banks, matching the known count), 4,669 sharing the migration's exact backfill timestamp and the one touched bank showing its own distinct, later timestamp
 - No sitemap URLs changed, no new endpoint added — same `/sitemap.xml` Search Console already uses
 
+## Version 6.7.3 (v6.7.3 — shipped July 13 2026)
+
+**Two correctness fixes from ChatGPT's re-review of the completed v6.7.2 state**
+- The daily RLS/privilege audit would have falsely flagged `banks_set_updated_at()` (the v6.7.2 trigger function) as unexpected drift — it's `SECURITY DEFINER` but was never added to `EXPECTED_SECURITY_DEFINER_EXECUTE` in `scripts/rlsManifest.mjs`. Added. Confirmed live: `node scripts/audit-rls-manifest.mjs` now passes clean against production
+- The monthly NCUA sync's "refresh already-linked banks' aka_names" step (added in v6.6.2) overwrote `aka_names` with only the freshly-recomputed NCUA-sourced list on every run — silently erasing all 216+ domain-derived acronyms (FNFCU, OTPFCU, ASCU, ...) on the next sync, since NCUA's own `TradeNames.txt` never contained them to begin with. New `mergeAkaNames()` in `scripts/lib/bankAkaNames.mjs` combines the refreshed official list with a freshly-rederived domain-derived acronym instead of discarding it, deduping case-insensitively. Verified against real live data: simulated the sync's exact merge logic against First Neshoba Federal Credit Union's real stored name/website/search_names and confirmed it reproduces the exact live value (`["first neshoba", "FNFCU"]`) rather than dropping "FNFCU"
+- Not fixed, by design: `banks.updated_at` only tracks direct `banks`-row changes, not related-table content (route reports, EDD reports, rail history) — flagged as an acceptable limitation for this release, not a bug
+
 ## Data Principles
 
 - Real-world reports only

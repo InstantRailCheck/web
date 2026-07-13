@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { readZipCsvEntry } from "./lib/zipCsv.mjs";
-import { computeAkaNamesFromSearchNames } from "./lib/bankAkaNames.mjs";
+import { computeAkaNamesFromSearchNames, deriveDomainInitialsAka, mergeAkaNames } from "./lib/bankAkaNames.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -176,7 +176,7 @@ async function main() {
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await supabase
       .from("banks")
-      .select("id, name, ncua_charter_number")
+      .select("id, name, website, ncua_charter_number")
       .not("ncua_charter_number", "is", null)
       .order("id", { ascending: true })
       .range(offset, offset + 999);
@@ -189,8 +189,19 @@ async function main() {
   for (const bank of linkedBanks) {
     const searchNames = searchNamesByCharter.get(bank.ncua_charter_number);
     if (!searchNames) continue; // charter no longer in this run's data - leave as is
-    const akaNames = computeAkaNamesFromSearchNames(bank.name, searchNames);
-    const { error } = await supabase.from("banks").update({ aka_names: akaNames }).eq("id", bank.id);
+
+    // computeAkaNamesFromSearchNames alone would silently erase any
+    // domain-derived acronym (FNFCU, OTPFCU, ASCU, ...) on every sync, since
+    // NCUA's own TradeNames.txt never contained those in the first place -
+    // confirmed live. Re-derive it fresh from the bank's current
+    // name/website (not just carried forward from the old array) so it
+    // also stays correct if either one ever changes, rather than going
+    // stale silently.
+    const ncuaAka = computeAkaNamesFromSearchNames(bank.name, searchNames);
+    const domainAka = deriveDomainInitialsAka(bank.name, bank.website);
+    const merged = mergeAkaNames(ncuaAka, domainAka);
+
+    const { error } = await supabase.from("banks").update({ aka_names: merged }).eq("id", bank.id);
     if (error) throw error;
     refreshed++;
   }

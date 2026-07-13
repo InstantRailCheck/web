@@ -5,6 +5,7 @@ import {
   extractFdicAkaNames,
   pickFdicMatch,
   deriveDomainInitialsAka,
+  mergeAkaNames,
 } from "./bankAkaNames.mjs";
 
 describe("normalizeWebsite", () => {
@@ -151,5 +152,30 @@ describe("deriveDomainInitialsAka", () => {
 
   it("returns null on a malformed website value", () => {
     expect(deriveDomainInitialsAka("American Southwest Credit Union", "not a url")).toBeNull();
+  });
+});
+
+describe("mergeAkaNames", () => {
+  // Reproduces the exact live bug: overwriting aka_names with only the
+  // freshly-recomputed NCUA data on every sync silently erased the
+  // domain-derived acronym, since NCUA's own data never contained it.
+  it("adds the domain-derived acronym alongside official aka names, not overwriting them", () => {
+    expect(mergeAkaNames(["first neshoba"], "FNFCU")).toEqual(["first neshoba", "FNFCU"]);
+  });
+
+  it("does not duplicate the domain-derived acronym if already present (case-insensitive)", () => {
+    expect(mergeAkaNames(["fnfcu"], "FNFCU")).toEqual(["fnfcu"]);
+  });
+
+  it("returns just the domain-derived acronym when there are no official aka names", () => {
+    expect(mergeAkaNames(null, "ASCU")).toEqual(["ASCU"]);
+  });
+
+  it("returns just the official aka names when there's no domain-derived acronym", () => {
+    expect(mergeAkaNames(["olean teachers and postal"], null)).toEqual(["olean teachers and postal"]);
+  });
+
+  it("returns null when there's neither an official nor a domain-derived aka", () => {
+    expect(mergeAkaNames(null, null)).toBeNull();
   });
 });

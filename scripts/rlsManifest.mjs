@@ -90,6 +90,7 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   check_edd_report_quota: ["service_role"],
   log_bank_rail_changes: ["service_role"],
   route_reports_derive_bank_names: ["service_role"],
+  banks_set_updated_at: ["service_role"],
   // The introspection function backing this very check — its own EXECUTE
   // grant is part of what it's meant to catch drift in.
   audit_rls_manifest: ["service_role"],
