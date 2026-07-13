@@ -27,7 +27,7 @@ describe("buildCspHeader", () => {
       "default-src 'self'",
       "img-src 'self' data:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co",
+      "connect-src 'self' https://*.supabase.co https://api.instantrailcheck.com",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -36,6 +36,16 @@ describe("buildCspHeader", () => {
     ]) {
       expect(value).toContain(directive);
     }
+  });
+
+  // lib/apiResponse.ts's legacyApiRedirect 308-redirects any /api/* request
+  // on www.instantrailcheck.com to api.instantrailcheck.com — including the
+  // browser's own same-origin fetch('/api/routes') from HomeRouteChecker.tsx.
+  // Without the API subdomain in connect-src, that redirected fetch is
+  // blocked by CSP and the route checker hangs forever on "Checking...".
+  it("allows connect-src to the API subdomain so the legacy /api/* redirect doesn't get CSP-blocked", () => {
+    const { value } = buildCspHeader();
+    expect(value).toContain("connect-src 'self' https://*.supabase.co https://api.instantrailcheck.com");
   });
 
   it("does not include 'unsafe-eval' outside development", () => {

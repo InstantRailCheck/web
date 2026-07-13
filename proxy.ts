@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { API_URL } from "@/lib/siteConfig";
 
 // Nonce-based CSP requires a fresh value per request and must be threaded
 // through both the request (so Next.js can apply it to framework-generated
@@ -14,7 +15,7 @@ export function buildCspHeader(): { nonce: string; value: string } {
     style-src 'self' 'nonce-${nonce}';
     img-src 'self' data:;
     font-src 'self' data:;
-    connect-src 'self' https://*.supabase.co;
+    connect-src 'self' https://*.supabase.co ${API_URL};
     object-src 'none';
     base-uri 'self';
     form-action 'self';

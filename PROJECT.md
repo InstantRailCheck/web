@@ -630,6 +630,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - `limited_evidence` means every rail *individually* has exactly one fresh reporter — not that the pair as a whole has exactly one report. A pair with two weak rails, each confirmed by a different single reporter, is still `limited_evidence` but has two real reports, so the old "Only one report — needs a second confirmation" label could be false. Reworded to "Limited evidence — needs another confirmation" (`lib/routeConfidence.ts`'s `REASON_LABELS`) and the page's top summary line, added a regression test with a two-rail, two-reporter pair proving the label no longer overclaims
 - The out-of-range-page empty state was misleading: `?page=999` on a 7-route dataset showed "Nothing needs a fresh report right now — every checked route has solid evidence" even though routes existed, just not on that page. Added a pure `isPageOutOfRange()` helper (routes exist overall, but the requested page is past the end of them) so the page now shows a distinct "No routes on page N. Back to page 1" state instead of a false "everything's fine" claim. Verified live: `?page=999` now shows the honest message with a working link back
 
+## Version 6.9.2 (v6.9.2 — shipped July 12 2026)
+
+**Fixed the homepage route checker hanging on every check on the live site**
+- Root cause predates v6.9.0/6.9.1 (introduced July 8 by the `legacyApiRedirect` in `lib/apiResponse.ts`, unrelated to the "Needs fresh reports" work): any request to `/api/routes` or `/api/banks` on `www.instantrailcheck.com` 308-redirects to `api.instantrailcheck.com`. That redirect is meant for external API consumers, but it also caught `HomeRouteChecker.tsx`'s own same-origin `fetch('/api/routes')` — and the CSP's `connect-src 'self' https://*.supabase.co` was never updated to allow the redirect's cross-origin destination, so the browser blocked the follow-up request with a `NetworkError`. Confirmed live via the browser console: `Content-Security-Policy: ... blocked the loading of a resource (connect-src) at https://api.instantrailcheck.com/routes ...`
+- Fix: added `https://api.instantrailcheck.com` to `connect-src` in `proxy.ts`'s CSP. `/api/bank-search` (used by the bank picker) isn't wrapped in `withApiProtection` and was never affected — only the route-check fetch was broken
+- Added a regression test in `proxy.test.ts` documenting why `connect-src` must include the API subdomain; verified live against a local production build that the deployed CSP header now contains it
+
 ## Data Principles
 
 - Real-world reports only
