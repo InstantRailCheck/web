@@ -4,6 +4,7 @@ import {
   computeAkaNamesFromSearchNames,
   extractFdicAkaNames,
   pickFdicMatch,
+  deriveDomainInitialsAka,
 } from "./bankAkaNames.mjs";
 
 describe("normalizeWebsite", () => {
@@ -114,5 +115,41 @@ describe("pickFdicMatch", () => {
       { NAME: "Acme Bank", ASSET: 500, CERT: 1 },
     ];
     expect(pickFdicMatch(candidates, "Acme Bank")).toEqual({ NAME: "Acme Bank", ASSET: 500, CERT: 1 });
+  });
+});
+
+describe("deriveDomainInitialsAka", () => {
+  it("returns the initials when the institution's own domain exactly matches them (American Southwest Credit Union / ascu.org)", () => {
+    expect(deriveDomainInitialsAka("American Southwest Credit Union", "http://www.ascu.org")).toBe("ASCU");
+  });
+
+  it("matches even with the real official name including 'Federal' (First Neshoba Federal Credit Union / fnfcu.org)", () => {
+    expect(deriveDomainInitialsAka("First Neshoba Federal Credit Union", "http://www.fnfcu.org")).toBe("FNFCU");
+  });
+
+  it("does not match the name as currently stored without 'Federal' (the real gap found live)", () => {
+    expect(deriveDomainInitialsAka("First Neshoba Credit Union", "http://www.fnfcu.org")).toBeNull();
+  });
+
+  it("skips stopwords ('and') when computing initials (Olean Teachers and Postal Federal Credit Union / otpfcu.com)", () => {
+    expect(deriveDomainInitialsAka("Olean Teachers and Postal Federal Credit Union", "https://www.otpfcu.com")).toBe(
+      "OTPFCU"
+    );
+  });
+
+  it("returns null when the domain is a brand name, not initials (1st University Credit Union / culink.net)", () => {
+    expect(deriveDomainInitialsAka("1st University Credit Union", "http://www.culink.net")).toBeNull();
+  });
+
+  it("returns null when initials are below the minimum length", () => {
+    expect(deriveDomainInitialsAka("AB Bank", "http://www.ab.com")).toBeNull();
+  });
+
+  it("returns null with no website", () => {
+    expect(deriveDomainInitialsAka("American Southwest Credit Union", null)).toBeNull();
+  });
+
+  it("returns null on a malformed website value", () => {
+    expect(deriveDomainInitialsAka("American Southwest Credit Union", "not a url")).toBeNull();
   });
 });

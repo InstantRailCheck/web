@@ -68,14 +68,23 @@ async function tryNcuaMatch(name) {
   const normalized = name.toLowerCase().trim();
   if (!normalized) return null;
 
-  const { data: exact } = await supabase
+  // limit(1) alone isn't enough here - if two charters happen to share the
+  // same search_names alias, whichever one Postgres returns first silently
+  // "wins" and the uniqueness-checked partial-match fallback below never
+  // even runs. Fetch every exact match and require exactly one distinct
+  // charter, same as the fallback.
+  const { data: exactMatches } = await supabase
     .from("ncua_credit_unions")
-    .select("website, address, phone")
-    .contains("search_names", [normalized])
-    .limit(1)
-    .maybeSingle();
+    .select("charter_number, website, address, phone")
+    .contains("search_names", [normalized]);
 
-  if (exact && (exact.website || exact.address || exact.phone)) return exact;
+  if (exactMatches && exactMatches.length > 0) {
+    const distinctCharters = new Set(exactMatches.map((m) => m.charter_number));
+    if (distinctCharters.size === 1) {
+      const exact = exactMatches[0];
+      if (exact.website || exact.address || exact.phone) return exact;
+    }
+  }
 
   // Same word-boundary + exactly-one-distinct-match rule as the FDIC
   // lookup above (pickFdicMatch) - this previously took whichever row

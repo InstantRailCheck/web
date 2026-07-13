@@ -67,3 +67,48 @@ export function extractFdicAkaNames(record, primaryName) {
   }
   return Array.from(new Set(names));
 }
+
+// Neither NCUA's nor FDIC's official trade-name data covers informal
+// acronyms/initialisms (confirmed live: fnfcu/otpfcu/ascu aren't in
+// NCUA's TradeNames.txt for those charters, even though each institution's
+// own domain spells out its initials exactly). This isn't a guess, though
+// — it only ever returns something when the institution's OWN chosen
+// domain exactly matches the initials mechanically derived from its own
+// name. A coincidental partial resemblance never qualifies; only an exact
+// match on the whole domain label does.
+const AKA_INITIALS_STOPWORDS = new Set(["and", "of", "the", "for", "at", "in", "&"]);
+// Below this length, a coincidental exact match becomes plausible (e.g. a
+// two-letter domain matching two-letter initials by chance) - every real
+// case found so far is 4+ letters, so this costs nothing to require.
+const MIN_INITIALS_LENGTH = 4;
+
+function computeNameInitials(name) {
+  const words = name.replace(/[.,'"]/g, "").split(/[\s-]+/).filter(Boolean);
+  const letters = [];
+  for (const word of words) {
+    const lower = word.toLowerCase();
+    if (AKA_INITIALS_STOPWORDS.has(lower)) continue;
+    const firstAlpha = lower.match(/[a-z]/);
+    if (firstAlpha) letters.push(firstAlpha[0]);
+  }
+  return letters.join("");
+}
+
+function extractDomainLabel(website) {
+  if (!website) return null;
+  try {
+    const url = new URL(website.startsWith("http") ? website : `https://${website}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    return host.split(".")[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function deriveDomainInitialsAka(name, website) {
+  const initials = computeNameInitials(name);
+  if (initials.length < MIN_INITIALS_LENGTH) return null;
+  const domainLabel = extractDomainLabel(website);
+  if (domainLabel && domainLabel === initials) return initials.toUpperCase();
+  return null;
+}

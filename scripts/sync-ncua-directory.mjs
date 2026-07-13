@@ -178,6 +178,7 @@ async function main() {
       .from("banks")
       .select("id, name, ncua_charter_number")
       .not("ncua_charter_number", "is", null)
+      .order("id", { ascending: true })
       .range(offset, offset + 999);
     if (error) throw error;
     linkedBanks.push(...data);
