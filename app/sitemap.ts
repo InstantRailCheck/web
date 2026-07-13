@@ -1,14 +1,12 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllBanks } from "@/lib/allBanks";
+import { buildBankSitemapEntries, type BankSitemapRow } from "@/lib/sitemapEntries";
 import { SITE_URL } from "@/lib/siteConfig";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient();
-  const banks = await fetchAllBanks<{ slug: string; created_at: string | null }>(
-    supabase,
-    "slug, created_at"
-  );
+  const banks = await fetchAllBanks<BankSitemapRow>(supabase, "slug, created_at, updated_at");
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: "daily", priority: 1 },
@@ -23,12 +21,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/terms`, changeFrequency: "yearly", priority: 0.2 },
   ];
 
-  const bankRoutes: MetadataRoute.Sitemap = (banks ?? []).map((bank) => ({
-    url: `${SITE_URL}/banks/${bank.slug}`,
-    lastModified: bank.created_at ?? undefined,
-    changeFrequency: "weekly",
-    priority: 0.6,
-  }));
-
-  return [...staticRoutes, ...bankRoutes];
+  return [...staticRoutes, ...buildBankSitemapEntries(banks ?? [])];
 }
