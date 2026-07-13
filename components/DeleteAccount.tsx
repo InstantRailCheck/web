@@ -55,9 +55,9 @@ export function DeleteAccount() {
       <h2 className="text-lg font-semibold text-red-300">Delete account</h2>
       <p className="mt-1 text-sm text-slate-400">
         Permanently deletes your sign-in, passkeys, and registered webhooks. Route reports, EDD
-        reports, and corrections you&apos;ve submitted stay on the site as anonymous community
-        data — no longer linked to you — rather than being removed, since other people&apos;s view
-        of a bank or route may depend on them. This can&apos;t be undone.
+        reports, corrections, and route requests you&apos;ve submitted stay on the site as
+        anonymous community data — no longer linked to you — rather than being removed, since
+        other people&apos;s view of a bank or route may depend on them. This can&apos;t be undone.
       </p>
 
       {!confirming ? (

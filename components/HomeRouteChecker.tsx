@@ -6,6 +6,7 @@ import Link from "next/link";
 import { RouteSearch } from "@/components/RouteSearch";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
+import { RequestRouteButton } from "@/components/RequestRouteButton";
 import type { Bank } from "@/components/BankSelect";
 import type { RouteIntelligence } from "@/lib/routingEngine";
 import { NO_EVIDENCE_LABEL } from "@/lib/routeConfidence";
@@ -205,15 +206,21 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
               ? "This route needs a fresh report — the evidence on file is over 180 days old."
               : `${NO_EVIDENCE_LABEL} for this route. Have you tried it?`}
           </p>
-          <button
-            type="button"
-            onClick={() =>
-              document.getElementById("submit-route-report")?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
-            className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500"
-          >
-            Report this route
-          </button>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                document.getElementById("submit-route-report")?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500"
+            >
+              Report this route
+            </button>
+            {fromBank && toBank && <RequestRouteButton fromBankId={fromBank.id} toBankId={toBank.id} />}
+          </div>
+          <p className="mt-2 text-xs text-blue-300/60">
+            Don&apos;t have evidence yourself? Requesting just lets others know this route needs checking.
+          </p>
           <Link
             href="/routes/needs-fresh-reports"
             className="mt-3 block text-xs text-blue-300/80 hover:text-blue-200 transition"

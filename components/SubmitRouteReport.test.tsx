@@ -4,10 +4,19 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SubmitRouteReport } from "./SubmitRouteReport";
 
-const insertMock = vi.fn().mockResolvedValue({ error: null });
+const submitRouteReportMock = vi.fn().mockResolvedValue({ success: true });
+const routerRefreshMock = vi.fn();
 
 vi.mock("@/lib/actions/addBank", () => ({
   addBank: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/submitRouteReport", () => ({
+  submitRouteReport: (...args: unknown[]) => submitRouteReportMock(...args),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: routerRefreshMock, push: vi.fn() }),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -17,7 +26,6 @@ vi.mock("@/lib/supabase/client", () => ({
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
       signOut: () => Promise.resolve(),
     },
-    from: () => ({ insert: insertMock }),
   }),
 }));
 
@@ -51,7 +59,9 @@ async function fillCommonFields(user: ReturnType<typeof userEvent.setup>) {
 }
 
 beforeEach(() => {
-  insertMock.mockClear();
+  submitRouteReportMock.mockClear();
+  submitRouteReportMock.mockResolvedValue({ success: true });
+  routerRefreshMock.mockClear();
 });
 
 describe("SubmitRouteReport — role toggle (bank-scoped page)", () => {
@@ -93,11 +103,11 @@ describe("SubmitRouteReport — submit behavior (bank-scoped page)", () => {
 
     await user.click(screen.getByRole("button", { name: "Submit Report" }));
 
-    await waitFor(() => expect(insertMock).toHaveBeenCalledTimes(1));
-    expect(insertMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(submitRouteReportMock).toHaveBeenCalledTimes(1));
+    expect(submitRouteReportMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        from_bank_id: FIXED_BANK.id,
-        to_bank_id: OTHER_BANK.id,
+        fromBankId: FIXED_BANK.id,
+        toBankId: OTHER_BANK.id,
       })
     );
 
@@ -107,6 +117,10 @@ describe("SubmitRouteReport — submit behavior (bank-scoped page)", () => {
     expect(screen.getAllByText(FIXED_BANK.name).length).toBeGreaterThan(0);
     // Free side reset back to an empty BankSelect.
     expect(screen.getByRole("combobox", { name: "To bank" })).toBeInTheDocument();
+    // The submission may have fulfilled an active route_requests row and/or
+    // changed the needs-fresh-reports list (already invalidated server-side
+    // by submitRouteReport) — refresh so this page reflects it immediately.
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -124,7 +138,7 @@ describe("SubmitRouteReport — same bank on both sides (general page)", () => {
     await user.click(screen.getByRole("button", { name: "Submit Report" }));
 
     await waitFor(() => screen.getByText("Sender and receiver banks must be different"));
-    expect(insertMock).not.toHaveBeenCalled();
+    expect(submitRouteReportMock).not.toHaveBeenCalled();
   });
 });
 
@@ -153,9 +167,9 @@ describe("SubmitRouteReport — coordinated/prefilled mode (homepage route check
     await fillCommonFields(user);
     await user.click(screen.getByRole("button", { name: "Submit Report" }));
 
-    await waitFor(() => expect(insertMock).toHaveBeenCalledTimes(1));
-    expect(insertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ from_bank_id: PREFILLED_FROM.id, to_bank_id: PREFILLED_TO.id })
+    await waitFor(() => expect(submitRouteReportMock).toHaveBeenCalledTimes(1));
+    expect(submitRouteReportMock).toHaveBeenCalledWith(
+      expect.objectContaining({ fromBankId: PREFILLED_FROM.id, toBankId: PREFILLED_TO.id })
     );
     await waitFor(() => screen.getByText("Report submitted — thank you!"));
 
@@ -178,9 +192,9 @@ describe("SubmitRouteReport — coordinated/prefilled mode (homepage route check
     await fillCommonFields(user);
     await user.click(screen.getByRole("button", { name: "Submit Report" }));
 
-    await waitFor(() => expect(insertMock).toHaveBeenCalledTimes(1));
-    expect(insertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ from_bank_id: PREFILLED_FROM.id, to_bank_id: OTHER_BANK.id })
+    await waitFor(() => expect(submitRouteReportMock).toHaveBeenCalledTimes(1));
+    expect(submitRouteReportMock).toHaveBeenCalledWith(
+      expect.objectContaining({ fromBankId: PREFILLED_FROM.id, toBankId: OTHER_BANK.id })
     );
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
     expect(onSuccess).toHaveBeenCalledWith({ fromBank: PREFILLED_FROM, toBank: OTHER_BANK });

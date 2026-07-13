@@ -13,7 +13,24 @@ import { HomeRouteChecker } from "./HomeRouteChecker";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: vi.fn() }),
+}));
+
+// SubmitRouteReport is stubbed below, but HomeRouteChecker's contribution
+// CTA also renders the real RequestRouteButton — mock its server action
+// (which has its own "server-only" import) and the client Supabase auth
+// check it relies on, same as HomeRouteChecker.test.tsx does.
+vi.mock("@/lib/actions/requestRoute", () => ({
+  requestRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getUser: () => Promise.resolve({ data: { user: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
+    },
+  }),
 }));
 
 // HomeRouteChecker fetches /api/routes rather than importing the (now

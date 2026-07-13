@@ -32,6 +32,7 @@ export const EXPECTED_RLS_ENABLED_TABLES = [
   "fednow_participants",
   "ncua_credit_unions",
   "route_reports",
+  "route_requests",
   "rtp_participants",
   "webhook_deliveries",
   "webhooks",
@@ -60,6 +61,10 @@ export const EXPECTED_POLICIES = {
   webhooks: [],
   webhook_deliveries: [],
   api_rate_limits: [],
+  // route_requests (v7.0.0): the only write path is the authenticated
+  // requestRoute Server Action via the admin client — no RLS policy is
+  // needed or added, so requester identity is private by construction.
+  route_requests: [],
 };
 
 // Every SECURITY DEFINER function and the exact set of roles that should
@@ -91,6 +96,10 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   log_bank_rail_changes: ["service_role"],
   route_reports_derive_bank_names: ["service_role"],
   banks_set_updated_at: ["service_role"],
+  // v7.0.0: fires on every attributable route_reports insert to mark
+  // matching active route_requests rows fulfilled. Trigger-only, same
+  // reasoning as route_reports_derive_bank_names above.
+  route_requests_fulfill_on_report: ["service_role"],
   // The introspection function backing this very check — its own EXECUTE
   // grant is part of what it's meant to catch drift in.
   audit_rls_manifest: ["service_role"],

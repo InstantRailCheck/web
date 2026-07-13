@@ -5,12 +5,21 @@ import userEvent from "@testing-library/user-event";
 import { HomeRouteChecker } from "./HomeRouteChecker";
 
 const pushMock = vi.fn();
+const refreshMock = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
 }));
 
 vi.mock("@/lib/actions/addBank", () => ({
   addBank: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/requestRoute", () => ({
+  requestRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/submitRouteReport", () => ({
+  submitRouteReport: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -81,6 +90,7 @@ const STALE_ONLY_EVIDENCE = {
 
 beforeEach(() => {
   pushMock.mockClear();
+  refreshMock.mockClear();
   routeApiMock.mockReset();
   routeApiMock.mockReturnValue(NO_EVIDENCE);
   mockFetch();
@@ -153,6 +163,20 @@ describe("HomeRouteChecker — contribution CTA", () => {
 
     await waitFor(() => screen.getByText("No community evidence yet for this route. Have you tried it?"));
     expect(screen.getByRole("button", { name: "Report this route" })).toBeInTheDocument();
+  });
+
+  it("shows a distinct 'Request this route' action alongside 'Report this route', with copy that never uses report/evidence language", async () => {
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+
+    await waitFor(() => screen.getByText("No community evidence yet for this route. Have you tried it?"));
+    const reportButton = screen.getByRole("button", { name: "Report this route" });
+    const requestButton = screen.getByRole("button", { name: "Request this route" });
+    expect(reportButton).toBeInTheDocument();
+    expect(requestButton).toBeInTheDocument();
+    expect(reportButton).not.toBe(requestButton);
+    expect(
+      screen.getByText("Don't have evidence yourself? Requesting just lets others know this route needs checking.")
+    ).toBeInTheDocument();
   });
 
   it("does not show the CTA when the route has evidence", async () => {

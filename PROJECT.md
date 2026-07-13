@@ -637,6 +637,18 @@ This release starts with a full security pass of every API route and RLS policy 
 - Fix: added `https://api.instantrailcheck.com` to `connect-src` in `proxy.ts`'s CSP. `/api/bank-search` (used by the bank picker) isn't wrapped in `withApiProtection` and was never affected — only the route-check fetch was broken
 - Added a regression test in `proxy.test.ts` documenting why `connect-src` must include the API subdomain; verified live against a local production build that the deployed CSP header now contains it
 
+## Version 7.0.0 (v7.0.0 — shipped July 13 2026)
+
+**"Request route verification" — a demand signal, separate from evidence**
+- `/routes/needs-fresh-reports` (v6.9.0) had a blind spot: a pair could only appear if it already had at least one row in `route_reports`, so a pair nobody had ever reported on — even if visitors kept checking it — was invisible. New `route_requests` table lets an authenticated visitor say "please someone check this route" without having evidence themselves, and surfaces a new `requested_only` reason on the list for pairs with zero report rows but active requests, closing that blind spot
+- Requests have a lifecycle: any new attributable `route_reports` insert for a pair marks its active requests fulfilled (`route_requests_fulfill_on_report_trigger`), so old pre-report demand doesn't reappear if that same evidence later goes stale — and the same user can request the pair again once their prior request is fulfilled (enforced by a *partial* unique index scoped to `fulfilled_at is null`, not a table-wide one)
+- Demand never overpowers freshness in ranking: `compareRoutes` only uses `requestCount` as a tiebreaker after reason severity and staleness date — a heavily-requested `limited_evidence` pair still sorts after any `stale`/`no_evidence`/`requested_only` pair, no matter the demand gap
+- Write path: `route_requests` has zero RLS policies for any command — the only way in is the new authenticated, rate-limited `lib/actions/requestRoute.ts` Server Action via the admin client, so requester identity is private by construction. `route_reports` insertion also moved off a direct client-side RLS insert into a new `lib/actions/submitRouteReport.ts` Server Action, specifically so cache invalidation (`updateTag("needs-fresh-reports")`, Next 16) only ever fires as a side effect of a real, authenticated write — never from a bare, publicly-reachable invalidation endpoint. A duplicate/no-op request (already-active) is treated as success but deliberately skips `updateTag`, so resubmitting can't be used to force recomputation for free
+- New `route_requests_fulfill_on_report` SECURITY DEFINER trigger function has its EXECUTE grant revoked from `public`/`anon`/`authenticated` (matching the rest of the schema's hardening) and is tracked in `scripts/rlsManifest.mjs`'s privilege manifest
+- Account deletion anonymizes `route_requests` rows the same way as `route_reports`/`edd_reports`/`bank_corrections` (`user_id` set null, row kept) — copy on `/account`'s delete-account panel and `/privacy` updated to say so explicitly
+- UI: `RequestRouteButton` next to "Report this route" on the homepage CTA and on each `/routes/needs-fresh-reports` row (rendered as a sibling of the row's link, never nested inside its `<a>`), plus a `RequestRouteForm` on that page for requesting a pair that isn't listed at all — the only way a `requested_only` pair can come into existence
+- Verified live against production: anon `SELECT` on `route_requests` returns `[]` (RLS filtering, no error, no leak), anon `INSERT` is rejected with a `42501` RLS violation, and `node scripts/audit-rls-manifest.mjs` confirms the new table/trigger grants match the checked-in manifest
+
 ## Data Principles
 
 - Real-world reports only

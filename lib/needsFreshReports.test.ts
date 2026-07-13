@@ -32,8 +32,13 @@ type Row = {
   user_id: string | null;
 };
 
+type RequestRow = { from_bank_id: string; to_bank_id: string; user_id: string | null };
+
 let routeReportRows: Row[] = [];
 let routeReportsErrorAtOffset: number | null = null;
+let routeRequestRows: RequestRow[] = [];
+let routeRequestsErrorAtOffset: number | null = null;
+const routeRequestsIsCalls: [string, null][] = [];
 let banksTable: { id: string; slug: string; name: string }[] = [];
 let banksError = false;
 const banksInCalls: string[][] = [];
@@ -53,6 +58,26 @@ vi.mock("@/lib/supabase/admin", () => ({
                 return Promise.resolve({ data: page, error: null });
               },
             }),
+          }),
+        };
+      }
+      if (table === "route_requests") {
+        return {
+          select: () => ({
+            is: (col: string, val: null) => {
+              routeRequestsIsCalls.push([col, val]);
+              return {
+                order: () => ({
+                  range: (offset: number, end: number) => {
+                    if (routeRequestsErrorAtOffset === offset) {
+                      return Promise.resolve({ data: null, error: new Error("requests db error") });
+                    }
+                    const page = routeRequestRows.slice(offset, end + 1);
+                    return Promise.resolve({ data: page, error: null });
+                  },
+                }),
+              };
+            },
           }),
         };
       }
@@ -79,6 +104,7 @@ const {
   compareRoutes,
   buildNeedsFreshReportRoutes,
   fetchAllRouteReports,
+  fetchAllRouteRequests,
   fetchBanksByIds,
   getRoutesNeedingFreshReports,
   getRoutesNeedingFreshReportsLogged,
@@ -90,6 +116,9 @@ const { createAdminClient } = await import("@/lib/supabase/admin");
 beforeEach(() => {
   routeReportRows = [];
   routeReportsErrorAtOffset = null;
+  routeRequestRows = [];
+  routeRequestsErrorAtOffset = null;
+  routeRequestsIsCalls.length = 0;
   banksTable = [];
   banksError = false;
   banksInCalls.length = 0;
@@ -105,6 +134,10 @@ function row(overrides: Partial<Row>): Row {
     user_id: "u1",
     ...overrides,
   };
+}
+
+function requestRow(overrides: Partial<RequestRow>): RequestRow {
+  return { from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: "u1", ...overrides };
 }
 
 describe("classifyRoute", () => {
@@ -166,6 +199,7 @@ describe("compareRoutes (ranking)", () => {
       toBankName: "B Bank",
       reason: "no_evidence" as const,
       lastObservationDate: null,
+      requestCount: 0,
       ...overrides,
     };
   }
@@ -202,6 +236,43 @@ describe("compareRoutes (ranking)", () => {
       "Zelle Bank->A",
     ]);
   });
+
+  it("treats requested_only as the same severity tier as no_evidence", () => {
+    const items = [
+      route({ fromBankName: "Y", reason: "requested_only" }),
+      route({ fromBankName: "X", reason: "stale", lastObservationDate: daysAgo(200) }),
+    ];
+    const sorted = [...items].sort(compareRoutes);
+    expect(sorted.map((r) => r.reason)).toEqual(["requested_only", "stale"]);
+  });
+
+  it("uses requestCount as a tiebreaker only when dates match or are absent — higher demand first", () => {
+    const items = [
+      route({ fromBankName: "A", reason: "no_evidence", requestCount: 0 }),
+      route({ fromBankName: "B", reason: "requested_only", requestCount: 5 }),
+      route({ fromBankName: "C", reason: "requested_only", requestCount: 2 }),
+    ];
+    const sorted = [...items].sort(compareRoutes);
+    expect(sorted.map((r) => r.fromBankName)).toEqual(["B", "C", "A"]);
+  });
+
+  it("never lets requestCount overpower reason severity, even with a huge demand gap", () => {
+    const items = [
+      route({ fromBankName: "Popular", reason: "limited_evidence", lastObservationDate: daysAgo(1), requestCount: 100 }),
+      route({ fromBankName: "Ignored", reason: "stale", lastObservationDate: daysAgo(200), requestCount: 0 }),
+    ];
+    const sorted = [...items].sort(compareRoutes);
+    expect(sorted.map((r) => r.reason)).toEqual(["stale", "limited_evidence"]);
+  });
+
+  it("never lets requestCount overpower the staleness date within the same reason tier", () => {
+    const items = [
+      route({ fromBankName: "Popular", reason: "stale", lastObservationDate: daysAgo(190), requestCount: 100 }),
+      route({ fromBankName: "MoreOverdue", reason: "stale", lastObservationDate: daysAgo(300), requestCount: 0 }),
+    ];
+    const sorted = [...items].sort(compareRoutes);
+    expect(sorted.map((r) => r.fromBankName)).toEqual(["MoreOverdue", "Popular"]);
+  });
 });
 
 describe("buildNeedsFreshReportRoutes", () => {
@@ -212,7 +283,7 @@ describe("buildNeedsFreshReportRoutes", () => {
 
   it("drops a pair when either referenced bank id no longer resolves (deleted bank)", () => {
     const rows = [row({ from_bank_id: "bank-a", to_bank_id: "ghost-bank" })];
-    expect(buildNeedsFreshReportRoutes(rows, banks, NOW)).toEqual([]);
+    expect(buildNeedsFreshReportRoutes(rows, [], banks, NOW)).toEqual([]);
   });
 
   it("reproduces today's real data shape: unattributed-only, single fresh reporter, and mixed-rail-with-strong-rail pairs", () => {
@@ -229,7 +300,7 @@ describe("buildNeedsFreshReportRoutes", () => {
       row({ from_bank_id: "bank-a", to_bank_id: "bank-c", rail_used: "RTP", user_id: "u3", tested_at: daysAgo(3) }),
     ];
 
-    const result = buildNeedsFreshReportRoutes(rows, threeBanks, NOW);
+    const result = buildNeedsFreshReportRoutes(rows, [], threeBanks, NOW);
 
     expect(result).toHaveLength(2);
     const byPair = new Map(result.map((r) => [`${r.fromBankSlug}->${r.toBankSlug}`, r]));
@@ -249,7 +320,7 @@ describe("buildNeedsFreshReportRoutes", () => {
       row({ from_bank_id: "bank-b", to_bank_id: "bank-a", rail_used: "ACH", user_id: "u1", tested_at: boundaryDate }),
     ];
 
-    const result = buildNeedsFreshReportRoutes(rows, banks, NOW);
+    const result = buildNeedsFreshReportRoutes(rows, [], banks, NOW);
     expect(result.map((r) => r.reason)).toEqual(["limited_evidence", "limited_evidence"]);
   });
 
@@ -262,9 +333,59 @@ describe("buildNeedsFreshReportRoutes", () => {
       row({ from_bank_id: "bank-a", to_bank_id: "bank-b", rail_used: "ACH", user_id: "u1" }),
       row({ from_bank_id: "bank-a", to_bank_id: "bank-b", rail_used: "RTP", user_id: "u2" }),
     ];
-    const result = buildNeedsFreshReportRoutes(rows, banks, NOW);
+    const result = buildNeedsFreshReportRoutes(rows, [], banks, NOW);
     expect(result).toHaveLength(1);
     expect(result[0].reason).toBe("limited_evidence");
+  });
+
+  it("classifies a pair with zero route_reports rows but an active request as requested_only", () => {
+    const requestRows = [requestRow({ from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: "u1" })];
+    const result = buildNeedsFreshReportRoutes([], requestRows, banks, NOW);
+    expect(result).toEqual([
+      expect.objectContaining({
+        fromBankSlug: "bank-a",
+        toBankSlug: "bank-b",
+        reason: "requested_only",
+        lastObservationDate: null,
+        requestCount: 1,
+      }),
+    ]);
+  });
+
+  it("counts distinct active requesters for a requested_only pair", () => {
+    const requestRows = [
+      requestRow({ user_id: "u1" }),
+      requestRow({ user_id: "u2" }),
+      requestRow({ user_id: null }), // anonymized (post account-deletion) rows still count
+    ];
+    const result = buildNeedsFreshReportRoutes([], requestRows, banks, NOW);
+    expect(result[0].requestCount).toBe(3);
+  });
+
+  it("drops a requested_only pair when either referenced bank id no longer resolves", () => {
+    const requestRows = [requestRow({ from_bank_id: "bank-a", to_bank_id: "ghost-bank" })];
+    expect(buildNeedsFreshReportRoutes([], requestRows, banks, NOW)).toEqual([]);
+  });
+
+  it("attaches requestCount to a pair that also has route_reports evidence, without changing its reason", () => {
+    const rows = [row({ from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: null })]; // no_evidence
+    const requestRows = [requestRow({ from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: "u1" })];
+    const result = buildNeedsFreshReportRoutes(rows, requestRows, banks, NOW);
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toBe("no_evidence");
+    expect(result[0].requestCount).toBe(1);
+  });
+
+  it("does not resurrect a sufficient pair as requested_only just because it has active requests", () => {
+    // Strong evidence -> sufficient -> excluded, even with real demand on file.
+    const rows = [
+      row({ from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: "u1", tested_at: daysAgo(1) }),
+      row({ from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: "u2", tested_at: daysAgo(2) }),
+      row({ from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: "u3", tested_at: daysAgo(3) }),
+    ];
+    const requestRows = [requestRow({ from_bank_id: "bank-a", to_bank_id: "bank-b", user_id: "u4" })];
+    const result = buildNeedsFreshReportRoutes(rows, requestRows, banks, NOW);
+    expect(result).toEqual([]);
   });
 });
 
@@ -311,6 +432,32 @@ describe("fetchAllRouteReports", () => {
   });
 });
 
+describe("fetchAllRouteRequests", () => {
+  it("aggregates past the 1000-row page cap instead of truncating", async () => {
+    routeRequestRows = [
+      ...Array.from({ length: 1000 }, () => requestRow({})),
+      requestRow({ user_id: "the-1001st-row" }),
+      requestRow({ user_id: "the-1002nd-row" }),
+    ];
+    const supabase = createAdminClient();
+    const rows = await fetchAllRouteRequests(supabase);
+    expect(rows).toHaveLength(1002);
+  });
+
+  it("throws rather than returning partial rows when a page errors", async () => {
+    routeRequestRows = Array.from({ length: 1500 }, () => requestRow({}));
+    routeRequestsErrorAtOffset = 1000;
+    const supabase = createAdminClient();
+    await expect(fetchAllRouteRequests(supabase)).rejects.toThrow("requests db error");
+  });
+
+  it("only selects active (fulfilled_at is null) rows", async () => {
+    const supabase = createAdminClient();
+    await fetchAllRouteRequests(supabase);
+    expect(routeRequestsIsCalls).toEqual([["fulfilled_at", null]]);
+  });
+});
+
 describe("fetchBanksByIds", () => {
   it("splits more than 200 ids into multiple .in() chunks and merges the results completely", async () => {
     const ids = Array.from({ length: 250 }, (_, i) => `bank-${i}`);
@@ -348,6 +495,7 @@ describe("getRoutesNeedingFreshReports (end to end, mocked DB)", () => {
         toBankName: "Bank B",
         reason: "no_evidence",
         lastObservationDate: null,
+        requestCount: 0,
       },
     ]);
   });
@@ -356,6 +504,31 @@ describe("getRoutesNeedingFreshReports (end to end, mocked DB)", () => {
     routeReportRows = [row({})];
     routeReportsErrorAtOffset = 0;
     await expect(getRoutesNeedingFreshReports()).rejects.toThrow("db error");
+  });
+
+  it("includes a requested_only pair whose banks only appear in route_requests, never in route_reports", async () => {
+    banksTable = [
+      { id: "bank-a", slug: "bank-a", name: "Bank A" },
+      { id: "bank-c", slug: "bank-c", name: "Bank C" },
+    ];
+    routeReportRows = [];
+    routeRequestRows = [requestRow({ from_bank_id: "bank-a", to_bank_id: "bank-c", user_id: "u1" })];
+
+    const result = await getRoutesNeedingFreshReports();
+    expect(result).toEqual([
+      expect.objectContaining({
+        fromBankSlug: "bank-a",
+        toBankSlug: "bank-c",
+        reason: "requested_only",
+        requestCount: 1,
+      }),
+    ]);
+  });
+
+  it("fails closed when the route_requests fetch errors, same as route_reports", async () => {
+    routeRequestRows = [requestRow({})];
+    routeRequestsErrorAtOffset = 0;
+    await expect(getRoutesNeedingFreshReports()).rejects.toThrow("requests db error");
   });
 });
 

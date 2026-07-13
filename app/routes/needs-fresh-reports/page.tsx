@@ -2,6 +2,8 @@ import "server-only";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { RequestRouteButton } from "@/components/RequestRouteButton";
+import { RequestRouteForm } from "@/components/RequestRouteForm";
 import { resolveDirectoryPage, needsFreshReportsMetadata } from "@/lib/seo";
 import {
   getCachedRoutesNeedingFreshReports,
@@ -32,7 +34,30 @@ function ReasonLine({ route }: { route: NeedsFreshReportRoute }) {
     <span className="text-xs text-slate-400">
       {REASON_LABELS[route.reason]}
       {route.lastObservationDate && ` · last observed ${route.lastObservationDate}`}
+      {route.requestCount > 0 &&
+        ` · requested by ${route.requestCount} member${route.requestCount !== 1 ? "s" : ""}`}
     </span>
+  );
+}
+
+// Exported (not just used inline below) so its markup can be unit tested in
+// isolation: Link and RequestRouteButton must render as siblings, never
+// with the button nested inside the <a> that Link renders (invalid HTML,
+// breaks click targeting/accessibility) — see page.test.tsx.
+export function RouteRow({ route }: { route: NeedsFreshReportRoute }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3 hover:border-blue-500/40 transition">
+      <Link
+        href={`/?from=${route.fromBankSlug}&to=${route.toBankSlug}#search`}
+        className="flex flex-1 flex-col text-sm text-slate-200 hover:text-white transition"
+      >
+        <span>
+          {route.fromBankName} → {route.toBankName}
+        </span>
+        <ReasonLine route={route} />
+      </Link>
+      <RequestRouteButton fromBankId={route.fromBankId} toBankId={route.toBankId} />
+    </div>
   );
 }
 
@@ -61,6 +86,10 @@ export default async function NeedsFreshReportsPage({
           180 days. Pick one and report what you see.
         </p>
 
+        <div className="mt-6">
+          <RequestRouteForm />
+        </div>
+
         <div className="mt-6 grid gap-2">
           {pageRoutes.length === 0 ? (
             isPageOutOfRange(page, total, PAGE_SIZE) ? (
@@ -77,16 +106,7 @@ export default async function NeedsFreshReportsPage({
             )
           ) : (
             pageRoutes.map((route) => (
-              <Link
-                key={`${route.fromBankId}::${route.toBankId}`}
-                href={`/?from=${route.fromBankSlug}&to=${route.toBankSlug}#search`}
-                className="flex flex-col rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-200 hover:border-blue-500/40 hover:text-white transition"
-              >
-                <span>
-                  {route.fromBankName} → {route.toBankName}
-                </span>
-                <ReasonLine route={route} />
-              </Link>
+              <RouteRow key={`${route.fromBankId}::${route.toBankId}`} route={route} />
             ))
           )}
         </div>

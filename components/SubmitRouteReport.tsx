@@ -2,12 +2,14 @@
 
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BankSelect, type Bank } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { addBank } from "@/lib/actions/addBank";
+import { submitRouteReport } from "@/lib/actions/submitRouteReport";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
@@ -38,6 +40,7 @@ function today() {
 }
 
 export function SubmitRouteReport(props: Props) {
+  const router = useRouter();
   const fixedBank: Bank | null = props.bankId ? { id: props.bankId, slug: "", name: props.bankName } : null;
   // A coordinating parent is present whenever it passed either prefill prop
   // at all (even explicitly null) — that's the signal to keep selections
@@ -134,25 +137,27 @@ export function SubmitRouteReport(props: Props) {
         throw new Error("Sender and receiver banks must be different");
       }
 
-      const supabase = createClient();
-      const { error: insertError } = await supabase
-        .from("route_reports")
-        .insert({
-          from_bank_id: fromBank.id,
-          to_bank_id: toBank.id,
-          from_bank_name: fromBank.name,
-          to_bank_name: toBank.name,
-          rail_used: railUsed,
-          direction,
-          status,
-          tested_at: testedAt,
-          settlement_time_minutes: settlementTime ? parseInt(settlementTime) : null,
-          same_day: railUsed === "ACH" ? sameDay : null,
-          notes,
-          user_id: user.id,
-        });
+      const result = await submitRouteReport({
+        fromBankId: fromBank.id,
+        toBankId: toBank.id,
+        fromBankName: fromBank.name,
+        toBankName: toBank.name,
+        railUsed,
+        direction,
+        status,
+        testedAt,
+        settlementTimeMinutes: settlementTime ? parseInt(settlementTime) : null,
+        sameDay: railUsed === "ACH" ? sameDay : null,
+        notes,
+      });
 
-      if (insertError) throw insertError;
+      if ("error" in result) throw new Error(result.error);
+
+      // The report may have just fulfilled an active route_requests row
+      // and/or changed the needs-fresh-reports list (submitRouteReport
+      // already invalidated that cache) — refresh so this page reflects it
+      // immediately rather than on the visitor's next navigation.
+      router.refresh();
 
       // On a bank-scoped page, keep the fixed side pinned so reporting
       // several routes for the same bank in a row doesn't require

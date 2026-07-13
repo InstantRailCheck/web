@@ -18,9 +18,17 @@ type RouteReportRow = {
   user_id: string | null;
 };
 
+// Only active (fulfilled_at is null) rows are ever fetched — see
+// fetchAllRouteRequests below.
+type RouteRequestRow = {
+  from_bank_id: string;
+  to_bank_id: string;
+  user_id: string | null;
+};
+
 type BankRow = { id: string; slug: string; name: string };
 
-export type NeedsFreshReportReason = "no_evidence" | "stale" | "limited_evidence";
+export type NeedsFreshReportReason = "no_evidence" | "stale" | "limited_evidence" | "requested_only";
 
 export type NeedsFreshReportRoute = {
   fromBankId: string;
@@ -30,10 +38,15 @@ export type NeedsFreshReportRoute = {
   toBankSlug: string;
   toBankName: string;
   reason: NeedsFreshReportReason;
-  // Absent for no_evidence (nothing attributable was ever observed);
-  // otherwise the date driving this route's position in the ranking — see
-  // representativeDate() below for which rails it's drawn from.
+  // Absent for no_evidence/requested_only (nothing attributable was ever
+  // observed); otherwise the date driving this route's position in the
+  // ranking — see representativeDate() below for which rails it's drawn
+  // from.
   lastObservationDate: string | null;
+  // Count of distinct active (unfulfilled) route_requests rows for this
+  // pair — 0 if none. A demand signal, not evidence: see compareRoutes for
+  // how it's used as a tiebreaker only, never a severity override.
+  requestCount: number;
 };
 
 // limited_evidence means every present rail individually has exactly one
@@ -46,6 +59,10 @@ export const REASON_LABELS: Record<NeedsFreshReportReason, string> = {
   no_evidence: NO_EVIDENCE_LABEL,
   stale: "Evidence is over 180 days old",
   limited_evidence: "Limited evidence — needs another confirmation",
+  // Zero rows in route_reports at all — never appears in pairGroups below.
+  // Never implies evidence exists; the count itself is composed separately
+  // by callers (see ReasonLine in app/routes/needs-fresh-reports/page.tsx).
+  requested_only: "Requested by the community — no reports yet",
 };
 
 // Mirrors lib/allBanks.ts's fetchAllBanks — same 1000-row PostgREST default
@@ -76,6 +93,34 @@ export async function fetchAllRouteReports(
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
     rows.push(...((data ?? []) as RouteReportRow[]));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
+}
+
+// Byte-for-byte the same paginated-fetch shape as fetchAllRouteReports —
+// same 1000-row-page/500-page-circuit-breaker justification: this table
+// only grows with real user activity, never combinatorially with bank
+// count. Only fulfilled_at is null (active) rows are selected at the query
+// itself — fulfilled requests are invisible to requestCount/requested_only
+// classification, same as route_reports' own user_id IS NULL seed rows are
+// invisible to evidence.
+export async function fetchAllRouteRequests(
+  supabase: ReturnType<typeof createAdminClient>
+): Promise<RouteRequestRow[]> {
+  const pageSize = 1000;
+  const rows: RouteRequestRow[] = [];
+  for (let page = 0; ; page++) {
+    if (page >= 500) throw new Error("route_requests fetch exceeded 500 pages — refusing partial data");
+    const offset = page * pageSize;
+    const { data, error } = await supabase
+      .from("route_requests")
+      .select("from_bank_id, to_bank_id, user_id")
+      .is("fulfilled_at", null)
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as RouteRequestRow[]));
     if (!data || data.length < pageSize) break;
   }
   return rows;
@@ -135,7 +180,7 @@ export function representativeDate(
   reason: NeedsFreshReportReason,
   present: RouteEvidence[]
 ): string | null {
-  if (reason === "no_evidence") return null;
+  if (reason === "no_evidence" || reason === "requested_only") return null;
   if (reason === "stale") {
     const dates = present.filter((e) => e.state === "previously_observed").map((e) => e.latestObservationDate);
     return dates.reduce((max, d) => (d > max ? d : max));
@@ -146,13 +191,15 @@ export function representativeDate(
 
 const REASON_WEIGHT: Record<NeedsFreshReportReason, number> = {
   no_evidence: 0,
+  requested_only: 0, // same severity tier as no_evidence: "nothing usable exists yet"
   stale: 1,
   limited_evidence: 2,
 };
 
 // Deterministic: reason severity first, then how overdue (oldest/most-
-// overdue first within a group), then bank names as a final tiebreak — never
-// relies on Map/object iteration order.
+// overdue first within a group), then request demand as a tiebreaker
+// (never a severity override — see below), then bank names as a final
+// tiebreak — never relies on Map/object iteration order.
 export function compareRoutes(a: NeedsFreshReportRoute, b: NeedsFreshReportRoute): number {
   const weightDiff = REASON_WEIGHT[a.reason] - REASON_WEIGHT[b.reason];
   if (weightDiff !== 0) return weightDiff;
@@ -162,6 +209,12 @@ export function compareRoutes(a: NeedsFreshReportRoute, b: NeedsFreshReportRoute
     if (b.lastObservationDate === null) return -1;
     return a.lastObservationDate < b.lastObservationDate ? -1 : 1;
   }
+
+  // Deliberately after the date tiebreak, not before: demand must never
+  // let a route reorder ahead of another on staleness grounds — it only
+  // ever breaks a true tie (in practice, almost every no_evidence/
+  // requested_only pair, since both have no observation date at all).
+  if (a.requestCount !== b.requestCount) return b.requestCount - a.requestCount; // higher demand first
 
   if (a.fromBankName !== b.fromBankName) return a.fromBankName < b.fromBankName ? -1 : 1;
   if (a.toBankName !== b.toBankName) return a.toBankName < b.toBankName ? -1 : 1;
@@ -181,6 +234,7 @@ function toReportInputs(rows: RouteReportRow[]): RouteReportInput[] {
 // fixtures, no Supabase mocking required.
 export function buildNeedsFreshReportRoutes(
   reportRows: RouteReportRow[],
+  requestRows: RouteRequestRow[],
   banks: BankRow[],
   now: Date
 ): NeedsFreshReportRoute[] {
@@ -194,9 +248,19 @@ export function buildNeedsFreshReportRoutes(
     pairGroups.get(key)!.push(row);
   }
 
+  // requestRows is already filtered to active (fulfilled_at is null) rows
+  // by fetchAllRouteRequests — every row here counts toward demand,
+  // including anonymized (user_id null) ones, same "trusted, uncounted-for-
+  // abuse" treatment route_reports gives its own user_id IS NULL rows.
+  const requestCounts = new Map<string, number>();
+  for (const row of requestRows) {
+    const key = `${row.from_bank_id}::${row.to_bank_id}`;
+    requestCounts.set(key, (requestCounts.get(key) ?? 0) + 1);
+  }
+
   const routes: NeedsFreshReportRoute[] = [];
 
-  for (const [, rows] of pairGroups) {
+  for (const [key, rows] of pairGroups) {
     const fromBank = bankById.get(rows[0].from_bank_id!);
     const toBank = bankById.get(rows[0].to_bank_id!);
     // "Blank over wrong": a pair referencing a since-deleted bank is dropped
@@ -228,6 +292,32 @@ export function buildNeedsFreshReportRoutes(
       toBankName: toBank.name,
       reason,
       lastObservationDate: representativeDate(reason, present),
+      requestCount: requestCounts.get(key) ?? 0,
+    });
+  }
+
+  // requested_only: pairs with zero rows in route_reports at all (never
+  // appear in pairGroups above) but at least one active request — the fix
+  // for the blind spot described in the module comment. A pair present in
+  // pairGroups is always classified via classifyRoute above regardless of
+  // its request count; this only covers pairs classifyRoute never sees.
+  for (const [key, count] of requestCounts) {
+    if (pairGroups.has(key)) continue;
+    const [fromBankId, toBankId] = key.split("::");
+    const fromBank = bankById.get(fromBankId);
+    const toBank = bankById.get(toBankId);
+    if (!fromBank || !toBank) continue;
+
+    routes.push({
+      fromBankId: fromBank.id,
+      fromBankSlug: fromBank.slug,
+      fromBankName: fromBank.name,
+      toBankId: toBank.id,
+      toBankSlug: toBank.slug,
+      toBankName: toBank.name,
+      reason: "requested_only",
+      lastObservationDate: null,
+      requestCount: count,
     });
   }
 
@@ -244,22 +334,25 @@ export function isPageOutOfRange(page: number, total: number, pageSize: number):
   return page > totalPages;
 }
 
-// The DB round trip: fetches route_reports (fully, paginated) and the
-// distinct banks it references, then hands off to the pure aggregation
-// above. One `now` is captured here and threaded through every
-// computeRouteEvidence call in the run, so every rail of every pair is
-// judged against the same instant.
+// The DB round trip: fetches route_reports and route_requests (both fully,
+// paginated) and the distinct banks either one references, then hands off
+// to the pure aggregation above. One `now` is captured here and threaded
+// through every computeRouteEvidence call in the run, so every rail of
+// every pair is judged against the same instant.
 export async function getRoutesNeedingFreshReports(): Promise<NeedsFreshReportRoute[]> {
   const supabase = createAdminClient();
   const now = new Date();
 
-  const reportRows = await fetchAllRouteReports(supabase);
-  const bankIds = [
-    ...new Set(reportRows.flatMap((r) => [r.from_bank_id, r.to_bank_id]).filter((id): id is string => !!id)),
-  ];
+  const [reportRows, requestRows] = await Promise.all([
+    fetchAllRouteReports(supabase),
+    fetchAllRouteRequests(supabase),
+  ]);
+  const reportBankIds = reportRows.flatMap((r) => [r.from_bank_id, r.to_bank_id]);
+  const requestBankIds = requestRows.flatMap((r) => [r.from_bank_id, r.to_bank_id]);
+  const bankIds = [...new Set([...reportBankIds, ...requestBankIds].filter((id): id is string => !!id))];
   const banks = await fetchBanksByIds(supabase, bankIds);
 
-  return buildNeedsFreshReportRoutes(reportRows, banks, now);
+  return buildNeedsFreshReportRoutes(reportRows, requestRows, banks, now);
 }
 
 // Exported (not just used inline below) so the log-then-rethrow behavior is
@@ -292,8 +385,14 @@ export async function getRoutesNeedingFreshReportsLogged(): Promise<NeedsFreshRe
 // result — Next keeps serving the last successful value and retries later.
 // The one case with nothing to fall back to is the very first call ever
 // (a true cache miss); app/routes/needs-fresh-reports/error.tsx handles that.
+//
+// tags: ["needs-fresh-reports"] lets requestRoute (lib/actions/
+// requestRoute.ts) and submitRouteReport (lib/actions/submitRouteReport.ts)
+// call updateTag("needs-fresh-reports") right after a real write, so a new
+// request or a report that fulfills one shows up immediately instead of
+// waiting on the hourly revalidate.
 export const getCachedRoutesNeedingFreshReports = unstable_cache(
   getRoutesNeedingFreshReportsLogged,
   ["needs-fresh-reports-v1"],
-  { revalidate: 3600 }
+  { revalidate: 3600, tags: ["needs-fresh-reports"] }
 );

@@ -23,7 +23,9 @@ export default function PrivacyPage() {
               <p className="mt-2">
                 If you submit a route report or register a webhook, we store what you enter: the
                 banks involved, the rail used, the outcome, and any notes you add, associated with
-                your account.
+                your account. If you request a route (asking that someone check a transfer we
+                don&apos;t yet have evidence for), we store only the two banks involved — no rail,
+                outcome, or notes, since a request isn&apos;t a report.
               </p>
               <p className="mt-2">
                 Bank and credit union directory data (names, websites, addresses, network
@@ -67,11 +69,11 @@ export default function PrivacyPage() {
                   /account
                 </Link>
                 , which removes your sign-in, passkeys, and webhooks immediately. Route reports,
-                EDD reports, and corrections you&apos;ve submitted remain as anonymous community
-                data rather than being deleted outright, since other people&apos;s view of a bank
-                or route may depend on them — they&apos;re no longer linked to you in any way once
-                your account is deleted. If you&apos;d like those removed entirely instead of
-                anonymized, contact us below.
+                EDD reports, corrections, and route requests you&apos;ve submitted remain as
+                anonymous community data rather than being deleted outright, since other
+                people&apos;s view of a bank or route may depend on them — they&apos;re no longer
+                linked to you in any way once your account is deleted. If you&apos;d like those
+                removed entirely instead of anonymized, contact us below.
               </p>
             </section>
 
