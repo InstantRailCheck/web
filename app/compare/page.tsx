@@ -1,10 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getBankProfileBySlug, getBankBySlug, describeRailEvidence } from "@/lib/bankProfile";
 import { ComparePicker } from "@/components/ComparePicker";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { formatPhone, telHref } from "@/lib/utils";
+import { compareMetadata, type CompareSearchParams } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<CompareSearchParams>;
+}): Promise<Metadata> {
+  return compareMetadata(await searchParams);
+}
 
 function RailCell({
   rail,
@@ -73,7 +83,7 @@ const ALWAYS_SHOWN_RAILS = ["Visa Direct", "Mastercard Send"];
 export default async function ComparePage({
   searchParams,
 }: {
-  searchParams: Promise<{ banks?: string }>;
+  searchParams: Promise<CompareSearchParams>;
 }) {
   const { banks: banksParam } = await searchParams;
   const slugs = (banksParam ?? "").split(",").filter(Boolean).slice(0, 2);

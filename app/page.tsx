@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Hero } from "@/components/Hero";
 import { HomeRouteChecker } from "@/components/HomeRouteChecker";
@@ -7,7 +8,15 @@ import { createClient } from "@/lib/supabase/server";
 import { getBankBySlug } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { SITE_URL } from "@/lib/siteConfig";
+import { HOME_CANONICAL_URL } from "@/lib/seo";
 import { logError } from "@/lib/logger";
+
+// /?from=chase&to=sofi#search is a shareable application state, not a
+// distinct SEO landing page — every route-query variant canonicalizes to
+// the bare homepage.
+export const metadata: Metadata = {
+  alternates: { canonical: HOME_CANONICAL_URL },
+};
 
 export default async function Home({
   searchParams,

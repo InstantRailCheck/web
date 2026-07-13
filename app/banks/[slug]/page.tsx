@@ -16,7 +16,9 @@ import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { BankBreadcrumb } from "@/components/BankBreadcrumb";
 import { SITE_URL } from "@/lib/siteConfig";
+import { safeJsonLdString, buildBankBreadcrumbJsonLd } from "@/lib/jsonLd";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -242,15 +244,22 @@ export default async function BankProfilePage({
     ...(profile.bank.address ? { address: profile.bank.address } : {}),
     ...(profile.bank.phone ? { telephone: profile.bank.phone } : {}),
   };
+  const breadcrumbJsonLd = buildBankBreadcrumbJsonLd(profile.bank);
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <script
         type="application/ld+json"
         nonce={nonce ?? undefined}
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdString(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        nonce={nonce ?? undefined}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
+        <BankBreadcrumb bankName={profile.bank.name} />
         <div className="text-center">
           <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
           {profile.bank.aka_names && profile.bank.aka_names.length > 0 && (

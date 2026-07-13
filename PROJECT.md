@@ -597,6 +597,17 @@ This release starts with a full security pass of every API route and RLS policy 
 - Migration `20260713012000`: the no-op branch now explicitly pins `new.updated_at := old.updated_at`, rather than leaving it untouched either way. Verified live: attempted to spoof `updated_at` to `2099-01-01` while leaving `aka_names` unchanged — the trigger correctly overrode it back to the real stored value instead of letting it through
 - No meaningful outstanding finding remains in this release chain
 
+## Version 6.8.0 (v6.8.0 — shipped July 13 2026)
+
+**Query-parameter indexing policy + bank-profile breadcrumbs**
+- Homepage route-query states (`/?from=chase&to=sofi`) are shareable application state, not distinct SEO landing pages — added a static canonical pointing at the bare homepage, which every query variant inherits since it isn't computed per-request
+- `/banks` indexing policy: plain pagination (`/banks?page=2`) stays indexable with a self-referencing canonical; any URL carrying `q`, `fednow`, `rtp`, `zelle`, or `edd` now emits `robots: noindex, follow` (crawlable so bank profile links are still reached, but not a ranking target on a large combinatorial filter space) and canonicalizes to the page-normalized, filter-stripped listing URL so any authority consolidates onto the indexable page. Page-number normalization (page 1 → `/banks`, page 2+ → `/banks?page=N`) is now a single shared function (`resolveDirectoryPage`) used by both the canonical logic and the page's own pagination query, instead of two copies of the same formula
+- `/compare` gets the same treatment: `/compare` itself stays indexable, any `?banks=` combination is `noindex, follow` and canonicalizes to `/compare`. Sitemap is untouched either way — it never listed query-parameter URLs to begin with (still 4,680 URLs)
+- All three policies extracted into pure, independently tested functions in `lib/seo.ts` rather than living inline in each page's `generateMetadata`
+- Bank profile pages (`/banks/[slug]`) now show a visible "All banks → Bank Name" breadcrumb (`<nav aria-label="Breadcrumb">`, semantic current-page marking) above the existing H1, plus a matching `BreadcrumbList` JSON-LD block alongside the existing `BankOrCreditUnion` structured data
+- While wiring the new breadcrumb JSON-LD, added `safeJsonLdString()` (escapes literal `<` before it reaches `dangerouslySetInnerHTML`) and applied it to both structured-data blocks on the bank profile page — `JSON.stringify` alone doesn't escape `<`, so a bank name containing `</script>` could otherwise break out of the surrounding script tag
+- Verified rendered `<link rel="canonical">`/`<meta name="robots">` output for all nine representative URLs from the spec (`/`, `/?from=chase&to=sofi`, `/banks`, `/banks?page=2`, `/banks?q=chase`, `/banks?fednow=true`, `/compare`, `/compare?banks=chase,sofi`, `/banks/1166-credit-union`) against a live production build — all matched the intended policy exactly
+
 ## Data Principles
 
 - Real-world reports only

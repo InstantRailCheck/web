@@ -1,14 +1,24 @@
 import "server-only";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Banknote, Landmark, Zap } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EDD_MIN_REPORTERS, dedupeEddReportsByReporterAndBank } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { normalizeForSearch } from "@/lib/utils";
+import { resolveDirectoryPage, banksDirectoryMetadata, type BanksDirectorySearchParams } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<BanksDirectorySearchParams>;
+}): Promise<Metadata> {
+  return banksDirectoryMetadata(await searchParams);
+}
 
 function buildPageUrl(params: Record<string, string | undefined>, page: number) {
   const usp = new URLSearchParams();
@@ -25,10 +35,10 @@ function buildPageUrl(params: Record<string, string | undefined>, page: number) 
 export default async function BanksDirectoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; fednow?: string; rtp?: string; zelle?: string; edd?: string; page?: string }>;
+  searchParams: Promise<BanksDirectorySearchParams>;
 }) {
   const { q, fednow, rtp, zelle, edd, page: pageParam } = await searchParams;
-  const page = Math.max(1, Number(pageParam) || 1);
+  const page = resolveDirectoryPage(pageParam);
 
   const supabase = createAdminClient();
   let query = supabase
