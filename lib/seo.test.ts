@@ -5,6 +5,8 @@ import {
   banksDirectoryCanonicalPath,
   banksDirectoryMetadata,
   compareMetadata,
+  needsFreshReportsCanonicalPath,
+  needsFreshReportsMetadata,
 } from "./seo";
 
 describe("HOME_CANONICAL_URL", () => {
@@ -98,6 +100,32 @@ describe("compareMetadata", () => {
   it("/compare?banks=a,b is noindex,follow and canonicalizes to /compare", () => {
     expect(compareMetadata({ banks: "chase,sofi" })).toEqual({
       alternates: { canonical: "https://www.instantrailcheck.com/compare" },
+      robots: { index: false, follow: true },
+    });
+  });
+});
+
+describe("needsFreshReportsCanonicalPath", () => {
+  it("collapses page 1 to the bare path", () => {
+    expect(needsFreshReportsCanonicalPath(1)).toBe("/routes/needs-fresh-reports");
+  });
+
+  it("keeps a self-referencing path for page 2+", () => {
+    expect(needsFreshReportsCanonicalPath(2)).toBe("/routes/needs-fresh-reports?page=2");
+  });
+});
+
+describe("needsFreshReportsMetadata", () => {
+  it("is noindex,follow with a self-referencing canonical for page 1", () => {
+    expect(needsFreshReportsMetadata(1)).toEqual({
+      alternates: { canonical: "https://www.instantrailcheck.com/routes/needs-fresh-reports" },
+      robots: { index: false, follow: true },
+    });
+  });
+
+  it("is noindex,follow with a self-referencing canonical for page 2+", () => {
+    expect(needsFreshReportsMetadata(2)).toEqual({
+      alternates: { canonical: "https://www.instantrailcheck.com/routes/needs-fresh-reports?page=2" },
       robots: { index: false, follow: true },
     });
   });

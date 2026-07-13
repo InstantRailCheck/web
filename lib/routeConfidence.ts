@@ -131,6 +131,12 @@ export function computeRouteEvidence(
   };
 }
 
+// Shared verbatim between components/HomeRouteChecker.tsx's contribution CTA
+// and lib/needsFreshReports.ts's "no_evidence" badge, so the same underlying
+// state reads identically wherever a visitor encounters it — not two
+// hardcoded strings that happen to match today.
+export const NO_EVIDENCE_LABEL = "No community evidence yet";
+
 export const EVIDENCE_LABELS: Record<EvidenceState, string> = {
   limited_evidence: "Limited evidence",
   observed_working: "Observed working",

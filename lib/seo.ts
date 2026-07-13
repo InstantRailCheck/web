@@ -47,6 +47,21 @@ export function banksDirectoryMetadata(params: BanksDirectorySearchParams): Meta
   };
 }
 
+// Mirrors banksDirectoryCanonicalPath's page-1-has-no-query-string rule.
+export function needsFreshReportsCanonicalPath(page: number): string {
+  return page > 1 ? `/routes/needs-fresh-reports?page=${page}` : "/routes/needs-fresh-reports";
+}
+
+// noindex initially: the page's real-world value (crawlability, uniqueness
+// vs. the homepage checker) hasn't been established yet, so it starts
+// deliberately unindexed while still followable/shareable.
+export function needsFreshReportsMetadata(page: number): Metadata {
+  return {
+    alternates: { canonical: `${SITE_URL}${needsFreshReportsCanonicalPath(page)}` },
+    robots: { index: false, follow: true },
+  };
+}
+
 export type CompareSearchParams = {
   banks?: string;
 };

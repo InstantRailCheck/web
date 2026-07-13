@@ -178,6 +178,24 @@ describe("HomeRouteChecker — contribution CTA", () => {
     expect(screen.getByRole("button", { name: "Report this route" })).toBeInTheDocument();
     expect(screen.queryByText("No community evidence yet for this route. Have you tried it?")).not.toBeInTheDocument();
   });
+
+  it("links to the needs-fresh-reports list whenever the contribution CTA is shown", async () => {
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+
+    await waitFor(() => screen.getByText("No community evidence yet for this route. Have you tried it?"));
+    expect(screen.getByRole("link", { name: "See other routes that need fresh reports →" })).toHaveAttribute(
+      "href",
+      "/routes/needs-fresh-reports"
+    );
+  });
+
+  it("does not show the discovery link when the CTA itself isn't shown", async () => {
+    routeApiMock.mockReturnValue(WITH_EVIDENCE);
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+
+    await waitFor(() => screen.getByText(/Limited evidence/));
+    expect(screen.queryByRole("link", { name: "See other routes that need fresh reports →" })).not.toBeInTheDocument();
+  });
 });
 
 describe("HomeRouteChecker — swap, copy link, reverse check, compare", () => {

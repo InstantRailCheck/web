@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { RouteSearch } from "@/components/RouteSearch";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
 import type { Bank } from "@/components/BankSelect";
 import type { RouteIntelligence } from "@/lib/routingEngine";
+import { NO_EVIDENCE_LABEL } from "@/lib/routeConfidence";
 
 // Route evidence includes attribution data (user_id) internally, so it's
 // only ever read server-side via the admin client — RLS denies public
@@ -201,7 +203,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
           <p className="text-sm text-blue-100">
             {isStaleOnly
               ? "This route needs a fresh report — the evidence on file is over 180 days old."
-              : "No community evidence yet for this route. Have you tried it?"}
+              : `${NO_EVIDENCE_LABEL} for this route. Have you tried it?`}
           </p>
           <button
             type="button"
@@ -212,6 +214,12 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
           >
             Report this route
           </button>
+          <Link
+            href="/routes/needs-fresh-reports"
+            className="mt-3 block text-xs text-blue-300/80 hover:text-blue-200 transition"
+          >
+            See other routes that need fresh reports →
+          </Link>
         </div>
       )}
 
