@@ -590,6 +590,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - Corrected in migration `20260713011500`: compares `to_jsonb(NEW)`/`to_jsonb(OLD)` with `name_normalized` and `updated_at` itself stripped out first, rather than the raw composite rows. Verified live end-to-end on the same test row: a true no-op left `updated_at` untouched; appending then removing a temporary marker value (two real, reversed changes) correctly bumped `updated_at` both times; a final no-op afterward again left it untouched — with the row restored to its exact original `aka_names` value throughout
 - RLS/privilege audit re-run clean after both migrations (no manifest changes needed — same `banks_set_updated_at` entry from v6.7.3 already covers the replaced function)
 
+## Version 6.7.5 (v6.7.5 — shipped July 13 2026)
+
+**Closed a purely defensive edge case in the no-op-write guard**
+- ChatGPT's follow-up review of v6.7.4 flagged one remaining edge: the no-op branch returned `NEW` as-is, so a privileged caller could set `updated_at` directly to an arbitrary value while leaving every other column identical, and it would "stick" since the branch never touched it either way. Confirmed no current write path does this (all `banks` writes are server-only, and grepped every one — none ever sets `updated_at` explicitly), so not a practical vulnerability, but zero-cost to close given this trigger's own founding principle (never trust an individual write path to set it correctly)
+- Migration `20260713012000`: the no-op branch now explicitly pins `new.updated_at := old.updated_at`, rather than leaving it untouched either way. Verified live: attempted to spoof `updated_at` to `2099-01-01` while leaving `aka_names` unchanged — the trigger correctly overrode it back to the real stored value instead of letting it through
+- No meaningful outstanding finding remains in this release chain
+
 ## Data Principles
 
 - Real-world reports only
