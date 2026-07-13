@@ -166,7 +166,11 @@ export function RouteSearch({
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-left shadow-2xl">
       <form className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_auto_1fr_auto] md:items-end">
-        <div className="text-center md:col-span-4 md:row-start-1">
+        {/* Spans only the From/Swap/To columns (1-3), not the Check Route
+            button's column (4) - that column has no counterpart on the
+            left, so including it in the span would pull the centered text
+            off from the two dropdowns' actual visual center. */}
+        <div className="text-center md:col-span-3 md:row-start-1">
           <h2 className="text-xl font-semibold">Check a transfer route</h2>
           <p className="mt-1 text-sm text-slate-400">
             Choose a sending bank and receiving bank.
@@ -216,7 +220,7 @@ export function RouteSearch({
           {loading ? "Checking..." : "Check Route"}
         </button>
 
-        <p className="text-center text-sm text-slate-500 md:col-span-4 md:row-start-3">
+        <p className="text-center text-sm text-slate-500 md:col-span-3 md:row-start-3">
           {bankCount} banks currently available.
         </p>
       </form>
