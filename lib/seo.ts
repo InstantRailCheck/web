@@ -6,8 +6,12 @@ export const HOME_CANONICAL_URL = `${SITE_URL}/`;
 // Shared with app/banks/page.tsx's own pagination so the canonical URL and
 // the actual query executed against the DB always agree on what "page 2"
 // means, instead of two copies of this formula silently drifting apart.
+// Only a safe integer >= 1 is a valid page — anything else (decimals,
+// Infinity/NaN, negatives) normalizes to page 1 rather than flowing into
+// the DB range query or the canonical URL unchanged.
 export function resolveDirectoryPage(pageParam?: string): number {
-  return Math.max(1, Number(pageParam) || 1);
+  const parsed = Number(pageParam);
+  return Number.isSafeInteger(parsed) && parsed >= 1 ? parsed : 1;
 }
 
 // page 1 has no query string at all — /banks?page=1 is a redundant variant

@@ -608,6 +608,11 @@ This release starts with a full security pass of every API route and RLS policy 
 - While wiring the new breadcrumb JSON-LD, added `safeJsonLdString()` (escapes literal `<` before it reaches `dangerouslySetInnerHTML`) and applied it to both structured-data blocks on the bank profile page — `JSON.stringify` alone doesn't escape `<`, so a bank name containing `</script>` could otherwise break out of the surrounding script tag
 - Verified rendered `<link rel="canonical">`/`<meta name="robots">` output for all nine representative URLs from the spec (`/`, `/?from=chase&to=sofi`, `/banks`, `/banks?page=2`, `/banks?q=chase`, `/banks?fednow=true`, `/compare`, `/compare?banks=chase,sofi`, `/banks/1166-credit-union`) against a live production build — all matched the intended policy exactly
 
+## Version 6.8.1 (v6.8.1 — shipped July 13 2026)
+
+**Fixed a page-number validation gap from ChatGPT's re-review of v6.8.0**
+- `resolveDirectoryPage()` accepted any truthy `Number(pageParam)`, so `/banks?page=2.5` produced a fractional DB range and a `?page=2.5` canonical, and `/banks?page=Infinity` passed a non-finite value straight into the range query. Fixed to require a safe integer `>= 1`, normalizing anything else (decimals, `Infinity`/`-Infinity`/`NaN`, negatives) to page 1 — added tests for all of those. Verified live against a production build: `/banks?page=2.5`, `/banks?page=Infinity`, and `/banks?page=-5` all now correctly canonicalize to `/banks`
+
 ## Data Principles
 
 - Real-world reports only

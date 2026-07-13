@@ -24,6 +24,20 @@ describe("resolveDirectoryPage", () => {
     expect(resolveDirectoryPage("-5")).toBe(1);
   });
 
+  it("rejects decimals rather than passing a fractional page through", () => {
+    expect(resolveDirectoryPage("2.5")).toBe(1);
+  });
+
+  it("rejects non-finite values", () => {
+    expect(resolveDirectoryPage("Infinity")).toBe(1);
+    expect(resolveDirectoryPage("-Infinity")).toBe(1);
+    expect(resolveDirectoryPage("NaN")).toBe(1);
+  });
+
+  it("rejects negative decimals", () => {
+    expect(resolveDirectoryPage("-5.5")).toBe(1);
+  });
+
   it("parses a valid page number", () => {
     expect(resolveDirectoryPage("2")).toBe(2);
   });
