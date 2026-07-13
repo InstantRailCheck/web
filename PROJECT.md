@@ -624,6 +624,12 @@ This release starts with a full security pass of every API route and RLS policy 
 - One low-key discovery link (not global nav, not the sitemap, not indexed yet): the homepage's existing "no evidence"/"stale" contribution CTA now also links to the full list, reaching exactly the visitors already primed to contribute. The CTA's "no evidence" copy and the new page's badge now share one `NO_EVIDENCE_LABEL` export (`lib/routeConfidence.ts`) instead of two hardcoded strings
 - Verified live against a production build: correct `noindex, follow` + self-referencing canonical, correct classification/ranking against real data (5 no-evidence Chase→X ACH pairs sorted alphabetically, then 2 limited-evidence pairs sorted oldest-observed-first), correct `/?from=&to=#search` prefill links, and graceful empty-state handling on an out-of-range page
 
+## Version 6.9.1 (v6.9.1 — shipped July 12 2026)
+
+**Two corrections from ChatGPT's re-review of v6.9.0**
+- `limited_evidence` means every rail *individually* has exactly one fresh reporter — not that the pair as a whole has exactly one report. A pair with two weak rails, each confirmed by a different single reporter, is still `limited_evidence` but has two real reports, so the old "Only one report — needs a second confirmation" label could be false. Reworded to "Limited evidence — needs another confirmation" (`lib/routeConfidence.ts`'s `REASON_LABELS`) and the page's top summary line, added a regression test with a two-rail, two-reporter pair proving the label no longer overclaims
+- The out-of-range-page empty state was misleading: `?page=999` on a 7-route dataset showed "Nothing needs a fresh report right now — every checked route has solid evidence" even though routes existed, just not on that page. Added a pure `isPageOutOfRange()` helper (routes exist overall, but the requested page is past the end of them) so the page now shows a distinct "No routes on page N. Back to page 1" state instead of a false "everything's fine" claim. Verified live: `?page=999` now shows the honest message with a working link back
+
 ## Data Principles
 
 - Real-world reports only

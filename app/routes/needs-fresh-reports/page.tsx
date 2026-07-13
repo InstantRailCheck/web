@@ -3,7 +3,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { resolveDirectoryPage, needsFreshReportsMetadata } from "@/lib/seo";
-import { getCachedRoutesNeedingFreshReports, REASON_LABELS, type NeedsFreshReportRoute } from "@/lib/needsFreshReports";
+import {
+  getCachedRoutesNeedingFreshReports,
+  isPageOutOfRange,
+  REASON_LABELS,
+  type NeedsFreshReportRoute,
+} from "@/lib/needsFreshReports";
 
 const PAGE_SIZE = 25;
 
@@ -52,15 +57,24 @@ export default async function NeedsFreshReportsPage({
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <h1 className="text-center text-3xl font-bold">Routes that need fresh reports</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
-          {total} route{total !== 1 ? "s" : ""} with no evidence, only one report, or evidence older than 180
-          days. Pick one and report what you see.
+          {total} route{total !== 1 ? "s" : ""} with no evidence, limited evidence, or evidence older than
+          180 days. Pick one and report what you see.
         </p>
 
         <div className="mt-6 grid gap-2">
           {pageRoutes.length === 0 ? (
-            <p className="text-center text-sm text-slate-500">
-              Nothing needs a fresh report right now — every checked route has solid evidence.
-            </p>
+            isPageOutOfRange(page, total, PAGE_SIZE) ? (
+              <p className="text-center text-sm text-slate-500">
+                No routes on page {page}.{" "}
+                <Link href="/routes/needs-fresh-reports" className="text-blue-400 hover:text-blue-300 transition">
+                  Back to page 1
+                </Link>
+              </p>
+            ) : (
+              <p className="text-center text-sm text-slate-500">
+                Nothing needs a fresh report right now — every checked route has solid evidence.
+              </p>
+            )
           ) : (
             pageRoutes.map((route) => (
               <Link

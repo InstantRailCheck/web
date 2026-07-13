@@ -36,10 +36,16 @@ export type NeedsFreshReportRoute = {
   lastObservationDate: string | null;
 };
 
+// limited_evidence means every present rail individually has exactly one
+// fresh reporter (per computeRouteEvidence) — not that the pair as a whole
+// has exactly one report. A pair with two weak rails (e.g. ACH and RTP),
+// each confirmed by a different single reporter, is still classified
+// limited_evidence but has two distinct reports, so the label can't claim
+// a specific count.
 export const REASON_LABELS: Record<NeedsFreshReportReason, string> = {
   no_evidence: NO_EVIDENCE_LABEL,
   stale: "Evidence is over 180 days old",
-  limited_evidence: "Only one report — needs a second confirmation",
+  limited_evidence: "Limited evidence — needs another confirmation",
 };
 
 // Mirrors lib/allBanks.ts's fetchAllBanks — same 1000-row PostgREST default
@@ -226,6 +232,16 @@ export function buildNeedsFreshReportRoutes(
   }
 
   return routes.sort(compareRoutes);
+}
+
+// True only when routes exist overall but this specific page number is
+// past the end of them — distinguishes "nothing needs a fresh report at
+// all" from "you asked for a page that doesn't exist," which otherwise
+// render as the same false "everything's fine" empty state.
+export function isPageOutOfRange(page: number, total: number, pageSize: number): boolean {
+  if (total === 0) return false;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  return page > totalPages;
 }
 
 // The DB round trip: fetches route_reports (fully, paginated) and the

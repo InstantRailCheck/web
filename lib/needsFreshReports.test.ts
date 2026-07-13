@@ -82,6 +82,8 @@ const {
   fetchBanksByIds,
   getRoutesNeedingFreshReports,
   getRoutesNeedingFreshReportsLogged,
+  isPageOutOfRange,
+  REASON_LABELS,
 } = await import("./needsFreshReports");
 const { createAdminClient } = await import("@/lib/supabase/admin");
 
@@ -249,6 +251,42 @@ describe("buildNeedsFreshReportRoutes", () => {
 
     const result = buildNeedsFreshReportRoutes(rows, banks, NOW);
     expect(result.map((r) => r.reason)).toEqual(["limited_evidence", "limited_evidence"]);
+  });
+
+  it("classifies a pair with two independently-limited rails (two distinct reporters, not one) as limited_evidence", () => {
+    // ACH confirmed once by u1, RTP confirmed once by u2 — two real reports
+    // total, but each rail only has one, so the pair is still
+    // limited_evidence. The label must not claim a specific report count
+    // (see REASON_LABELS below) since this case has more than one report.
+    const rows = [
+      row({ from_bank_id: "bank-a", to_bank_id: "bank-b", rail_used: "ACH", user_id: "u1" }),
+      row({ from_bank_id: "bank-a", to_bank_id: "bank-b", rail_used: "RTP", user_id: "u2" }),
+    ];
+    const result = buildNeedsFreshReportRoutes(rows, banks, NOW);
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toBe("limited_evidence");
+  });
+});
+
+describe("REASON_LABELS", () => {
+  it("does not claim a specific report count for limited_evidence, since a pair can have more than one report across rails", () => {
+    expect(REASON_LABELS.limited_evidence).not.toMatch(/one report/i);
+  });
+});
+
+describe("isPageOutOfRange", () => {
+  it("is false when there are no routes at all, regardless of the requested page", () => {
+    expect(isPageOutOfRange(2, 0, 25)).toBe(false);
+  });
+
+  it("is false for any page within range", () => {
+    expect(isPageOutOfRange(1, 7, 25)).toBe(false);
+    expect(isPageOutOfRange(2, 30, 25)).toBe(false);
+  });
+
+  it("is true when routes exist but the requested page is past the end of them", () => {
+    expect(isPageOutOfRange(2, 7, 25)).toBe(true);
+    expect(isPageOutOfRange(999, 7, 25)).toBe(true);
   });
 });
 
