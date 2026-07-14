@@ -180,7 +180,7 @@ describe("fetchTriageQueue", () => {
     currentAdmin = mockAdmin({
       routeReports: burst,
       banks: [BANK_A, BANK_B],
-      moderationActions: [{ action_type: "review_flag", target_table: "route_reports", target_id: "r-0" }],
+      moderationActions: [{ action_type: "review_flag", target_table: "route_reports", target_id: "r-0", snapshot: { signals: [], score: 100 } }],
     });
 
     const hidden = await fetchTriageQueue(baseFilters(), NOW);
@@ -190,6 +190,24 @@ describe("fetchTriageQueue", () => {
     const shown = await fetchTriageQueue(baseFilters({ showReviewed: true }), NOW);
     expect(shown.rows.some((r) => r.id === "r-0")).toBe(true);
     expect(shown.total).toBe(3);
+  });
+
+  it("resurfaces a reviewed flag once its currently-computed score exceeds what was reviewed", async () => {
+    const burst = [0, 1, 2].map((i) =>
+      routeReport({ id: `r-${i}`, user_id: "new-user", created_at: new Date(NOW.getTime() - i * 5 * 60_000).toISOString() })
+    );
+    // Reviewed back when its score was only 1 (e.g. a lone info-level
+    // signal) — since it now scores higher (new_reporter_high_volume is
+    // "high" severity, weight 3), it must resurface rather than stay
+    // hidden behind a stale, lower-scored review.
+    currentAdmin = mockAdmin({
+      routeReports: burst,
+      banks: [BANK_A, BANK_B],
+      moderationActions: [{ action_type: "review_flag", target_table: "route_reports", target_id: "r-0", snapshot: { signals: [], score: 1 } }],
+    });
+
+    const { rows } = await fetchTriageQueue(baseFilters(), NOW);
+    expect(rows.some((r) => r.id === "r-0")).toBe(true);
   });
 
   it("surfaces currently-restricted account history as a high-severity signal", async () => {
@@ -204,6 +222,46 @@ describe("fetchTriageQueue", () => {
     expect(rows).toHaveLength(1);
     const historySignal = rows[0].signals.find((s) => s.signal === "moderation_history");
     expect(historySignal?.severity).toBe("high");
+  });
+
+  it("does not let one reporter's repeated submissions dominate the settlement-time outlier baseline", async () => {
+    const sixtyDaysAgo = new Date(NOW.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const candidate = routeReport({ id: "candidate", user_id: "normal-user", status: "success", settlement_time_minutes: 35 });
+    // A single account's 4 identical old reports would, undeduped, satisfy
+    // evaluateSettlementTimeOutlier's 4-comparison-point minimum and plant
+    // a fake "typical" value of 1000 minutes for this route/rail.
+    const spammerPool = [0, 1, 2, 3].map((i) =>
+      routeReport({
+        id: `spam-${i}`,
+        user_id: "spammer-user",
+        status: "success",
+        settlement_time_minutes: 1000,
+        tested_at: `2026-05-${10 + i}`,
+        created_at: new Date(sixtyDaysAgo.getTime() + i * 60_000).toISOString(),
+      })
+    );
+    currentAdmin = mockAdmin({ routeReports: [candidate, ...spammerPool], banks: [BANK_A, BANK_B] });
+
+    const { rows } = await fetchTriageQueue(baseFilters(), NOW);
+    const candidateRow = rows.find((r) => r.id === "candidate");
+    // Either the candidate doesn't appear at all (no signal fired, since a
+    // single deduped comparison point is below the outlier minimum) or it
+    // appears without the outlier signal — either way, the fake 1000-minute
+    // "baseline" from one repeating account must not flag it.
+    expect(candidateRow?.signals.some((s) => s.signal === "settlement_time_outlier") ?? false).toBe(false);
+  });
+
+  it("still detects a velocity burst inside a custom historical date range, not just near 'now'", async () => {
+    const rangeStart = new Date(NOW.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const rangeEnd = new Date(NOW.getTime() - 59 * 24 * 60 * 60 * 1000);
+    const anchor = new Date(rangeStart.getTime() + 12 * 60 * 60 * 1000);
+    const burst = [0, 1, 2].map((i) =>
+      routeReport({ id: `hist-${i}`, user_id: "new-user", created_at: new Date(anchor.getTime() - i * 5 * 60_000).toISOString() })
+    );
+    currentAdmin = mockAdmin({ routeReports: burst, banks: [BANK_A, BANK_B] });
+
+    const { rows } = await fetchTriageQueue(baseFilters({ dateFrom: rangeStart.toISOString(), dateTo: rangeEnd.toISOString() }), NOW);
+    expect(rows.some((r) => r.signals.some((s) => s.signal === "new_reporter_high_volume" || s.signal === "velocity"))).toBe(true);
   });
 
   it("paginates: total reflects every match even when the requested page is empty", async () => {

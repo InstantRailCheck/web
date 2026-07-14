@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { FRESHNESS_WINDOW_DAYS } from "@/lib/routeConfidence";
+import { FRESHNESS_WINDOW_DAYS, dedupeToNewestPerReporter } from "@/lib/routeConfidence";
 import {
   evaluateVelocity,
   evaluateDuplicateRouteReport,
@@ -111,10 +111,13 @@ export async function fetchTriageQueue(filters: TriageFilters, now: Date = new D
   const admin = createAdminClient();
   const windowStart = filters.dateFrom ?? daysAgoIso(TRIAGE_WINDOW_DAYS, now);
   const windowEnd = filters.dateTo ?? now.toISOString();
-  // Padded slightly earlier than the display window so a candidate near the
-  // window's edge still has its full trailing 24h of same-user activity
-  // available for the velocity signal.
-  const activityWindowStart = daysAgoIso(TRIAGE_WINDOW_DAYS + 1, now);
+  // Padded one day earlier than the ACTUAL display window (not always
+  // "now") so a candidate near the window's edge still has its full
+  // trailing 24h of same-user activity available for the velocity signal —
+  // for a custom historical date range this must pad the selected range,
+  // not the last 31 days, or velocity context for old candidates would be
+  // fetched from the wrong period entirely.
+  const activityWindowStart = new Date(new Date(windowStart).getTime() - 24 * 60 * 60 * 1000).toISOString();
 
   let routeReports: RouteReportRaw[] = [];
   let eddReports: EddReportRaw[] = [];
@@ -310,7 +313,17 @@ export async function fetchTriageQueue(filters: TriageFilters, now: Date = new D
 
     let comparison: ComparisonReport[] = [];
     if (candidate.status === "success" && candidate.settlement_time_minutes !== null) {
-      const otherSuccessMinutes = routePool.filter((r) => r.status === "success" && r.settlement_time_minutes !== null).map((r) => r.settlement_time_minutes!);
+      // Deduped to newest-per-reporter first — same integrity rule the
+      // consensus signal gets for free through computeRouteEvidence's own
+      // internal dedup. Without this, one account repeating the same route
+      // several times would count as several independent comparison
+      // points and could single-handedly drag the median/MAD baseline.
+      const dedupedPool = dedupeToNewestPerReporter(
+        routePool.map((r) => ({ userId: r.user_id, testedAt: r.tested_at ?? r.created_at, status: r.status, settlementTimeMinutes: r.settlement_time_minutes }))
+      );
+      const otherSuccessMinutes = dedupedPool
+        .filter((r) => r.status === "success" && r.settlementTimeMinutes !== null)
+        .map((r) => r.settlementTimeMinutes!);
       const outlierSignal = evaluateSettlementTimeOutlier(candidate.settlement_time_minutes, otherSuccessMinutes);
       if (outlierSignal) signals.push(outlierSignal);
     }
@@ -427,15 +440,31 @@ export async function fetchTriageQueue(filters: TriageFilters, now: Date = new D
   if (!filters.showReviewed && filtered.length > 0) {
     const { data: reviewed, error } = await admin
       .from("moderation_actions")
-      .select("target_table, target_id")
+      .select("target_table, target_id, snapshot")
       .eq("action_type", "review_flag")
       .in(
         "target_id",
         filtered.map((r) => r.id)
       );
     if (error) throw error;
-    const reviewedKeys = new Set((reviewed ?? []).map((r) => `${r.target_table}:${r.target_id}`));
-    filtered = filtered.filter((r) => !reviewedKeys.has(`${r.table}:${r.id}`));
+    // A row previously reviewed at score N only stays hidden while its
+    // currently-computed score is still <= N. If it later develops a new
+    // or escalated signal (e.g. the account gets restricted, or a fresh
+    // duplicate lands) pushing the score higher than what was reviewed,
+    // it resurfaces — an old dismissal shouldn't permanently suppress a
+    // submission that has since become materially riskier. Multiple past
+    // reviews for the same target use the highest score any of them saw.
+    const reviewedScoreByKey = new Map<string, number>();
+    for (const r of reviewed ?? []) {
+      const key = `${r.target_table}:${r.target_id}`;
+      const snapshotScore = Number((r.snapshot as { score?: unknown } | null)?.score);
+      const reviewedScore = Number.isFinite(snapshotScore) ? snapshotScore : 0;
+      reviewedScoreByKey.set(key, Math.max(reviewedScoreByKey.get(key) ?? 0, reviewedScore));
+    }
+    filtered = filtered.filter((r) => {
+      const reviewedScore = reviewedScoreByKey.get(`${r.table}:${r.id}`);
+      return reviewedScore === undefined || r.score > reviewedScore;
+    });
   }
 
   filtered.sort((a, b) => b.score - a.score || b.createdAt.localeCompare(a.createdAt));

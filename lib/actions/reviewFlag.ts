@@ -15,6 +15,16 @@ const DEFAULT_NOTE = "Reviewed — no action needed";
 // (action_type = 'review_flag') rather than a new table — this is a
 // record of "an admin looked at this and what the signals said at the
 // time," never a copy of the submission's own free-text content.
+function isValidSignalShape(signals: Signal[]): boolean {
+  return (
+    Array.isArray(signals) &&
+    signals.every(
+      (s) =>
+        s && typeof s.signal === "string" && typeof s.reason === "string" && (s.severity === "info" || s.severity === "warning" || s.severity === "high")
+    )
+  );
+}
+
 export async function reviewFlag(
   targetTable: "route_reports" | "edd_reports",
   targetId: string,
@@ -28,8 +38,27 @@ export async function reviewFlag(
 
   const trimmedNote = note.trim();
   if (trimmedNote.length > 500) return { error: "Note must be 500 characters or fewer." };
+  if (!Number.isFinite(score) || score < 0) return { error: "Invalid score." };
+  if (!isValidSignalShape(signals)) return { error: "Invalid signal data." };
 
   const admin = createAdminClient();
+
+  // The score/signal snapshot is still caller-supplied (recomputing the
+  // full batched signal set for one row server-side would mean duplicating
+  // lib/riskTriage.ts's cross-row query logic here) — this isn't a
+  // privilege-escalation risk since the action is already admin-only, but
+  // the row's own existence and ownership are independently verified
+  // before writing anything, so a review can't be recorded against a
+  // submission that doesn't exist or against the wrong account.
+  const { data: targetRow, error: lookupError } = await admin.from(targetTable).select("user_id").eq("id", targetId).maybeSingle();
+  if (lookupError) {
+    logError("Failed to verify triage flag target before review", { targetTable, targetId, error: lookupError.message });
+    return { error: "Failed to record the review." };
+  }
+  if (!targetRow || targetRow.user_id !== subjectUserId) {
+    return { error: "Submission not found." };
+  }
+
   const { error } = await admin.from("moderation_actions").insert({
     moderator_user_id: admin_.id,
     action_type: "review_flag",

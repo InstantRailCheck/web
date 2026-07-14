@@ -715,6 +715,15 @@ This release starts with a full security pass of every API route and RLS policy 
 - New `/admin/moderation/triage` page: a persistent "these are review signals, not proof of abuse" banner, filters (severity, signal type, table, bank/route, account, date range, show-reviewed toggle), and an inline comparison view of recent same-route/rail reports for consensus/outlier flags. Existing delete/restrict/suspend/ban controls remain the only enforcement actions
 - Tests: pure boundary/determinism unit tests per signal (including an explicit "a single disagreement on a low-data route must not flag" case, and the zero-MAD/thin-sample outlier fallbacks), a mocked-Supabase query-layer suite, a Server Action suite, and a real-Postgres db-test proving the widened CHECK constraint
 
+## Version 7.3.1 (v7.3.1 — shipped July 14 2026)
+
+**Triage lifecycle and adversarial-data fixes from a review of v7.3.0** — no schema changes.
+- A reviewed flag is no longer hidden forever: `lib/riskTriage.ts` now compares a submission's currently-computed score against the score recorded at review time (stored in the `review_flag` audit row's own snapshot), and resurfaces it once new or escalated signals push the score higher than what was actually reviewed
+- The settlement-time outlier baseline is now deduped to newest-report-per-reporter before computing the median/MAD, the same integrity rule the consensus-conflict signal already got for free through `computeRouteEvidence`'s own internal dedup — previously, one account repeating the same route several times could single-handedly plant a fake "typical" settlement time and get an unrelated legitimate report flagged
+- Fixed a custom historical date-range query fetching same-user activity context from the last 31 days instead of padding the actually-selected range, which could silently drop velocity signals for anything but the default recent window; the "To" date now includes the entire selected day instead of only its first instant; a malformed hand-edited date filter no longer throws during render
+- `reviewFlag` now verifies the target submission actually exists and belongs to the claimed account before writing an audit row, and validates the score/signal shape — not a privilege-escalation fix (the action was already admin-only), but the audit trail can no longer record a review against a row that doesn't exist or the wrong account
+- Verification: TypeScript, ESLint, all 573 tests, production build, and the GitHub `db-test`/`test` jobs all pass; no migration to apply since this release is app-code only
+
 ## Data Principles
 
 - Real-world reports only

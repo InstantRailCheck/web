@@ -37,6 +37,21 @@ function isTableFilter(v: string | undefined): v is TriageTableFilter {
   return v === "route_reports" || v === "edd_reports" || v === "all";
 }
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// The <input type="date"> value is a bare "YYYY-MM-DD". Parsed directly,
+// `new Date(...)` lands on that day's UTC midnight — fine as a lower bound
+// for "From", but as an upper bound for "To" it would exclude nearly the
+// entire selected day. Explicitly pin each end to the start/end of that UTC
+// day instead. Returns null (rather than throwing) for anything that isn't
+// a well-formed date, e.g. a hand-edited query string.
+export function parseDateBoundary(value: string | undefined, boundary: "start" | "end"): string | null {
+  if (!value || !DATE_ONLY_RE.test(value)) return null;
+  const iso = boundary === "start" ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 type SearchParams = {
   table?: string;
   severity?: string;
@@ -88,8 +103,8 @@ export default async function AdminTriagePage({ searchParams }: { searchParams: 
     signalTypes: selectedSignals.length > 0 ? selectedSignals : null,
     bankFilter,
     accountFilter,
-    dateFrom: params.from ? new Date(params.from).toISOString() : null,
-    dateTo: params.to ? new Date(params.to).toISOString() : null,
+    dateFrom: parseDateBoundary(params.from, "start"),
+    dateTo: parseDateBoundary(params.to, "end"),
     showReviewed,
   });
   const totalPages = Math.max(1, Math.ceil(total / TRIAGE_PAGE_SIZE));
