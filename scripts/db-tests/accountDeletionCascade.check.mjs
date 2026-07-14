@@ -23,18 +23,9 @@ async function main() {
   const bankIds = [bankA.id, bankB.id];
 
   try {
-    // (a) a status change
-    const { error: statusError } = await admin.rpc("moderate_set_user_status", {
-      p_user_id: target.id,
-      p_moderator_id: moderator.id,
-      p_status: "restricted",
-      p_reason: "cascade check — status change",
-      p_reason_category: "other",
-      p_ban_hours: null,
-    });
-    assert(!statusError, `seed status change succeeds (error: ${statusError?.message})`);
-
-    // (b) a content deletion, mirroring moderate_delete_submission
+    // (a) a content deletion, mirroring moderate_delete_submission. Seed
+    // this before restricting the user: the enforcement trigger is supposed
+    // to reject new reports once the status change below has landed.
     const { data: reportRow, error: seedError } = await admin
       .from("route_reports")
       .insert({
@@ -60,6 +51,17 @@ async function main() {
       p_reason_category: "other",
     });
     assert(!deleteError, `seed content deletion succeeds (error: ${deleteError?.message})`);
+
+    // (b) a status change
+    const { error: statusError } = await admin.rpc("moderate_set_user_status", {
+      p_user_id: target.id,
+      p_moderator_id: moderator.id,
+      p_status: "restricted",
+      p_reason: "cascade check — status change",
+      p_reason_category: "other",
+      p_ban_hours: null,
+    });
+    assert(!statusError, `seed status change succeeds (error: ${statusError?.message})`);
 
     // (c) an account-deletion-style audit row, mirroring
     // moderateDeleteUserAccount.ts's pre-attempt insert
