@@ -78,4 +78,14 @@ for insert
 to public
 with check (true);
 
+-- Tables created through Supabase's dashboard receive broad table-level
+-- grants for the API roles, with RLS policies providing the actual row-level
+-- boundary. These two tables predate migration tracking and had those grants
+-- in production, so the reconstructed baseline must include them as well.
+-- Without this, a fresh `supabase start` database denies even service_role
+-- before RLS is considered and the local regression suite never reaches the
+-- behavior it is meant to exercise.
+grant all privileges on table public.banks to anon, authenticated, service_role;
+grant all privileges on table public.route_reports to anon, authenticated, service_role;
+
 notify pgrst, 'reload schema';

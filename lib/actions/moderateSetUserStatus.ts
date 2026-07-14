@@ -31,7 +31,8 @@ export async function moderateSetUserStatus(
   status: UserStatusValue,
   reason: string,
   reasonCategory: UserStatusReasonCategory,
-  banHours?: number
+  banHours?: number,
+  confirmation?: string
 ): Promise<ModerateSetUserStatusResult> {
   const admin_ = await requireAdmin();
   if (!admin_) return { error: "Unauthorized." };
@@ -39,6 +40,9 @@ export async function moderateSetUserStatus(
 
   if (!USER_STATUS_VALUES.includes(status)) return { error: "Invalid status." };
   if (!USER_STATUS_REASON_CATEGORIES.includes(reasonCategory)) return { error: "Invalid reason category." };
+  if (status === "permanently_banned" && confirmation !== "BAN") {
+    return { error: "Type BAN to confirm a permanent ban." };
+  }
 
   const trimmedReason = reason.trim();
   if (!trimmedReason || trimmedReason.length > 500) {

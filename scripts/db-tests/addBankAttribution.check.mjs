@@ -23,7 +23,10 @@ async function main() {
       .rpc("add_bank_with_attribution", { p_name: bankName, p_slug: slug, p_user_id: nonexistentUserId })
       .single();
 
-    assert(Boolean(error), `RPC call fails as expected (error: ${error?.message ?? "none — unexpected success"})`);
+    assert(
+      error?.code === "23503",
+      `RPC fails specifically on the attribution foreign key (got ${error?.code ?? "no code"}: ${error?.message ?? "unexpected success"})`
+    );
 
     const { data: orphan } = await admin.from("banks").select("id").eq("slug", slug).maybeSingle();
     assert(!orphan, "no orphaned bank row was left behind after the failed attribution insert");

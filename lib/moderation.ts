@@ -234,6 +234,42 @@ export const USER_HISTORY_SOURCE_TABLES: UserHistorySourceTable[] = [
   "bank_attributions",
 ];
 
+export type UserModerationHistoryRow = {
+  id: string;
+  actionType: string;
+  targetTable: string;
+  targetId: string | null;
+  reason: string;
+  reasonCategory: string;
+  createdAt: string;
+};
+
+// Live submission tables cannot show content after a moderator removes it.
+// The audit table deliberately retains that event and its user attribution,
+// so the profile can still reveal an abuse/removal pattern without restoring
+// or duplicating the removed submission content itself.
+export async function fetchUserModerationHistory(userId: string): Promise<UserModerationHistoryRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("moderation_actions")
+    .select("id, action_type, target_table, target_id, reason, reason_category, created_at")
+    .eq("subject_user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    actionType: row.action_type,
+    targetTable: row.target_table,
+    targetId: row.target_id,
+    reason: row.reason,
+    reasonCategory: row.reason_category,
+    createdAt: row.created_at,
+  }));
+}
+
 export async function fetchUserSubmissionPage(
   userId: string,
   sourceTable: UserHistorySourceTable,

@@ -38,12 +38,17 @@ export function AdminDeleteAccountButton({ targetUserId }: Props) {
     setLoading(true);
     setError(null);
 
-    const result = await moderateDeleteUserAccount(targetUserId, reason, reasonCategory);
+    const result = await moderateDeleteUserAccount(targetUserId, reason, reasonCategory, typedConfirm);
 
     setLoading(false);
 
     if ("error" in result) {
       setError(result.error);
+      return;
+    }
+
+    if (result.auditWarning) {
+      setError(result.auditWarning);
       return;
     }
 

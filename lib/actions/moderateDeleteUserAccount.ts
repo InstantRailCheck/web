@@ -8,7 +8,7 @@ import { sanitizeProviderError } from "@/lib/authSync";
 import { logError } from "@/lib/logger";
 import { USER_STATUS_REASON_CATEGORIES, type UserStatusReasonCategory } from "@/lib/actions/moderateSetUserStatus";
 
-export type ModerateDeleteUserAccountResult = { success: true } | { error: string };
+export type ModerateDeleteUserAccountResult = { success: true; auditWarning?: string } | { error: string };
 
 // Distinct from the self-service lib/actions/deleteAccount.ts — this is an
 // admin-initiated destructive workflow, not abuse enforcement (that's what
@@ -21,11 +21,13 @@ export type ModerateDeleteUserAccountResult = { success: true } | { error: strin
 export async function moderateDeleteUserAccount(
   targetUserId: string,
   reason: string,
-  reasonCategory: UserStatusReasonCategory
+  reasonCategory: UserStatusReasonCategory,
+  confirmation: string
 ): Promise<ModerateDeleteUserAccountResult> {
   const admin_ = await requireAdmin();
   if (!admin_) return { error: "Unauthorized." };
   if (admin_.id === targetUserId) return { error: "You cannot delete your own account through this action." };
+  if (confirmation !== "DELETE") return { error: "Type DELETE to confirm account deletion." };
 
   if (!USER_STATUS_REASON_CATEGORIES.includes(reasonCategory)) return { error: "Invalid reason category." };
 
@@ -74,10 +76,13 @@ export async function moderateDeleteUserAccount(
   if (deleteError) {
     const sanitized = sanitizeProviderError(deleteError.message);
     logError("Admin-initiated account deletion failed", { error: sanitized, targetUserId });
-    await admin
+    const { error: outcomeError } = await admin
       .from("moderation_actions")
       .update({ snapshot: { outcome: "failed", error: sanitized } })
       .eq("id", auditRow.id);
+    if (outcomeError) {
+      logError("Failed to record account deletion failure outcome", { error: outcomeError.message, targetUserId });
+    }
     return { error: "Failed to delete account." };
   }
 
@@ -85,7 +90,15 @@ export async function moderateDeleteUserAccount(
   // referenced user is gone, same as every other record referencing
   // them — the bare fact ("a user was deleted, for this reason") persists
   // via the row itself; the "who" pointer doesn't.
-  await admin.from("moderation_actions").update({ snapshot: { outcome: "success" } }).eq("id", auditRow.id);
+  const { error: outcomeError } = await admin
+    .from("moderation_actions")
+    .update({ snapshot: { outcome: "success" } })
+    .eq("id", auditRow.id);
+
+  if (outcomeError) {
+    logError("Failed to record account deletion success outcome", { error: outcomeError.message, targetUserId });
+    return { success: true, auditWarning: "The account was deleted, but the final audit outcome could not be recorded." };
+  }
 
   return { success: true };
 }

@@ -14,7 +14,9 @@ let getUserByIdResult: { data: { user: { email?: string } | null } | null; error
 };
 const getUserByIdMock = vi.fn(() => Promise.resolve(getUserByIdResult));
 
-const insertMock = vi.fn(() => Promise.resolve({ data: null, error: null }));
+const insertMock = vi.fn<() => Promise<{ data: null; error: { message: string } | null }>>(
+  () => Promise.resolve({ data: null, error: null })
+);
 const fromMock = vi.fn(() => ({ insert: insertMock }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -29,6 +31,7 @@ beforeEach(() => {
   requireAdminMock.mockClear();
   getUserByIdMock.mockClear();
   insertMock.mockClear();
+  insertMock.mockResolvedValue({ data: null, error: null });
   fromMock.mockClear();
 });
 
@@ -65,5 +68,13 @@ describe("revealUserEmail", () => {
         reason_category: "other",
       })
     );
+  });
+
+  it("does not reveal the email when its audit row cannot be written", async () => {
+    insertMock.mockResolvedValueOnce({ data: null, error: { message: "write failed" } });
+
+    const result = await revealUserEmail("target-1");
+
+    expect(result).toEqual({ error: "Failed to record email access." });
   });
 });

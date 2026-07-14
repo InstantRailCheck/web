@@ -33,11 +33,13 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 const fetchUserSubmissionPageMock = vi.fn();
+const fetchUserModerationHistoryMock = vi.fn();
 vi.mock("@/lib/moderation", async () => {
   const actual = await vi.importActual<typeof import("@/lib/moderation")>("@/lib/moderation");
   return {
     ...actual,
     fetchUserSubmissionPage: (...args: unknown[]) => fetchUserSubmissionPageMock(...args),
+    fetchUserModerationHistory: (...args: unknown[]) => fetchUserModerationHistoryMock(...args),
   };
 });
 
@@ -53,6 +55,8 @@ beforeEach(() => {
   fromMock.mockClear();
   fetchUserSubmissionPageMock.mockClear();
   fetchUserSubmissionPageMock.mockResolvedValue({ rows: [], total: 0 });
+  fetchUserModerationHistoryMock.mockClear();
+  fetchUserModerationHistoryMock.mockResolvedValue([]);
 });
 
 const baseParams = { params: Promise.resolve({ id: "target-1" }), searchParams: Promise.resolve({}) };
@@ -80,6 +84,7 @@ describe("AdminUserProfilePage", () => {
     await AdminUserProfilePage(baseParams);
 
     expect(fetchUserSubmissionPageMock).toHaveBeenCalledWith("target-1", "route_reports", 1);
+    expect(fetchUserModerationHistoryMock).toHaveBeenCalledWith("target-1");
   });
 
   it("passes through the type and page search params", async () => {
@@ -106,5 +111,24 @@ describe("AdminUserProfilePage", () => {
     };
 
     await expect(AdminUserProfilePage(baseParams)).resolves.toBeTruthy();
+  });
+
+  it("renders retained moderation history for removed submissions", async () => {
+    adminUser = { id: "admin-1" };
+    fetchUserModerationHistoryMock.mockResolvedValue([
+      {
+        id: "action-1",
+        actionType: "delete",
+        targetTable: "route_reports",
+        targetId: "report-1",
+        reason: "Fabricated transfer evidence",
+        reasonCategory: "fabricated",
+        createdAt: "2026-01-03T00:00:00Z",
+      },
+    ]);
+
+    const tree = await AdminUserProfilePage(baseParams);
+
+    expect(JSON.stringify(tree)).toContain("Fabricated transfer evidence");
   });
 });
