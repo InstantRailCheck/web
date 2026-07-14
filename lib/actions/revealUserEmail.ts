@@ -3,6 +3,7 @@ import "server-only";
 
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 export type RevealUserEmailResult = { email: string } | { error: string };
 
@@ -19,7 +20,7 @@ export async function revealUserEmail(targetUserId: string): Promise<RevealUserE
   const { data, error } = await admin.auth.admin.getUserById(targetUserId);
   if (error || !data?.user?.email) return { error: "User not found." };
 
-  await admin.from("moderation_actions").insert({
+  const { error: auditError } = await admin.from("moderation_actions").insert({
     moderator_user_id: admin_.id,
     action_type: "reveal_email",
     target_table: "auth_users",
@@ -29,6 +30,11 @@ export async function revealUserEmail(targetUserId: string): Promise<RevealUserE
     reason_category: "other",
     snapshot: {},
   });
+
+  if (auditError) {
+    logError("Failed to audit email reveal", { targetUserId, error: auditError.message });
+    return { error: "Failed to record email access." };
+  }
 
   return { email: data.user.email };
 }

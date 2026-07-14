@@ -66,22 +66,32 @@ type ReconcileResult = { synced: true } | { synced: false; warning: string };
 // to run reconciliation again.
 export async function reconcileAuthSync(admin: SupabaseClient, userId: string): Promise<ReconcileResult> {
   for (let attempt = 0; attempt < MAX_RECONCILE_ATTEMPTS; attempt++) {
-    const { data: row } = await admin
+    const { data: row, error: rowError } = await admin
       .from("user_moderation_status")
       .select("status, ban_expires_at, transition_id")
       .eq("user_id", userId)
       .maybeSingle();
+
+    if (rowError) {
+      logError("Failed to read moderation state before Auth sync", { userId, error: rowError.message });
+      return { synced: false, warning: "Unable to read the current moderation state for Auth sync." };
+    }
 
     if (!row) return { synced: true }; // never moderated — nothing to sync
 
     const banDuration = computeBanDuration(row.status as UserStatusValue, row.ban_expires_at);
     const { error: authError } = await admin.auth.admin.updateUserById(userId, { ban_duration: banDuration });
 
-    const { data: current } = await admin
+    const { data: current, error: currentError } = await admin
       .from("user_moderation_status")
       .select("transition_id")
       .eq("user_id", userId)
       .maybeSingle();
+
+    if (currentError) {
+      logError("Failed to verify moderation transition after Auth sync", { userId, error: currentError.message });
+      return { synced: false, warning: "Unable to verify the current moderation state after Auth sync." };
+    }
 
     if (!current || current.transition_id !== row.transition_id) {
       // Superseded by a newer action while this Auth call was in flight —
@@ -92,14 +102,27 @@ export async function reconcileAuthSync(admin: SupabaseClient, userId: string): 
 
     const sanitizedError = authError ? sanitizeProviderError(authError.message) : null;
 
-    await admin
+    const { data: updated, error: updateError } = await admin
       .from("user_moderation_status")
       .update({
         auth_sync_status: authError ? "pending" : "synced",
         auth_sync_error: sanitizedError,
       })
       .eq("user_id", userId)
-      .eq("transition_id", row.transition_id);
+      .eq("transition_id", row.transition_id)
+      .select("transition_id")
+      .maybeSingle();
+
+    if (updateError) {
+      logError("Failed to persist Auth sync outcome", { userId, error: updateError.message });
+      return { synced: false, warning: "Auth was updated, but its sync outcome could not be recorded." };
+    }
+
+    if (!updated) {
+      // The transition changed between the verification read and conditional
+      // update. Loop and apply the new desired state before returning.
+      continue;
+    }
 
     if (authError) {
       logError("Failed to sync Supabase Auth ban state", { userId, error: sanitizedError });

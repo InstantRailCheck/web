@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logError } from "@/lib/logger";
 
 export type ModerationStatusCheck = { blocked: false } | { blocked: true; message: string };
 
@@ -18,11 +19,19 @@ const MESSAGES = {
 // requestRoute, submitCorrection, addBank, and registerWebhook, none of
 // which have an RLS-reachable insert path to bypass.
 export async function getUserModerationStatus(admin: SupabaseClient, userId: string): Promise<ModerationStatusCheck> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("user_moderation_status")
     .select("status, ban_expires_at")
     .eq("user_id", userId)
     .maybeSingle();
+
+  // This check is an enforcement boundary, so an unavailable status table
+  // must not be interpreted as an active account. A generic message avoids
+  // exposing database details while still letting the caller fail closed.
+  if (error) {
+    logError("Failed to read user moderation status", { userId, error: error.message });
+    return { blocked: true, message: "Unable to verify your account status. Please try again shortly." };
+  }
 
   if (!data || data.status === "active") return { blocked: false };
 

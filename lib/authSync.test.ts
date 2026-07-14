@@ -85,10 +85,15 @@ describe("reconcileAuthSync", () => {
         }),
         update: (patch: Record<string, unknown>) => ({
           eq: () => ({
-            eq: (_col: string, val: string) => {
-              if (row && row.transition_id === val) row = { ...row, ...(patch as Partial<MockRow>) };
-              return Promise.resolve({ data: null, error: null });
-            },
+            eq: (_col: string, val: string) => ({
+              select: () => ({
+                maybeSingle: () => {
+                  if (!row || row.transition_id !== val) return Promise.resolve({ data: null, error: null });
+                  row = { ...row, ...(patch as Partial<MockRow>) };
+                  return Promise.resolve({ data: { transition_id: row.transition_id }, error: null });
+                },
+              }),
+            }),
           }),
         }),
       }),
@@ -102,6 +107,25 @@ describe("reconcileAuthSync", () => {
     const { admin } = createMockAdmin(null, updateUserById);
     const result = await reconcileAuthSync(admin as never, "user-1");
     expect(result).toEqual({ synced: true });
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("does not report success when the moderation row cannot be read", async () => {
+    const updateUserById = vi.fn();
+    const admin = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: null, error: { message: "read failed" } }),
+          }),
+        }),
+      }),
+      auth: { admin: { updateUserById } },
+    };
+
+    const result = await reconcileAuthSync(admin as never, "user-1");
+
+    expect(result).toEqual({ synced: false, warning: expect.stringContaining("Unable to read") });
     expect(updateUserById).not.toHaveBeenCalled();
   });
 
@@ -159,10 +183,15 @@ describe("reconcileAuthSync", () => {
         }),
         update: (patch: Record<string, unknown>) => ({
           eq: () => ({
-            eq: (_col: string, val: string) => {
-              if (row.transition_id === val) row = { ...row, ...(patch as Partial<MockRow>) };
-              return Promise.resolve({ data: null, error: null });
-            },
+            eq: (_col: string, val: string) => ({
+              select: () => ({
+                maybeSingle: () => {
+                  if (row.transition_id !== val) return Promise.resolve({ data: null, error: null });
+                  row = { ...row, ...(patch as Partial<MockRow>) };
+                  return Promise.resolve({ data: { transition_id: row.transition_id }, error: null });
+                },
+              }),
+            }),
           }),
         }),
       }),

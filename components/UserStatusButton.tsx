@@ -57,7 +57,8 @@ export function UserStatusButton({ targetUserId }: Props) {
       action.status,
       reason,
       reasonCategory,
-      action.status === "temporarily_banned" ? Number(banHours) : undefined
+      action.status === "temporarily_banned" ? Number(banHours) : undefined,
+      typedConfirm
     );
 
     setLoading(false);

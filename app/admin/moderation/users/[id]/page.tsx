@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveDirectoryPage } from "@/lib/seo";
 import {
   fetchUserSubmissionPage,
+  fetchUserModerationHistory,
   MODERATION_PAGE_SIZE,
   USER_HISTORY_SOURCE_TABLES,
   type UserHistorySourceTable,
@@ -141,7 +142,10 @@ export default async function AdminUserProfilePage({
   const type: UserHistorySourceTable = isUserHistorySourceTable(typeParam) ? typeParam : "route_reports";
   const page = resolveDirectoryPage(pageParam);
 
-  const { rows, total } = await fetchUserSubmissionPage(id, type, page);
+  const [{ rows, total }, moderationHistory] = await Promise.all([
+    fetchUserSubmissionPage(id, type, page),
+    fetchUserModerationHistory(id),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / MODERATION_PAGE_SIZE));
 
   const status = moderationStatus?.status ?? "active";
@@ -185,6 +189,30 @@ export default async function AdminUserProfilePage({
           <div className="mt-4 border-t border-slate-800 pt-6">
             <AdminDeleteAccountButton targetUserId={id} />
           </div>
+        </div>
+
+        <h2 className="mt-10 text-center text-xl font-semibold">Moderation history</h2>
+        <p className="mt-2 text-center text-sm text-slate-500">
+          Includes removed submissions and account-level actions. Removed content itself is not retained here.
+        </p>
+        <div className="mt-4 grid gap-2">
+          {moderationHistory.length === 0 ? (
+            <p className="text-center text-sm text-slate-500">No moderation actions for this user.</p>
+          ) : (
+            moderationHistory.map((action) => (
+              <div key={action.id} className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-white">
+                    {action.actionType.replaceAll("_", " ")} · {action.targetTable.replaceAll("_", " ")}
+                  </p>
+                  <p className="text-xs text-slate-500">{formatTimestamp(action.createdAt)}</p>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  {action.reasonCategory}: {action.reason}
+                </p>
+              </div>
+            ))
+          )}
         </div>
 
         <h2 className="mt-10 text-center text-xl font-semibold">Submission history</h2>

@@ -4,8 +4,8 @@ vi.mock("server-only", () => ({}));
 
 const { getUserModerationStatus } = await import("./moderationStatus");
 
-function mockAdmin(row: unknown) {
-  const maybeSingle = vi.fn(() => Promise.resolve({ data: row }));
+function mockAdmin(row: unknown, error: { message: string } | null = null) {
+  const maybeSingle = vi.fn(() => Promise.resolve({ data: row, error }));
   const eq = vi.fn(() => ({ maybeSingle }));
   const select = vi.fn(() => ({ eq }));
   const from = vi.fn(() => ({ select }));
@@ -43,5 +43,10 @@ describe("getUserModerationStatus", () => {
   it("is blocked when permanently banned", async () => {
     const result = await getUserModerationStatus(mockAdmin({ status: "permanently_banned", ban_expires_at: null }), "user-1");
     expect(result).toEqual({ blocked: true, message: expect.any(String) });
+  });
+
+  it("fails closed when the moderation status lookup fails", async () => {
+    const result = await getUserModerationStatus(mockAdmin(null, { message: "database unavailable" }), "user-1");
+    expect(result).toEqual({ blocked: true, message: expect.stringContaining("Unable to verify") });
   });
 });

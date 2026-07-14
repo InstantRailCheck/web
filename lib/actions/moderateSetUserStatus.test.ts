@@ -105,6 +105,20 @@ describe("moderateSetUserStatus", () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
+  it("requires the typed confirmation for a permanent ban on the server", async () => {
+    const result = await moderateSetUserStatus("target-1", "permanently_banned", "reason", "abuse");
+
+    expect(result).toEqual({ error: "Type BAN to confirm a permanent ban." });
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts an exact typed confirmation for a permanent ban", async () => {
+    const result = await moderateSetUserStatus("target-1", "permanently_banned", "reason", "abuse", undefined, "BAN");
+
+    expect(result).toEqual({ success: true });
+    expect(rpcMock).toHaveBeenCalled();
+  });
+
   it("rejects a temporary ban with no duration", async () => {
     const result = await moderateSetUserStatus("target-1", "temporarily_banned", "reason", "spam");
 
