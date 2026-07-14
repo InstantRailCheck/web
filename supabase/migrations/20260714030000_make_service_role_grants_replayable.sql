@@ -14,6 +14,7 @@ grant all privileges on table public.edd_reports to service_role;
 grant insert on table public.edd_reports to authenticated;
 
 grant execute on function public.add_bank_with_attribution(text, text, uuid) to service_role;
+grant execute on function public.bank_aka_names_blob(text[]) to service_role;
 grant execute on function public.moderate_set_user_status(uuid, uuid, text, text, text, integer) to service_role;
 grant execute on function public.moderate_delete_submission(text, uuid, uuid, text, text) to service_role;
 
