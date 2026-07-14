@@ -9,7 +9,7 @@ export default function PrivacyPage() {
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <div className="mx-auto w-full max-w-3xl">
           <h1 className="text-center text-3xl font-bold">Privacy Policy</h1>
-          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 11, 2026.</p>
+          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 13, 2026.</p>
 
           <div className="mt-8 space-y-8 text-sm leading-relaxed text-slate-300">
             <section>
@@ -31,6 +31,14 @@ export default function PrivacyPage() {
                 Bank and credit union directory data (names, websites, addresses, network
                 participation) is public institutional information sourced from official
                 regulators — it is not personal data about you.
+              </p>
+              <p className="mt-2">
+                Submissions may also be removed by an administrator — for spam, fabrication,
+                duplication, a privacy request, or other data-quality reasons. This is separate
+                from the account-initiated anonymization described below: a removal takes the
+                submission down entirely. We keep a private internal record of each removal (the
+                reason given and a minimal snapshot of what was removed) for accountability; that
+                record never includes who originally submitted it.
               </p>
             </section>
 
@@ -73,7 +81,8 @@ export default function PrivacyPage() {
                 anonymous community data rather than being deleted outright, since other
                 people&apos;s view of a bank or route may depend on them — they&apos;re no longer
                 linked to you in any way once your account is deleted. If you&apos;d like those
-                removed entirely instead of anonymized, contact us below.
+                removed entirely instead of anonymized, contact us below and we&apos;ll remove them
+                through our moderation process.
               </p>
             </section>
 

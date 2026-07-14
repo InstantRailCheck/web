@@ -30,6 +30,7 @@ export const EXPECTED_RLS_ENABLED_TABLES = [
   "banks",
   "edd_reports",
   "fednow_participants",
+  "moderation_actions",
   "ncua_credit_unions",
   "route_reports",
   "route_requests",
@@ -65,6 +66,10 @@ export const EXPECTED_POLICIES = {
   // requestRoute Server Action via the admin client — no RLS policy is
   // needed or added, so requester identity is private by construction.
   route_requests: [],
+  // moderation_actions (v7.x): private audit-only record of admin deletes.
+  // Server-only via the admin client, same reasoning as bank_corrections/
+  // webhooks — no client (anon or authenticated) should ever read this.
+  moderation_actions: [],
 };
 
 // Every SECURITY DEFINER function and the exact set of roles that should
@@ -103,4 +108,9 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // The introspection function backing this very check — its own EXECUTE
   // grant is part of what it's meant to catch drift in.
   audit_rls_manifest: ["service_role"],
+  // v7.x moderation: the one real callable RPC here (invoked via
+  // admin.rpc(...) from lib/actions/moderateDelete.ts, itself gated by
+  // requireAdmin() before ever reaching this call) — service_role only,
+  // never anon/authenticated directly.
+  moderate_delete_submission: ["service_role"],
 };
