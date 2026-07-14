@@ -130,6 +130,11 @@ export default async function AdminModerationPage({
         <p className="mt-1 text-center text-sm text-slate-400">
           Remove spam, fabricated, duplicate, or privacy-flagged community submissions.
         </p>
+        <p className="mt-1 text-center text-sm">
+          <a href="/admin/moderation/triage" className="text-blue-400 hover:text-blue-300 transition">
+            View flagged submissions →
+          </a>
+        </p>
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {MODERATION_TARGET_TABLES.map((t) => (

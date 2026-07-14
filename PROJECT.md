@@ -703,6 +703,18 @@ This release starts with a full security pass of every API route and RLS policy 
 - Admin user profiles now show the latest retained moderation actions, including the fact and reason for removed submissions, while deliberately omitting the deleted content snapshot itself
 - Local verification: TypeScript, ESLint, all 514 tests, production build, and `git diff --check` pass. The real migration replay remains the GitHub `db-test` job's release gate because Docker is not running in the local WSL environment
 
+## Version 7.3.0 (v7.3.0 — shipped July 14 2026)
+
+**Admin spam/false-reporting triage** — an explainable review layer on top of v7.1/v7.2's enforcement tools. Never deletes content, bans a user, or asserts a report is false; only prioritizes human review.
+- Checked real submission volume against the schema before designing this, per the "smallest correct architecture" principle — that ruled out a scheduled job, a new denormalized risk-score table, and any coordinated-account/device correlation for this release; building those now would mean tuning thresholds against noise instead of real signal
+- Signals are computed live at admin queue-load time (`lib/riskSignals.ts` pure evaluators + `lib/riskTriage.ts` query layer) directly against `route_reports`/`edd_reports`, not intercepted at a Server Action call site — both tables still have a direct authenticated-insert RLS policy, so reading the table itself is what actually covers a client insert that bypasses the app, not a narrower app-level check
+- Seven named signals, each with its own reason string, never a bare score: velocity, new-reporter-high-volume, exact/near-duplicate, consensus conflict (reuses `lib/routeConfidence.ts`'s existing `computeRouteEvidence`/`dedupeToNewestPerReporter` unmodified — public confidence math is untouched), settlement-time outlier (median + MAD, not a naive average one bad report can distort), moderation history, and official FedNow/RTP source mismatch (missing participation data is shown as absent evidence, never treated as proof a report is false)
+- No new table for risk scores — nothing to persist, since signals are deterministic over already-fetched data. The one thing that does persist — "an admin already reviewed this flag" — reuses the existing `moderation_actions` audit table (`action_type = 'review_flag'`, one migration, one CHECK-constraint line) rather than a new table
+- Scope: `route_reports`/`edd_reports` only. `route_requests` isn't evidence and is already self-limited by its one-active-request-per-pair unique index; `bank_corrections` already has its own separate pending-review lifecycle, same reason it was excluded from the delete workflow in v7.1
+- Explicitly deferred, documented rather than built: any IP-based or device/browser-fingerprint coordinated-account signal — it's the more privacy-sensitive piece, and not worth building ahead of a real pattern to calibrate against
+- New `/admin/moderation/triage` page: a persistent "these are review signals, not proof of abuse" banner, filters (severity, signal type, table, bank/route, account, date range, show-reviewed toggle), and an inline comparison view of recent same-route/rail reports for consensus/outlier flags. Existing delete/restrict/suspend/ban controls remain the only enforcement actions
+- Tests: pure boundary/determinism unit tests per signal (including an explicit "a single disagreement on a low-data route must not flag" case, and the zero-MAD/thin-sample outlier fallbacks), a mocked-Supabase query-layer suite, a Server Action suite, and a real-Postgres db-test proving the widened CHECK constraint
+
 ## Data Principles
 
 - Real-world reports only
