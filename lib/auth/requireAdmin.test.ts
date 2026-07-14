@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => Promise.resolve({ auth: { getUser: getUserMock } }),
 }));
 
-const { requireAdmin } = await import("./requireAdmin");
+const { requireAdmin, isAdminUser } = await import("./requireAdmin");
 
 beforeEach(() => {
   currentUser = null;
@@ -46,5 +46,16 @@ describe("requireAdmin", () => {
   it("returns null for a non-admin role value", async () => {
     currentUser = { id: "user-1", app_metadata: { role: "editor" } };
     expect(await requireAdmin()).toBeNull();
+  });
+});
+
+describe("isAdminUser", () => {
+  it("returns true when app_metadata.role is admin", () => {
+    expect(isAdminUser({ app_metadata: { role: "admin" } })).toBe(true);
+  });
+
+  it("returns false when app_metadata.role is missing or not admin", () => {
+    expect(isAdminUser({ app_metadata: {} })).toBe(false);
+    expect(isAdminUser({ app_metadata: { role: "editor" } })).toBe(false);
   });
 });

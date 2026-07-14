@@ -18,3 +18,20 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm run build
+
+  # Real local Postgres coverage (v7.2) — separate from the `test` job
+  # above, which is fully mocked and has no database to talk to. Spins up
+  # the actual migration history via the Supabase CLI (already a
+  # devDependency) on the runner's preinstalled Docker, applying every
+  # file in supabase/migrations/ to a fresh instance, then runs
+  # scripts/db-tests/ against it. Never touches production.
+  db-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx supabase start
+      - run: npm run test:db

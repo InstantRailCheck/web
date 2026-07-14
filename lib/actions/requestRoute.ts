@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isActionRateLimited } from "@/lib/rateLimit";
+import { getUserModerationStatus } from "@/lib/moderationStatus";
 import { logError } from "@/lib/logger";
 
 export type RequestRouteResult = { success: true } | { error: string };
@@ -22,13 +23,17 @@ export async function requestRoute(fromBankId: string, toBankId: string): Promis
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "You must be signed in." };
+
+  const admin = createAdminClient();
+  const moderationStatus = await getUserModerationStatus(admin, user.id);
+  if (moderationStatus.blocked) return { error: moderationStatus.message };
+
   if (fromBankId === toBankId) return { error: "Sender and receiver banks must be different." };
 
   if (await isActionRateLimited("requestRoute", user.id, { userLimit: 20, ipLimit: 40, windowSeconds: 600 })) {
     return { error: "Too many requests submitted recently. Please wait a few minutes and try again." };
   }
 
-  const admin = createAdminClient();
   const { error } = await admin
     .from("route_requests")
     .insert({ from_bank_id: fromBankId, to_bank_id: toBankId, user_id: user.id });

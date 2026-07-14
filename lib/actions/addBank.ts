@@ -8,6 +8,7 @@ import { normalizeForSearch } from "@/lib/utils";
 import { enrichBank } from "@/lib/actions/enrichBank";
 import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
 import { isActionRateLimited } from "@/lib/rateLimit";
+import { getUserModerationStatus } from "@/lib/moderationStatus";
 
 export type AddBankResult = { id: string; slug: string; name: string } | { error: string };
 
@@ -27,6 +28,10 @@ export async function addBank(name: string): Promise<AddBankResult> {
 
   if (!user) return { error: "You must be signed in." };
 
+  const admin = createAdminClient();
+  const moderationStatus = await getUserModerationStatus(admin, user.id);
+  if (moderationStatus.blocked) return { error: moderationStatus.message };
+
   // Each call triggers a normalized-name lookup, a slug uniqueness scan, an
   // insert, and (on success) an FDIC/NCUA/FINRA enrichment lookup plus
   // webhook delivery — cheap to call, not cheap to run repeatedly. RLS
@@ -37,8 +42,6 @@ export async function addBank(name: string): Promise<AddBankResult> {
 
   const trimmed = name.trim();
   if (!trimmed) return { error: "Please enter a bank name." };
-
-  const admin = createAdminClient();
 
   // Normalized comparison so "US Bank National Association" (typed exactly,
   // differing only by punctuation) still matches the real "U.S. Bank
@@ -62,11 +65,12 @@ export async function addBank(name: string): Promise<AddBankResult> {
   const usedSlugs = new Set((similarSlugs ?? []).map((b) => b.slug));
   const slug = uniqueSlug(baseSlug, usedSlugs);
 
-  const { data, error } = await admin
-    .from("banks")
-    .insert({ name: trimmed, slug })
-    .select("id, slug, name")
-    .single();
+  // One transaction (see 20260714020000_add_user_moderation_status.sql) —
+  // a failure writing bank_attributions rolls back the banks insert too,
+  // so no orphaned unattributed bank can be created.
+  const { data, error } = (await admin
+    .rpc("add_bank_with_attribution", { p_name: trimmed, p_slug: slug, p_user_id: user.id })
+    .single()) as { data: { id: string; slug: string; name: string } | null; error: { message: string } | null };
 
   if (error || !data) return { error: "Failed to add bank." };
 

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isUrlSafeForWebhook } from "@/lib/webhookSafety";
 import { isActionRateLimited } from "@/lib/rateLimit";
+import { getUserModerationStatus } from "@/lib/moderationStatus";
 
 const MAX_WEBHOOKS_PER_USER = 5;
 export const VALID_WEBHOOK_EVENTS = ["bank_added"] as const;
@@ -28,6 +29,14 @@ export async function registerWebhook(
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "You must be signed in." };
+
+  const admin = createAdminClient();
+  // Creation only — a restricted/banned user must still be able to view
+  // and delete their existing webhooks (listWebhooks/deleteWebhook below
+  // are deliberately unchecked).
+  const moderationStatus = await getUserModerationStatus(admin, user.id);
+  if (moderationStatus.blocked) return { error: moderationStatus.message };
+
   if (!VALID_WEBHOOK_EVENTS.includes(event as WebhookEvent)) {
     return { error: "Invalid event type." };
   }
@@ -45,8 +54,6 @@ export async function registerWebhook(
   if (!safety.safe) {
     return { error: `URL not allowed: ${safety.reason}` };
   }
-
-  const admin = createAdminClient();
 
   const { count } = await admin
     .from("webhooks")

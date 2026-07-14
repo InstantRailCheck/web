@@ -6,6 +6,7 @@ import { lookupFdicBank } from "@/lib/fdicLookup";
 import { lookupNcuaCreditUnion } from "@/lib/ncuaLookup";
 import { lookupFinraBroker } from "@/lib/finraLookup";
 import { isActionRateLimited } from "@/lib/rateLimit";
+import { getUserModerationStatus } from "@/lib/moderationStatus";
 
 export type CorrectionField = "website" | "phone";
 
@@ -28,6 +29,10 @@ export async function submitCorrection(
     return { status: "error", message: "You must be signed in to submit a correction." };
   }
 
+  const admin = createAdminClient();
+  const moderationStatus = await getUserModerationStatus(admin, user.id);
+  if (moderationStatus.blocked) return { status: "error", message: moderationStatus.message };
+
   // Each call re-runs the same FDIC/NCUA/FINRA lookups enrichment uses —
   // real outbound requests to external services, not just a DB write.
   if (await isActionRateLimited("submitCorrection", user.id, { userLimit: 15, ipLimit: 30, windowSeconds: 600 })) {
@@ -39,7 +44,6 @@ export async function submitCorrection(
     return { status: "error", message: "Please enter a value." };
   }
 
-  const admin = createAdminClient();
   const { data: bank } = await admin
     .from("banks")
     .select("id, name, website, phone")

@@ -5,6 +5,7 @@ import { updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isActionRateLimited } from "@/lib/rateLimit";
+import { getUserModerationStatus } from "@/lib/moderationStatus";
 import { logError } from "@/lib/logger";
 
 export type SubmitRouteReportInput = {
@@ -36,6 +37,15 @@ export async function submitRouteReport(input: SubmitRouteReportInput): Promise<
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "You must be signed in." };
+
+  const admin = createAdminClient();
+  // App-level check for a clear message — check_route_report_quota (the
+  // DB trigger) is the actual backstop, since route_reports' RLS insert
+  // policy is still directly reachable by a client that bypasses this
+  // Server Action entirely.
+  const moderationStatus = await getUserModerationStatus(admin, user.id);
+  if (moderationStatus.blocked) return { error: moderationStatus.message };
+
   if (input.fromBankId === input.toBankId) {
     return { error: "Sender and receiver banks must be different." };
   }
@@ -44,7 +54,6 @@ export async function submitRouteReport(input: SubmitRouteReportInput): Promise<
     return { error: "Too many route reports submitted recently. Please wait a few minutes and try again." };
   }
 
-  const admin = createAdminClient();
   const { error } = await admin.from("route_reports").insert({
     from_bank_id: input.fromBankId,
     to_bank_id: input.toBankId,

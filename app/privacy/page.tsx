@@ -9,7 +9,7 @@ export default function PrivacyPage() {
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <div className="mx-auto w-full max-w-3xl">
           <h1 className="text-center text-3xl font-bold">Privacy Policy</h1>
-          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 13, 2026.</p>
+          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 14, 2026.</p>
 
           <div className="mt-8 space-y-8 text-sm leading-relaxed text-slate-300">
             <section>
@@ -37,8 +37,15 @@ export default function PrivacyPage() {
                 duplication, a privacy request, or other data-quality reasons. This is separate
                 from the account-initiated anonymization described below: a removal takes the
                 submission down entirely. We keep a private internal record of each removal (the
-                reason given and a minimal snapshot of what was removed) for accountability; that
-                record never includes who originally submitted it.
+                reason given and a minimal snapshot of what was removed) for accountability. While
+                your account exists, that record — and your submissions generally — stay privately
+                linked to it (never shown publicly) specifically so we can detect abuse patterns,
+                such as repeated spam or fabricated reports from the same account. That may result
+                in a submission being removed, your account being restricted from submitting, or
+                (for serious or repeated abuse) your account being temporarily or permanently
+                suspended. The identity link is removed when your account is deleted, whether you
+                delete it yourself or we do as part of addressing abuse — what remains afterward is
+                the bare fact that some action was taken and why, not who it was taken against.
               </p>
             </section>
 

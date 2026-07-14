@@ -15,6 +15,11 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ from: fromMock }),
 }));
 
+const getUserModerationStatusMock = vi.fn();
+vi.mock("@/lib/moderationStatus", () => ({
+  getUserModerationStatus: (...args: unknown[]) => getUserModerationStatusMock(...args),
+}));
+
 const isActionRateLimitedMock = vi.fn();
 vi.mock("@/lib/rateLimit", () => ({
   isActionRateLimited: (...args: unknown[]) => isActionRateLimitedMock(...args),
@@ -38,6 +43,8 @@ beforeEach(() => {
   getUserMock.mockClear();
   insertMock.mockClear();
   fromMock.mockClear();
+  getUserModerationStatusMock.mockClear();
+  getUserModerationStatusMock.mockResolvedValue({ blocked: false });
   isActionRateLimitedMock.mockClear();
   isActionRateLimitedMock.mockResolvedValue(false);
   updateTagMock.mockClear();
@@ -52,6 +59,15 @@ describe("requestRoute", () => {
     const result = await requestRoute("bank-a", "bank-b");
 
     expect(result).toEqual({ error: "You must be signed in." });
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the moderation status message and never inserts when the user is restricted/banned", async () => {
+    getUserModerationStatusMock.mockResolvedValue({ blocked: true, message: "Your account is currently restricted from submitting." });
+
+    const result = await requestRoute("bank-a", "bank-b");
+
+    expect(result).toEqual({ error: "Your account is currently restricted from submitting." });
     expect(insertMock).not.toHaveBeenCalled();
   });
 

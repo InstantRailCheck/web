@@ -11,6 +11,7 @@ import {
 } from "@/lib/moderation";
 import { depositTypeLabel, payrollProviderLabel } from "@/lib/eddContext";
 import { ModerateDeleteButton } from "@/components/ModerateDeleteButton";
+import { UserLookupForm } from "@/components/UserLookupForm";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +87,15 @@ function ModerationRowCard({ row }: { row: ModerationRow }) {
       <div className="flex-1">
         <RowDetail row={row} />
         <p className="mt-2 text-xs text-slate-500">
-          {formatTimestamp(row.createdAt)} · {row.attributable ? "attributable" : "anonymized"} · id: {row.id}
+          {formatTimestamp(row.createdAt)} ·{" "}
+          {row.attributable && row.userId ? (
+            <a href={`/admin/moderation/users/${row.userId}`} className="text-blue-400 hover:text-blue-300 transition">
+              attributable
+            </a>
+          ) : (
+            "anonymized"
+          )}{" "}
+          · id: {row.id}
         </p>
       </div>
       <ModerateDeleteButton targetTable={row.type} targetId={row.id} />
@@ -137,6 +146,8 @@ export default async function AdminModerationPage({
             </a>
           ))}
         </div>
+
+        <UserLookupForm />
 
         <form method="get" className="mt-4 flex justify-center gap-2">
           <input type="hidden" name="type" value={type} />

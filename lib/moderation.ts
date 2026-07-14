@@ -12,6 +12,7 @@ export type RouteReportModerationRow = {
   id: string;
   createdAt: string;
   attributable: boolean;
+  userId: string | null;
   fromBankName: string;
   toBankName: string;
   railUsed: string | null;
@@ -28,6 +29,7 @@ export type EddReportModerationRow = {
   id: string;
   createdAt: string;
   attributable: boolean;
+  userId: string | null;
   bankName: string;
   daysEarly: number;
   depositType: string | null;
@@ -39,6 +41,7 @@ export type RouteRequestModerationRow = {
   id: string;
   createdAt: string;
   attributable: boolean;
+  userId: string | null;
   fromBankName: string;
   toBankName: string;
   fulfilledAt: string | null;
@@ -104,6 +107,7 @@ export async function fetchModerationPage(
       id: r.id,
       createdAt: r.created_at,
       attributable: r.user_id !== null,
+      userId: r.user_id,
       fromBankName: r.from_bank_name,
       toBankName: r.to_bank_name,
       railUsed: r.rail_used,
@@ -139,6 +143,7 @@ export async function fetchModerationPage(
       id: r.id,
       createdAt: r.created_at,
       attributable: r.user_id !== null,
+      userId: r.user_id,
       bankName: bankNameById.get(r.bank_id) ?? "Unknown bank",
       daysEarly: r.days_early,
       depositType: r.deposit_type,
@@ -172,9 +177,202 @@ export async function fetchModerationPage(
     id: r.id,
     createdAt: r.created_at,
     attributable: r.user_id !== null,
+    userId: r.user_id,
     fromBankName: bankNameById.get(r.from_bank_id) ?? "Unknown bank",
     toBankName: bankNameById.get(r.to_bank_id) ?? "Unknown bank",
     fulfilledAt: r.fulfilled_at,
+  }));
+  return { rows, total: count ?? 0 };
+}
+
+// ============================================================
+// Per-user submission history — powers the admin profile page. Distinct
+// from fetchModerationPage above: filtered by user_id (not bank name),
+// includes two more sources (bank_corrections, bank_attributions) that
+// aren't part of the main moderation page's remove-content tabs, and is
+// read-only (no ModerateDeleteButton for bank corrections/additions in
+// this release).
+// ============================================================
+
+export type BankCorrectionHistoryRow = {
+  type: "bank_corrections";
+  id: string;
+  createdAt: string;
+  bankName: string;
+  field: string;
+  submittedValue: string;
+  previousValue: string | null;
+  status: string;
+};
+
+export type BankAdditionHistoryRow = {
+  type: "bank_attributions";
+  id: string; // the added bank's id (bank_attributions' own primary key)
+  createdAt: string;
+  bankName: string;
+};
+
+export type UserHistoryRow =
+  | RouteReportModerationRow
+  | EddReportModerationRow
+  | RouteRequestModerationRow
+  | BankCorrectionHistoryRow
+  | BankAdditionHistoryRow;
+
+export type UserHistorySourceTable =
+  | "route_reports"
+  | "edd_reports"
+  | "route_requests"
+  | "bank_corrections"
+  | "bank_attributions";
+
+export const USER_HISTORY_SOURCE_TABLES: UserHistorySourceTable[] = [
+  "route_reports",
+  "edd_reports",
+  "route_requests",
+  "bank_corrections",
+  "bank_attributions",
+];
+
+export async function fetchUserSubmissionPage(
+  userId: string,
+  sourceTable: UserHistorySourceTable,
+  page: number
+): Promise<{ rows: UserHistoryRow[]; total: number }> {
+  const admin = createAdminClient();
+  const offset = (page - 1) * MODERATION_PAGE_SIZE;
+  const rangeEnd = offset + MODERATION_PAGE_SIZE - 1;
+
+  if (sourceTable === "route_reports") {
+    const { data, error, count } = await admin
+      .from("route_reports")
+      .select(
+        "id, from_bank_id, to_bank_id, from_bank_name, to_bank_name, rail_used, direction, status, tested_at, settlement_time_minutes, same_day, notes, user_id, created_at",
+        { count: "exact" }
+      )
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, rangeEnd);
+    if (error) throw error;
+
+    const rows: RouteReportModerationRow[] = (data ?? []).map((r) => ({
+      type: "route_reports",
+      id: r.id,
+      createdAt: r.created_at,
+      attributable: true,
+      userId: r.user_id,
+      fromBankName: r.from_bank_name,
+      toBankName: r.to_bank_name,
+      railUsed: r.rail_used,
+      direction: r.direction,
+      status: r.status,
+      testedAt: r.tested_at,
+      settlementTimeMinutes: r.settlement_time_minutes,
+      sameDay: r.same_day,
+      notes: r.notes,
+    }));
+    return { rows, total: count ?? 0 };
+  }
+
+  if (sourceTable === "edd_reports") {
+    const { data, error, count } = await admin
+      .from("edd_reports")
+      .select("id, bank_id, days_early, deposit_type, payroll_provider, user_id, created_at", { count: "exact" })
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, rangeEnd);
+    if (error) throw error;
+
+    const banks = await fetchBanksByIds(admin, [...new Set((data ?? []).map((r) => r.bank_id as string))]);
+    const bankNameById = new Map(banks.map((b) => [b.id, b.name]));
+
+    const rows: EddReportModerationRow[] = (data ?? []).map((r) => ({
+      type: "edd_reports",
+      id: r.id,
+      createdAt: r.created_at,
+      attributable: true,
+      userId: r.user_id,
+      bankName: bankNameById.get(r.bank_id) ?? "Unknown bank",
+      daysEarly: r.days_early,
+      depositType: r.deposit_type,
+      payrollProvider: r.payroll_provider,
+    }));
+    return { rows, total: count ?? 0 };
+  }
+
+  if (sourceTable === "route_requests") {
+    const { data, error, count } = await admin
+      .from("route_requests")
+      .select("id, from_bank_id, to_bank_id, user_id, created_at, fulfilled_at", { count: "exact" })
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, rangeEnd);
+    if (error) throw error;
+
+    const referencedBankIds = [...new Set((data ?? []).flatMap((r) => [r.from_bank_id, r.to_bank_id] as string[]))];
+    const banks = await fetchBanksByIds(admin, referencedBankIds);
+    const bankNameById = new Map(banks.map((b) => [b.id, b.name]));
+
+    const rows: RouteRequestModerationRow[] = (data ?? []).map((r) => ({
+      type: "route_requests",
+      id: r.id,
+      createdAt: r.created_at,
+      attributable: true,
+      userId: r.user_id,
+      fromBankName: bankNameById.get(r.from_bank_id) ?? "Unknown bank",
+      toBankName: bankNameById.get(r.to_bank_id) ?? "Unknown bank",
+      fulfilledAt: r.fulfilled_at,
+    }));
+    return { rows, total: count ?? 0 };
+  }
+
+  if (sourceTable === "bank_corrections") {
+    const { data, error, count } = await admin
+      .from("bank_corrections")
+      .select("id, bank_id, field, submitted_value, previous_value, status, created_at", { count: "exact" })
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, rangeEnd);
+    if (error) throw error;
+
+    const banks = await fetchBanksByIds(admin, [...new Set((data ?? []).map((r) => r.bank_id as string))]);
+    const bankNameById = new Map(banks.map((b) => [b.id, b.name]));
+
+    const rows: BankCorrectionHistoryRow[] = (data ?? []).map((r) => ({
+      type: "bank_corrections",
+      id: r.id,
+      createdAt: r.created_at,
+      bankName: bankNameById.get(r.bank_id) ?? "Unknown bank",
+      field: r.field,
+      submittedValue: r.submitted_value,
+      previousValue: r.previous_value,
+      status: r.status,
+    }));
+    return { rows, total: count ?? 0 };
+  }
+
+  // bank_attributions
+  const { data, error, count } = await admin
+    .from("bank_attributions")
+    .select("bank_id, added_by_user_id, created_at", { count: "exact" })
+    .eq("added_by_user_id", userId)
+    .order("created_at", { ascending: false })
+    .order("bank_id", { ascending: false })
+    .range(offset, rangeEnd);
+  if (error) throw error;
+
+  const banks = await fetchBanksByIds(admin, (data ?? []).map((r) => r.bank_id as string));
+  const bankNameById = new Map(banks.map((b) => [b.id, b.name]));
+
+  const rows: BankAdditionHistoryRow[] = (data ?? []).map((r) => ({
+    type: "bank_attributions",
+    id: r.bank_id,
+    createdAt: r.created_at,
+    bankName: bankNameById.get(r.bank_id) ?? "Unknown bank",
   }));
   return { rows, total: count ?? 0 };
 }

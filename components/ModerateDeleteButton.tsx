@@ -96,6 +96,9 @@ export function ModerateDeleteButton({ targetTable, targetId }: Props) {
           rows={2}
           className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-white"
         />
+        <span className="mt-1 block text-[11px] text-slate-500">
+          Internal note — avoid including email addresses or other personal information beyond what&apos;s necessary.
+        </span>
       </label>
 
       <div className="flex gap-2">

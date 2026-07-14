@@ -35,6 +35,8 @@ export const EXPECTED_RLS_ENABLED_TABLES = [
   "route_reports",
   "route_requests",
   "rtp_participants",
+  "user_moderation_status",
+  "bank_attributions",
   "webhook_deliveries",
   "webhooks",
   "zelle_participants",
@@ -70,6 +72,13 @@ export const EXPECTED_POLICIES = {
   // Server-only via the admin client, same reasoning as bank_corrections/
   // webhooks — no client (anon or authenticated) should ever read this.
   moderation_actions: [],
+  // user_moderation_status (v7.2): private per-user enforcement state.
+  // Server-only, same reasoning as moderation_actions.
+  user_moderation_status: [],
+  // bank_attributions (v7.2): private bank-addition attribution — banks
+  // itself is publicly readable, so this can never have a client-facing
+  // policy without leaking who added what.
+  bank_attributions: [],
 };
 
 // Every SECURITY DEFINER function and the exact set of roles that should
@@ -113,4 +122,13 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // requireAdmin() before ever reaching this call) — service_role only,
   // never anon/authenticated directly.
   moderate_delete_submission: ["service_role"],
+  // v7.2 user-level moderation: same reasoning — invoked via admin.rpc(...)
+  // from lib/actions/moderateSetUserStatus.ts, gated by requireAdmin()
+  // before ever reaching this call.
+  moderate_set_user_status: ["service_role"],
+  // v7.2: invoked via admin.rpc(...) from lib/actions/addBank.ts, gated by
+  // an authenticated-user check (any signed-in user, not admin-only) before
+  // ever reaching this call — same authorization level as banks/addBank
+  // already had before this RPC existed.
+  add_bank_with_attribution: ["service_role"],
 };
