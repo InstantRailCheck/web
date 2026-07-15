@@ -9,7 +9,7 @@ export default function TermsPage() {
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <div className="mx-auto w-full max-w-3xl">
           <h1 className="text-center text-3xl font-bold">Terms of Service</h1>
-          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 8, 2026.</p>
+          <p className="mt-1 text-center text-sm text-slate-500">Last updated July 14, 2026.</p>
 
           <div className="mt-8 space-y-8 text-sm leading-relaxed text-slate-300">
             <section>
@@ -85,7 +85,15 @@ export default function TermsPage() {
             <section>
               <h2 className="text-lg font-semibold text-white">Contact</h2>
               <p className="mt-2">
-                Questions: <span className="text-slate-100">security@instantrailcheck.com</span>
+                Questions about these terms:{" "}
+                <a href="mailto:legal@instantrailcheck.com" className="text-blue-400 hover:text-blue-300 transition">
+                  legal@instantrailcheck.com
+                </a>
+                . General support:{" "}
+                <a href="mailto:support@instantrailcheck.com" className="text-blue-400 hover:text-blue-300 transition">
+                  support@instantrailcheck.com
+                </a>
+                .
               </p>
             </section>
           </div>

@@ -29,7 +29,7 @@ export async function deleteAccount(): Promise<{ success: true } | { error: stri
   const { error } = await admin.auth.admin.deleteUser(user.id);
 
   if (error) {
-    return { error: "Failed to delete account. Please try again or contact security@instantrailcheck.com." };
+    return { error: "Failed to delete account. Please try again or contact support@instantrailcheck.com." };
   }
 
   return { success: true };
