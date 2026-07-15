@@ -16,8 +16,9 @@ export default function PrivacyPage() {
               <h2 className="text-lg font-semibold text-white">Information we collect</h2>
               <p className="mt-2">
                 If you create an account, we store your email address and any passkeys you
-                register. For passkeys, we store only the public credential; your fingerprint,
-                face, or device PIN never leaves your device.
+                register. For passkeys, Supabase stores the public credential and basic
+                management metadata, such as a label and creation/last-used timestamps; your
+                fingerprint, face, or device PIN never leaves your device.
               </p>
               <p className="mt-2">
                 We store information you submit, including route and early-deposit reports, route
