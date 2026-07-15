@@ -180,7 +180,20 @@ describe("fetchTriageQueue", () => {
     currentAdmin = mockAdmin({
       routeReports: burst,
       banks: [BANK_A, BANK_B],
-      moderationActions: [{ action_type: "review_flag", target_table: "route_reports", target_id: "r-0", snapshot: { signals: [], score: 100 } }],
+      moderationActions: [
+        {
+          action_type: "review_flag",
+          target_table: "route_reports",
+          target_id: "r-0",
+          snapshot: {
+            signals: [
+              { signal: "new_reporter_high_volume", severity: "high", reason: "x" },
+              { signal: "duplicate", severity: "high", reason: "x" },
+            ],
+            score: 100,
+          },
+        },
+      ],
     });
 
     const hidden = await fetchTriageQueue(baseFilters(), NOW);
@@ -208,6 +221,33 @@ describe("fetchTriageQueue", () => {
 
     const { rows } = await fetchTriageQueue(baseFilters(), NOW);
     expect(rows.some((r) => r.id === "r-0")).toBe(true);
+  });
+
+  it("resurfaces a reviewed flag when a different signal type replaces the reviewed one, even at an equal or lower score", async () => {
+    // A reviewed warning-level "duplicate" flag (score 2) is later replaced
+    // by an unrelated warning-level "moderation_history" flag (also score
+    // 2, via a prior enforcement action on an otherwise-active account) —
+    // same total score, but the admin never actually reviewed this
+    // evidence. Score-only comparison would wrongly keep this hidden.
+    const report = routeReport({ id: "flip-report", user_id: "flip-user" });
+    currentAdmin = mockAdmin({
+      routeReports: [report],
+      banks: [BANK_A, BANK_B],
+      moderationActions: [
+        { subject_user_id: "flip-user", action_type: "restrict" },
+        {
+          action_type: "review_flag",
+          target_table: "route_reports",
+          target_id: "flip-report",
+          snapshot: { signals: [{ signal: "duplicate", severity: "warning", reason: "x" }], score: 2 },
+        },
+      ],
+    });
+
+    const { rows } = await fetchTriageQueue(baseFilters(), NOW);
+    const flipped = rows.find((r) => r.id === "flip-report");
+    expect(flipped?.signals.map((s) => s.signal)).toEqual(["moderation_history"]);
+    expect(flipped?.score).toBe(2);
   });
 
   it("surfaces currently-restricted account history as a high-severity signal", async () => {

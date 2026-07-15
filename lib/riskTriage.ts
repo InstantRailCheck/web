@@ -186,6 +186,11 @@ export async function fetchTriageQueue(filters: TriageFilters, now: Date = new D
         admin.from("route_reports").select("id", { count: "exact", head: true }).eq("user_id", uid),
         admin.from("edd_reports").select("id", { count: "exact", head: true }).eq("user_id", uid),
       ]);
+      // A failed count must not silently read as zero — that would make an
+      // established account look brand-new and could wrongly trigger the
+      // high-severity new-reporter-high-volume signal against them.
+      if (routeCount.error) throw routeCount.error;
+      if (eddCount.error) throw eddCount.error;
       totalCountsByUser.set(uid, (routeCount.count ?? 0) + (eddCount.count ?? 0));
     })
   );
@@ -447,23 +452,37 @@ export async function fetchTriageQueue(filters: TriageFilters, now: Date = new D
         filtered.map((r) => r.id)
       );
     if (error) throw error;
-    // A row previously reviewed at score N only stays hidden while its
-    // currently-computed score is still <= N. If it later develops a new
-    // or escalated signal (e.g. the account gets restricted, or a fresh
-    // duplicate lands) pushing the score higher than what was reviewed,
-    // it resurfaces — an old dismissal shouldn't permanently suppress a
-    // submission that has since become materially riskier. Multiple past
-    // reviews for the same target use the highest score any of them saw.
-    const reviewedScoreByKey = new Map<string, number>();
+    // Score alone isn't enough: two different signal sets can add up to
+    // the same total (a reviewed warning-level duplicate replaced by an
+    // unrelated warning-level moderation-history flag both score 2), and
+    // the admin never actually saw that new evidence. A row stays hidden
+    // only if some past review's own signal-TYPE set already covered every
+    // signal type firing right now, at a score at least as high — i.e. the
+    // admin genuinely already saw everything currently being flagged. A
+    // brand-new signal type, or the same types at a higher score (e.g. a
+    // duplicate that matched one report before and three now), resurfaces
+    // it. Multiple past reviews for the same target each get checked;
+    // covered by any one of them is enough to stay hidden.
+    const reviewsByKey = new Map<string, { types: Set<SignalType>; score: number }[]>();
     for (const r of reviewed ?? []) {
       const key = `${r.target_table}:${r.target_id}`;
-      const snapshotScore = Number((r.snapshot as { score?: unknown } | null)?.score);
+      const snapshot = r.snapshot as { score?: unknown; signals?: unknown } | null;
+      const snapshotScore = Number(snapshot?.score);
       const reviewedScore = Number.isFinite(snapshotScore) ? snapshotScore : 0;
-      reviewedScoreByKey.set(key, Math.max(reviewedScoreByKey.get(key) ?? 0, reviewedScore));
+      const reviewedSignals = Array.isArray(snapshot?.signals) ? (snapshot.signals as { signal?: unknown }[]) : [];
+      const types = new Set(reviewedSignals.map((s) => s.signal).filter((s): s is SignalType => typeof s === "string"));
+      const list = reviewsByKey.get(key) ?? [];
+      list.push({ types, score: reviewedScore });
+      reviewsByKey.set(key, list);
     }
     filtered = filtered.filter((r) => {
-      const reviewedScore = reviewedScoreByKey.get(`${r.table}:${r.id}`);
-      return reviewedScore === undefined || r.score > reviewedScore;
+      const reviews = reviewsByKey.get(`${r.table}:${r.id}`);
+      if (!reviews) return true;
+      const currentTypes = new Set(r.signals.map((s) => s.signal));
+      const coveredByAPastReview = reviews.some(
+        (review) => review.score >= r.score && [...currentTypes].every((t) => review.types.has(t))
+      );
+      return !coveredByAPastReview;
     });
   }
 

@@ -724,6 +724,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - `reviewFlag` now verifies the target submission actually exists and belongs to the claimed account before writing an audit row, and validates the score/signal shape — not a privilege-escalation fix (the action was already admin-only), but the audit trail can no longer record a review against a row that doesn't exist or the wrong account
 - Verification: TypeScript, ESLint, all 573 tests, production build, and the GitHub `db-test`/`test` jobs all pass; no migration to apply since this release is app-code only
 
+## Version 7.3.2 (v7.3.2 — shipped July 14 2026)
+
+**Two more reliability notes from a follow-up review of v7.3.1** — no schema changes.
+- The reviewed-flag comparison in `lib/riskTriage.ts` compared score alone, so a reviewed signal could be silently replaced by a completely different signal type that happens to add up to the same or a lower score (a reviewed warning-level duplicate swapped for an unrelated warning-level moderation-history flag, both scoring 2) and stay hidden even though the admin never saw that new evidence. Now compares the actual signal-type set: a row only stays hidden if some past review's own signal types already covered every type currently firing, at a score at least as high
+- The per-user all-time submission counts used to distinguish a brand-new reporter from an established account weren't checking their count queries for errors, so a transient failure would silently read as zero and could mislabel a known account as new (triggering the high-severity new-reporter signal). Now throws on either query's error instead of treating a failed count as zero
+- Verification: TypeScript, ESLint, all 574 tests, production build, and `git diff --check` pass locally; GitHub `test`/`db-test` jobs pending on push
+
 ## Data Principles
 
 - Real-world reports only
