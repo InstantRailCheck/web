@@ -154,4 +154,7 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // finalize_sync_run itself — see the migration comment for why this
   // isn't duplicated in JS.
   compute_banks_base_snapshot_hash: ["service_role"],
+  // v8.0 §5: invoked only from scripts/apply-reconciliation.mjs after that
+  // script's own live re-corroboration check — never from client code.
+  apply_bank_reconciliation: ["service_role"],
 };

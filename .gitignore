@@ -44,5 +44,8 @@ next-env.d.ts
 supabase/.temp
 supabase/.branches
 
+# v8.0 reconciliation/sync reports — real institution data, never committed
+scripts/reports/
+
 # claude code (personal-only overrides)
 .claude/settings.local.json
