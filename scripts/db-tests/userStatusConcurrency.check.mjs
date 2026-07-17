@@ -36,22 +36,29 @@ async function main() {
 
       const { data: actions } = await admin
         .from("moderation_actions")
-        .select("action_type, snapshot, created_at")
-        .eq("subject_user_id", target.id)
-        .order("created_at", { ascending: true });
+        .select("action_type, snapshot")
+        .eq("subject_user_id", target.id);
 
       assert(actions.length === 2, `exactly two audit rows recorded (got ${actions.length})`);
 
-      // Whichever call the lock let through second must have observed the
-      // FIRST call's already-committed resulting_status as its own
-      // previous_status — never the pre-transaction 'active' default both
-      // calls would have seen without serialization.
-      const secondRow = actions[1];
-      const firstRow = actions[0];
-      const firstResultingStatus = firstRow.snapshot.resulting_status;
+      // moderation_actions.created_at defaults to now(), which Postgres
+      // freezes at each transaction's BEGIN — not at the moment the row is
+      // actually written. Since PostgREST opens a transaction per RPC call
+      // and both calls here begin within microseconds of each other, the
+      // one that loses the pg_advisory_xact_lock race can still have the
+      // SMALLER created_at, making "order by created_at" an unreliable
+      // (and, confirmed live, flaky ~30-50% of the time) way to tell which
+      // call actually ran first. The snapshot chain itself is reliable —
+      // whichever row's previous_status is the pre-test 'active' baseline
+      // is definitionally the call that actually acquired the lock first
+      // (both target statuses here are non-'active', so this is
+      // unambiguous).
+      const firstRow = actions.find((a) => a.snapshot.previous_status === "active");
+      const secondRow = actions.find((a) => a !== firstRow);
+      assert(!!firstRow && !!secondRow, "exactly one row's previous_status is the original 'active' baseline (the true first call)");
       assert(
-        secondRow.snapshot.previous_status === firstResultingStatus,
-        `second call's previous_status ("${secondRow.snapshot.previous_status}") matches the first call's resulting_status ("${firstResultingStatus}") — no lost update`
+        secondRow.snapshot.previous_status === firstRow.snapshot.resulting_status,
+        `the other call's previous_status ("${secondRow?.snapshot.previous_status}") matches the first call's resulting_status ("${firstRow?.snapshot.resulting_status}") — no lost update`
       );
 
       const { data: finalRow } = await admin

@@ -32,7 +32,10 @@ export const EXPECTED_RLS_ENABLED_TABLES = [
   "fednow_participants",
   "moderation_actions",
   "ncua_credit_unions",
+  "ncua_reference_sync_log",
   "route_reports",
+  "sync_runs",
+  "sync_staging_institutions",
   "route_requests",
   "rtp_participants",
   "user_moderation_status",
@@ -79,6 +82,13 @@ export const EXPECTED_POLICIES = {
   // itself is publicly readable, so this can never have a client-facing
   // policy without leaking who added what.
   bank_attributions: [],
+  // sync_runs / sync_staging_institutions / ncua_reference_sync_log
+  // (v8.0): server-only, only ever read/written by
+  // scripts/sync-institution-directory.mjs and
+  // scripts/sync-ncua-directory.mjs via the service-role key.
+  sync_runs: [],
+  sync_staging_institutions: [],
+  ncua_reference_sync_log: [],
 };
 
 // Every SECURITY DEFINER function and the exact set of roles that should
@@ -131,4 +141,17 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // ever reaching this call — same authorization level as banks/addBank
   // already had before this RPC existed.
   add_bank_with_attribution: ["service_role"],
+  // v8.0 institution lifecycle (§11): rejects edd_reports writes against
+  // an inactive bank at the table itself, same reasoning as
+  // route_reports_derive_bank_names above — trigger-only.
+  edd_reports_reject_inactive_bank: ["service_role"],
+  // v8.0 authoritative sync (§6): the one real callable RPC in the sync
+  // path, invoked only from scripts/sync-institution-directory.mjs with
+  // the service-role key — never from client code, never via anon/
+  // authenticated PostgREST access.
+  finalize_sync_run: ["service_role"],
+  // v8.0: shared hash helper called by both the CLI at staging time and
+  // finalize_sync_run itself — see the migration comment for why this
+  // isn't duplicated in JS.
+  compute_banks_base_snapshot_hash: ["service_role"],
 };

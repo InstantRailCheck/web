@@ -73,6 +73,19 @@ async function fetchAll(table, columns, orderBy) {
 }
 
 async function main() {
+  // v8.0: retired in favor of scripts/sync-institution-directory.mjs, which
+  // writes source_authority alongside ncua_charter_number on every
+  // insert/update — banks_source_authority_identifier_check
+  // (20260716000000) rejects any write to ncua_charter_number that doesn't
+  // also set source_authority, which this script was never updated to do.
+  // Left in place, inert, rather than taught to satisfy an invariant it
+  // predates and wasn't designed around.
+  console.error(
+    "import-ncua-credit-unions.mjs is retired as of v8.0 — use `node scripts/sync-institution-directory.mjs` instead. " +
+      "This script no longer runs (see banks_source_authority_identifier_check)."
+  );
+  process.exit(1);
+
   console.log("Loading synced NCUA credit unions...");
   // Supabase caps a single select() at 1000 rows by default — the table has
   // 4,336, so this must be paginated with .range() or it silently truncates.

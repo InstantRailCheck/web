@@ -131,6 +131,47 @@ async function main() {
     tradeNamesByCharter.set(row.CU_NUMBER, list);
   }
 
+  // v8.0 closure detection (§7): ncua_credit_unions only ever upserts by
+  // charter_number and never removes/flags a charter absent from this
+  // run's file, so the directory sync can't detect a closure by reading
+  // ncua_credit_unions itself — it has no concept of "not in the latest
+  // file." Fixed by recording an independently-sourced row count here,
+  // before any ncua_credit_unions write, and stamping every row this run
+  // upserts with this run's log id. A truncated/corrupted download is
+  // caught the same way production-drift/retention guards work elsewhere
+  // in this project: compare against the last known-good count and abort
+  // rather than silently treat a partial file as this quarter's truth.
+  console.log("Checking FOICU row count against the last successful sync...");
+  const { data: previousLog, error: previousLogError } = await supabase
+    .from("ncua_reference_sync_log")
+    .select("id, foicu_row_count")
+    .order("synced_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (previousLogError) throw previousLogError;
+
+  if (previousLog) {
+    const ratio = foicu.length / previousLog.foicu_row_count;
+    if (ratio < 0.97) {
+      throw new Error(
+        `FOICU row count (${foicu.length}) is under 97% of the last successful sync's count ` +
+          `(${previousLog.foicu_row_count}) — aborting before writing ncua_reference_sync_log or ` +
+          `touching ncua_credit_unions. This looks like a truncated or corrupted download, not a real ` +
+          `quarter-over-quarter change.`
+      );
+    }
+  } else {
+    console.log("No prior ncua_reference_sync_log row found — treating this as the first-ever run (no retention check).");
+  }
+
+  const { data: newLog, error: newLogError } = await supabase
+    .from("ncua_reference_sync_log")
+    .insert({ quarter: QUARTER, foicu_row_count: foicu.length })
+    .select("id")
+    .single();
+  if (newLogError) throw newLogError;
+  const syncLogId = newLog.id;
+
   const records = foicu.map((row) => {
     const charterNumber = row.CU_NUMBER;
     const name = row.CU_NAME;
@@ -148,6 +189,7 @@ async function main() {
       phone: branch?.phone ?? null,
       total_assets: totalAssetsByCharter.get(charterNumber) ?? null,
       updated_at: new Date().toISOString(),
+      last_seen_sync_id: syncLogId,
     };
   });
 

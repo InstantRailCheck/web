@@ -76,6 +76,18 @@ async function fetchAllBanks() {
 const TRADE_NAME_FIELDS = Array.from({ length: 10 }, (_, i) => `TE${String(i + 1).padStart(2, "0")}N529`).join(",");
 
 async function main() {
+  // v8.0: retired in favor of scripts/sync-institution-directory.mjs, which
+  // writes source_authority alongside fdic_cert on every insert/update —
+  // banks_source_authority_identifier_check (20260716000000) rejects any
+  // write to fdic_cert that doesn't also set source_authority, which this
+  // script was never updated to do. Left in place, inert, rather than
+  // taught to satisfy an invariant it predates and wasn't designed around.
+  console.error(
+    "import-fdic-banks.mjs is retired as of v8.0 — use `node scripts/sync-institution-directory.mjs` instead. " +
+      "This script no longer runs (see banks_source_authority_identifier_check)."
+  );
+  process.exit(1);
+
   console.log(`Fetching top ${TOP_N} active FDIC banks by asset size...`);
   const res = await fetch(
     `https://api.fdic.gov/banks/institutions?filters=ACTIVE:1&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET,CERT,${TRADE_NAME_FIELDS}&sort_by=ASSET&sort_order=DESC&limit=${TOP_N}&offset=0`
