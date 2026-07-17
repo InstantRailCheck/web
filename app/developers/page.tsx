@@ -21,7 +21,7 @@ const ENDPOINTS = [
     method: "GET",
     path: "/banks",
     description:
-      "List all banks. Optional ?q= to search by name. Optional ?limit=/&offset= to page through results (max limit 500) — omitting them still returns the full directory in one response, capped at 5000 as a safety net, so this remains additive rather than a breaking change. The response includes total (the full matching count, independent of limit/offset) alongside banks. Add &format=csv for CSV instead of JSON.",
+      "List all banks. Optional ?q= to search by name. Optional ?limit=/&offset= to page through results (max limit 500) — omitting them still returns the full directory in one response, capped at 5000 as a safety net, so this remains additive rather than a breaking change. Only currently-listed (is_active) institutions by default — pass ?include_inactive=true to also include closed/merged/unlisted ones. Each bank row now also includes city/state. The response includes total (the full matching count, independent of limit/offset), truncated (whether more rows exist beyond this response), and next_offset (the offset to fetch them, or null) alongside banks. CSV responses carry the same three as X-Total-Count/X-Truncated/X-Next-Offset headers instead of body fields. Add &format=csv for CSV instead of JSON.",
     example: "/banks?q=chase&limit=50&offset=0",
   },
   {
@@ -129,6 +129,20 @@ export default function DevelopersPage() {
             for the same reason. Both now expose an <code>evidence</code> object (or, on{" "}
             <code>/banks/:id</code>, attributable/successful/delayed/unsuccessful report counts
             and distinct-route counts) instead — see the evidence states above.
+          </p>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold">v7 breaking change</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            <code>/banks</code> now defaults to currently-listed institutions only —
+            a bank the sync has marked closed, merged, or unlisted is excluded unless
+            you pass <code>?include_inactive=true</code>. The same unpaginated request as
+            before can now return fewer rows than it used to for that reason alone. Every
+            row also gains <code>city</code>/<code>state</code>, and both JSON
+            (<code>truncated</code>/<code>next_offset</code>) and CSV
+            (<code>X-Truncated</code>/<code>X-Next-Offset</code> headers) now say
+            explicitly whether more rows exist beyond the current response.
           </p>
         </div>
 

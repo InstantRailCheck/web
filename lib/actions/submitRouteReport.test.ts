@@ -8,9 +8,18 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => Promise.resolve({ auth: { getUser: getUserMock } }),
 }));
 
+let banksCheckResult: { data: Array<{ id: string; is_active: boolean }> } = {
+  data: [
+    { id: "bank-a", is_active: true },
+    { id: "bank-b", is_active: true },
+  ],
+};
+const inMock = vi.fn(() => Promise.resolve(banksCheckResult));
+const selectMock = vi.fn(() => ({ in: inMock }));
+
 let insertResult: { error: { message?: string } | null } = { error: null };
 const insertMock = vi.fn(() => Promise.resolve(insertResult));
-const fromMock = vi.fn(() => ({ insert: insertMock }));
+const fromMock = vi.fn(() => ({ select: selectMock, insert: insertMock }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ from: fromMock }),
 }));
@@ -53,9 +62,17 @@ const baseInput = {
 
 beforeEach(() => {
   currentUser = { id: "user-1" };
+  banksCheckResult = {
+    data: [
+      { id: "bank-a", is_active: true },
+      { id: "bank-b", is_active: true },
+    ],
+  };
   insertResult = { error: null };
   getUserMock.mockClear();
   insertMock.mockClear();
+  selectMock.mockClear();
+  inMock.mockClear();
   fromMock.mockClear();
   getUserModerationStatusMock.mockClear();
   getUserModerationStatusMock.mockResolvedValue({ blocked: false });
@@ -98,6 +115,20 @@ describe("submitRouteReport", () => {
     const result = await submitRouteReport(baseInput);
 
     expect("error" in result).toBe(true);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly error and never inserts when one of the selected banks is inactive", async () => {
+    banksCheckResult = {
+      data: [
+        { id: "bank-a", is_active: true },
+        { id: "bank-b", is_active: false },
+      ],
+    };
+
+    const result = await submitRouteReport(baseInput);
+
+    expect(result).toEqual({ error: "One of the selected institutions is no longer listed and can't receive new reports." });
     expect(insertMock).not.toHaveBeenCalled();
   });
 

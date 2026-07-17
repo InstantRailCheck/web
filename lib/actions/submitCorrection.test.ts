@@ -8,8 +8,16 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => Promise.resolve({ auth: { getUser: getUserMock } }),
 }));
 
-let bankResult: { data: { id: string; name: string; website: string | null; phone: string | null } | null } = {
-  data: { id: "bank-1", name: "Test Bank", website: "https://old.example.com", phone: null },
+type BankRow = {
+  id: string;
+  name: string;
+  website: string | null;
+  phone: string | null;
+  fdic_cert: number | null;
+  ncua_charter_number: number | null;
+};
+let bankResult: { data: BankRow | null } = {
+  data: { id: "bank-1", name: "Test Bank", website: "https://old.example.com", phone: null, fdic_cert: null, ncua_charter_number: null },
 };
 const maybeSingleMock = vi.fn(() => Promise.resolve(bankResult));
 const eqMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
@@ -33,15 +41,25 @@ vi.mock("@/lib/rateLimit", () => ({
   isActionRateLimited: (...args: unknown[]) => isActionRateLimitedMock(...args),
 }));
 
-vi.mock("@/lib/fdicLookup", () => ({ lookupFdicBank: vi.fn(() => Promise.resolve(null)) }));
-vi.mock("@/lib/ncuaLookup", () => ({ lookupNcuaCreditUnion: vi.fn(() => Promise.resolve(null)) }));
+const lookupFdicBankByCertMock = vi.fn();
+const lookupNcuaCreditUnionByCharterMock = vi.fn();
+vi.mock("@/lib/fdicLookup", () => ({
+  lookupFdicBank: vi.fn(() => Promise.resolve(null)),
+  lookupFdicBankByCert: (...args: unknown[]) => lookupFdicBankByCertMock(...args),
+}));
+vi.mock("@/lib/ncuaLookup", () => ({
+  lookupNcuaCreditUnion: vi.fn(() => Promise.resolve(null)),
+  lookupNcuaCreditUnionByCharter: (...args: unknown[]) => lookupNcuaCreditUnionByCharterMock(...args),
+}));
 vi.mock("@/lib/finraLookup", () => ({ lookupFinraBroker: vi.fn(() => Promise.resolve(null)) }));
 
 const { submitCorrection } = await import("./submitCorrection");
 
 beforeEach(() => {
   currentUser = { id: "user-1" };
-  bankResult = { data: { id: "bank-1", name: "Test Bank", website: "https://old.example.com", phone: null } };
+  bankResult = {
+    data: { id: "bank-1", name: "Test Bank", website: "https://old.example.com", phone: null, fdic_cert: null, ncua_charter_number: null },
+  };
   getUserMock.mockClear();
   fromMock.mockClear();
   insertMock.mockClear();
@@ -49,6 +67,10 @@ beforeEach(() => {
   getUserModerationStatusMock.mockResolvedValue({ blocked: false });
   isActionRateLimitedMock.mockClear();
   isActionRateLimitedMock.mockResolvedValue(false);
+  lookupFdicBankByCertMock.mockClear();
+  lookupFdicBankByCertMock.mockResolvedValue(null);
+  lookupNcuaCreditUnionByCharterMock.mockClear();
+  lookupNcuaCreditUnionByCharterMock.mockResolvedValue(null);
 });
 
 describe("submitCorrection", () => {
@@ -83,5 +105,29 @@ describe("submitCorrection", () => {
 
     expect(result.status).toBe("pending_review");
     expect(insertMock).toHaveBeenCalled();
+  });
+
+  it("uses the identifier-based FDIC lookup, not a name search, when the bank is already fdic_cert-linked", async () => {
+    bankResult = {
+      data: { id: "bank-1", name: "Pinnacle Bank", website: null, phone: null, fdic_cert: 12345, ncua_charter_number: null },
+    };
+    lookupFdicBankByCertMock.mockResolvedValue({ website: "https://real-charter.example.com", address: null });
+
+    const result = await submitCorrection("bank-1", "website", "https://real-charter.example.com");
+
+    expect(lookupFdicBankByCertMock).toHaveBeenCalledWith(12345);
+    expect(result.status).toBe("auto_applied");
+  });
+
+  it("uses the identifier-based NCUA lookup, not a name search, when the bank is already ncua-linked", async () => {
+    bankResult = {
+      data: { id: "bank-1", name: "Pinnacle Bank", website: null, phone: "555-0100", fdic_cert: null, ncua_charter_number: 9876 },
+    };
+    lookupNcuaCreditUnionByCharterMock.mockResolvedValue({ website: null, address: null, phone: "555-0100" });
+
+    const result = await submitCorrection("bank-1", "phone", "555-0100");
+
+    expect(lookupNcuaCreditUnionByCharterMock).toHaveBeenCalledWith(9876);
+    expect(result.status).toBe("auto_applied");
   });
 });

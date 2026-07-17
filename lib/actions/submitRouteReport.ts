@@ -54,6 +54,18 @@ export async function submitRouteReport(input: SubmitRouteReportInput): Promise<
     return { error: "Too many route reports submitted recently. Please wait a few minutes and try again." };
   }
 
+  // route_reports_derive_bank_names_trigger (the DB trigger) is the real
+  // guard and rejects this unconditionally on INSERT — this is only a
+  // clearer, faster message than the generic "Failed to submit report."
+  // the raw trigger error would otherwise collapse into below.
+  const { data: banksToCheck } = await admin
+    .from("banks")
+    .select("id, is_active")
+    .in("id", [input.fromBankId, input.toBankId]);
+  if (banksToCheck?.some((b) => !b.is_active)) {
+    return { error: "One of the selected institutions is no longer listed and can't receive new reports." };
+  }
+
   const { error } = await admin.from("route_reports").insert({
     from_bank_id: input.fromBankId,
     to_bank_id: input.toBankId,

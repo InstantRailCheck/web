@@ -12,6 +12,8 @@ import {
   type EddEvidence,
 } from "@/lib/bankProfile";
 import { formatPhone, telHref } from "@/lib/utils";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { bankIsIndexable, hasAttributableReportForBank } from "@/lib/institutionIndexability";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
@@ -188,22 +190,39 @@ export async function generateMetadata({
 
   const canonical = `${SITE_URL}/banks/${profile.bank.slug}`;
 
+  // City/state distinguish same-named charters in search results (e.g. six
+  // separate Pinnacle Bank listings) — included whenever known, not just
+  // for duplicate-name banks, since generateMetadata has no cheap signal
+  // for "is this name a duplicate" without an extra query.
+  const location = profile.bank.city && profile.bank.state ? `${profile.bank.city}, ${profile.bank.state}` : null;
+
   // Only the first alternate name goes in the title (titles get truncated
   // in search results past ~60 characters, and most banks have at most
   // one anyway) - the meta description has more room to list every one.
   const primaryAka = profile.bank.aka_names?.[0];
-  const title = primaryAka
-    ? `${profile.bank.name} (${primaryAka}) — Bank Transfer Compatibility | InstantRailCheck`
-    : `${profile.bank.name} — Bank Transfer Compatibility | InstantRailCheck`;
+  const nameClause = primaryAka ? `${profile.bank.name} (${primaryAka})` : profile.bank.name;
+  const title = `${nameClause}${location ? ` — ${location}` : ""} — Bank Transfer Compatibility | InstantRailCheck`;
   const akaClause = profile.bank.aka_names?.length
     ? ` Also known as ${profile.bank.aka_names.join(", ")}.`
     : "";
+  const locationClause = location ? ` Located in ${location}.` : "";
+
+  const admin = createAdminClient();
+  const hasReport = await hasAttributableReportForBank(admin, profile.bank.id);
+  const indexable = bankIsIndexable(profile.bank, hasReport);
 
   return {
     title,
-    description: `Check which payment rails (RTP, FedNow, ACH, Wire, Zelle) ${profile.bank.name} supports, backed by official sources and real-world reports.${akaClause}`,
+    description: `Check which payment rails (RTP, FedNow, ACH, Wire, Zelle) ${profile.bank.name} supports, backed by official sources and real-world reports.${akaClause}${locationClause}`,
     alternates: { canonical },
+    ...(indexable ? {} : { robots: { index: false, follow: true } }),
   };
+}
+
+function regulatorLabel(sourceAuthority: "fdic" | "ncua" | null): string | null {
+  if (sourceAuthority === "fdic") return "FDIC";
+  if (sourceAuthority === "ncua") return "NCUA";
+  return null;
 }
 
 export default async function BankProfilePage({
@@ -229,9 +248,33 @@ export default async function BankProfilePage({
     notFound();
   }
 
+  // Inactive banks stay viewable with a banner, never 404 — an existing
+  // shared link or indexed page shouldn't break just because the
+  // institution has since gone unlisted, closed, or merged.
+  let mergedInto: { slug: string; name: string } | null = null;
+  if (profile.bank.inactive_reason === "merged" && profile.bank.merged_into_bank_id) {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("banks")
+      .select("slug, name")
+      .eq("id", profile.bank.merged_into_bank_id)
+      .maybeSingle();
+    mergedInto = data;
+  }
+
   // Nonce required even for a non-executing script tag — script-src governs
   // any <script> element regardless of type under this site's CSP.
   const nonce = (await headers()).get("x-nonce");
+  // A regulator identifier makes this JSON-LD unique per charter — without
+  // it, every same-named institution (e.g. six separate Pinnacle Bank
+  // charters) would emit byte-identical structured data.
+  const regulatorId =
+    profile.bank.source_authority === "fdic" && profile.bank.fdic_cert !== null
+      ? { propertyID: "FDIC_CERT", value: String(profile.bank.fdic_cert) }
+      : profile.bank.source_authority === "ncua" && profile.bank.ncua_charter_number !== null
+        ? { propertyID: "NCUA_CHARTER", value: String(profile.bank.ncua_charter_number) }
+        : null;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BankOrCreditUnion",
@@ -243,6 +286,7 @@ export default async function BankProfilePage({
     ...(profile.bank.website ? { url: profile.bank.website } : {}),
     ...(profile.bank.address ? { address: profile.bank.address } : {}),
     ...(profile.bank.phone ? { telephone: profile.bank.phone } : {}),
+    ...(regulatorId ? { identifier: { "@type": "PropertyValue", ...regulatorId } } : {}),
   };
   const breadcrumbJsonLd = buildBankBreadcrumbJsonLd(profile.bank);
 
@@ -260,8 +304,42 @@ export default async function BankProfilePage({
       />
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <BankBreadcrumb bankName={profile.bank.name} />
+        {!profile.bank.is_active && (
+          <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-center text-sm text-yellow-200">
+            {profile.bank.inactive_reason === "merged" && mergedInto ? (
+              <>
+                This institution has merged into{" "}
+                <Link href={`/banks/${mergedInto.slug}`} className="underline hover:text-yellow-100">
+                  {mergedInto.name}
+                </Link>
+                . Historical data below remains available for reference.
+              </>
+            ) : profile.bank.inactive_reason === "closed" ? (
+              <>This institution is marked as closed. Historical data below remains available for reference.</>
+            ) : (
+              <>
+                This institution is no longer listed in official regulator data. Historical data below remains
+                available for reference.
+              </>
+            )}
+          </div>
+        )}
         <div className="text-center">
           <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
+          {(profile.bank.city || profile.bank.state || regulatorLabel(profile.bank.source_authority)) && (
+            <p className="mt-1 text-sm text-slate-400">
+              {[
+                [profile.bank.city, profile.bank.state].filter(Boolean).join(", "),
+                regulatorLabel(profile.bank.source_authority) && profile.bank.fdic_cert
+                  ? `FDIC Cert #${profile.bank.fdic_cert}`
+                  : regulatorLabel(profile.bank.source_authority) && profile.bank.ncua_charter_number
+                    ? `NCUA Charter #${profile.bank.ncua_charter_number}`
+                    : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
           {profile.bank.aka_names && profile.bank.aka_names.length > 0 && (
             <p className="mt-1 text-sm text-slate-500">Also known as {profile.bank.aka_names.join(", ")}</p>
           )}

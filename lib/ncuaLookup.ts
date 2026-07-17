@@ -8,6 +8,21 @@ export type NcuaMatch = {
 
 const SUFFIX_PATTERN = /\s+(federal credit union|credit union|fcu|cu)$/i;
 
+// Unambiguous direct lookup for a bank whose ncua_charter_number is
+// already known — used in place of lookupNcuaCreditUnion whenever a bank
+// is already linked, so a name-based re-lookup can never resolve to a
+// *different* charter sharing the same name.
+export async function lookupNcuaCreditUnionByCharter(charter: number): Promise<NcuaMatch | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("ncua_credit_unions")
+    .select("website, address, phone")
+    .eq("charter_number", charter)
+    .maybeSingle();
+
+  return data ? toMatch(data) : null;
+}
+
 export async function lookupNcuaCreditUnion(name: string): Promise<NcuaMatch | null> {
   const stripped = name.trim().replace(SUFFIX_PATTERN, "").trim();
   const candidates = Array.from(new Set([name.trim(), stripped]));

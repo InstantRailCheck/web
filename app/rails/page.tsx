@@ -141,6 +141,7 @@ export default async function RailsExplorerPage() {
         .from("banks")
         .select("id, slug, name", { count: "exact" })
         .eq("fednow_participant", true)
+        .eq("is_active", true)
         .order("total_assets", { ascending: false, nullsFirst: false })
         .order("name")
         .limit(DISPLAY_LIMIT),
@@ -148,6 +149,7 @@ export default async function RailsExplorerPage() {
         .from("banks")
         .select("id, slug, name", { count: "exact" })
         .eq("rtp_participant", true)
+        .eq("is_active", true)
         .order("total_assets", { ascending: false, nullsFirst: false })
         .order("name")
         .limit(DISPLAY_LIMIT),
@@ -155,6 +157,7 @@ export default async function RailsExplorerPage() {
         .from("banks")
         .select("id, slug, name", { count: "exact" })
         .eq("zelle_participant", true)
+        .eq("is_active", true)
         .order("total_assets", { ascending: false, nullsFirst: false })
         .order("name")
         .limit(DISPLAY_LIMIT),

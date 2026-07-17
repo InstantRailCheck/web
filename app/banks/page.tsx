@@ -41,10 +41,15 @@ export default async function BanksDirectoryPage({
   const page = resolveDirectoryPage(pageParam);
 
   const supabase = createAdminClient();
+  // Public directory browsing only ever shows currently-listed institutions
+  // by default — an inactive bank stays directly reachable at its own
+  // profile URL, just not discoverable through this listing.
   let query = supabase
     .from("banks")
-    .select("id, slug, name, fednow_participant, rtp_participant, zelle_participant", { count: "exact" })
-    .order("name", { ascending: true });
+    .select("id, slug, name, city, state, fednow_participant, rtp_participant, zelle_participant", { count: "exact" })
+    .eq("is_active", true)
+    .order("name", { ascending: true })
+    .order("id", { ascending: true });
 
   if (q) query = query.ilike("name_normalized", `%${normalizeForSearch(q)}%`);
   if (fednow === "true") query = query.eq("fednow_participant", true);
@@ -128,7 +133,14 @@ export default async function BanksDirectoryPage({
                 href={`/banks/${bank.slug}`}
                 className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-200 hover:border-blue-500/40 hover:text-white transition"
               >
-                <span>{bank.name}</span>
+                <span>
+                  {bank.name}
+                  {(bank.city || bank.state) && (
+                    <span className="ml-1.5 text-xs text-slate-500">
+                      {[bank.city, bank.state].filter(Boolean).join(", ")}
+                    </span>
+                  )}
+                </span>
                 <span className="flex gap-1 text-xs">
                   {bank.fednow_participant && <Landmark className="h-4 w-4 text-purple-400" />}
                   {bank.rtp_participant && <Zap className="h-4 w-4 text-green-400" />}

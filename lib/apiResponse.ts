@@ -4,8 +4,12 @@ import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 // Bumped on any breaking response-shape change to a documented endpoint (see
 // app/developers/page.tsx) — e.g. v6 replaced /routes' confidence/successRate
-// fields and /banks/:id's rail successRate with evidence-based fields.
-const API_VERSION = "6";
+// fields and /banks/:id's rail successRate with evidence-based fields. v7
+// (v8.0): /banks defaults to active institutions only (?include_inactive=true
+// opts back in), adds city/state to every row, and JSON/CSV responses gain
+// pagination-parity fields (truncated/next_offset in JSON,
+// X-Total-Count/X-Truncated/X-Next-Offset headers in CSV).
+const API_VERSION = "7";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -35,13 +39,14 @@ export function apiError(message: string, status: number) {
   return apiJson({ error: message }, { status });
 }
 
-export function apiCsv(csv: string, filename: string) {
+export function apiCsv(csv: string, filename: string, extraHeaders?: Record<string, string>) {
   return new NextResponse(csv, {
     status: 200,
     headers: {
       ...CORS_HEADERS,
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      ...extraHeaders,
     },
   });
 }

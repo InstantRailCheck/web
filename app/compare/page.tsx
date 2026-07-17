@@ -146,11 +146,13 @@ export default async function ComparePage({
                     <Link href={`/banks/${a.bank.slug}`} className="text-blue-400 hover:text-blue-300 transition">
                       {a.bank.name}
                     </Link>
+                    {!a.bank.is_active && <span className="ml-1.5 text-xs text-yellow-400">(no longer listed)</span>}
                   </th>
                   <th className="px-5 py-3">
                     <Link href={`/banks/${b.bank.slug}`} className="text-blue-400 hover:text-blue-300 transition">
                       {b.bank.name}
                     </Link>
+                    {!b.bank.is_active && <span className="ml-1.5 text-xs text-yellow-400">(no longer listed)</span>}
                   </th>
                 </tr>
               </thead>

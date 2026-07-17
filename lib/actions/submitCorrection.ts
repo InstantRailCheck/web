@@ -2,9 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { lookupFdicBank } from "@/lib/fdicLookup";
-import { lookupNcuaCreditUnion } from "@/lib/ncuaLookup";
-import { lookupFinraBroker } from "@/lib/finraLookup";
+import { resolveOfficialMatch } from "@/lib/officialInstitutionMatch";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { getUserModerationStatus } from "@/lib/moderationStatus";
 
@@ -46,7 +44,7 @@ export async function submitCorrection(
 
   const { data: bank } = await admin
     .from("banks")
-    .select("id, name, website, phone")
+    .select("id, name, website, phone, fdic_cert, ncua_charter_number")
     .eq("id", bankId)
     .maybeSingle();
 
@@ -56,10 +54,11 @@ export async function submitCorrection(
 
   const previousValue = field === "website" ? bank.website : bank.phone;
 
-  // Re-run the same official lookups used for enrichment, in the same priority order.
-  const fdicMatch = await lookupFdicBank(bank.name);
-  const ncuaMatch = fdicMatch ? null : await lookupNcuaCreditUnion(bank.name);
-  const finraMatch = fdicMatch || ncuaMatch ? null : await lookupFinraBroker(bank.name);
+  // Same official lookups enrichment uses, in the same priority order —
+  // identifier-based whenever this bank is already linked, so a
+  // duplicate-name group can never have its correction verified against a
+  // *different* charter's official data (v8.0 §2).
+  const { fdicMatch, ncuaMatch, finraMatch } = await resolveOfficialMatch(bank);
 
   const officialValue =
     field === "website"

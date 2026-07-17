@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BankSelect, type Bank } from "@/components/BankSelect";
+import { BankSelect, type Bank, type AddBankOutcome } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { DatePicker } from "@/components/DatePicker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -108,7 +108,7 @@ export function SubmitRouteReport(props: Props) {
     }
   }
 
-  async function handleAddBank(name: string): Promise<Bank> {
+  async function handleAddBank(name: string): Promise<AddBankOutcome> {
     const result = await addBank(name);
     if ("error" in result) throw new Error(result.error);
     return result;

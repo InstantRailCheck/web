@@ -15,6 +15,23 @@ export type FdicMatch = {
   address: string | null;
 };
 
+// Unambiguous direct lookup for a bank whose fdic_cert is already known —
+// used in place of lookupFdicBank whenever a bank is already linked, so a
+// name-based re-lookup can never resolve to a *different* charter sharing
+// the same name.
+export async function lookupFdicBankByCert(cert: number): Promise<FdicMatch | null> {
+  const url = `https://api.fdic.gov/banks/institutions?filters=${encodeURIComponent(
+    `CERT:${cert}`
+  )}&fields=NAME,WEBADDR,ADDRESS,CITY,STALP,ZIP,ASSET&limit=1`;
+
+  const res = await fetchWithTimeoutAndRetry(url);
+  if (!res || !res.ok) return null;
+
+  const json: FdicApiResponse = await res.json();
+  const institution = (json.data ?? [])[0]?.data;
+  return institution ? toMatch(institution) : null;
+}
+
 export async function lookupFdicBank(name: string): Promise<FdicMatch | null> {
   // Names in our database are often product names ("American Express Rewards
   // Checking") rather than the FDIC legal entity name ("American Express

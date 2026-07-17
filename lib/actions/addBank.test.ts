@@ -8,9 +8,16 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => Promise.resolve({ auth: { getUser: getUserMock } }),
 }));
 
-let existingBankResult: { data: { id: string; slug: string; name: string } | null } = { data: null };
-const maybeSingleMock = vi.fn(() => Promise.resolve(existingBankResult));
-const eqMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
+type ExistingBankRow = {
+  id: string;
+  slug: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  source_authority: "fdic" | "ncua" | null;
+};
+let existingBankResult: { data: ExistingBankRow[] } = { data: [] };
+const eqMock = vi.fn(() => Promise.resolve(existingBankResult));
 
 let similarSlugsResult: { data: { slug: string }[] } = { data: [] };
 const ilikeMock = vi.fn(() => Promise.resolve(similarSlugsResult));
@@ -46,7 +53,7 @@ const { addBank } = await import("./addBank");
 
 beforeEach(() => {
   currentUser = { id: "user-1" };
-  existingBankResult = { data: null };
+  existingBankResult = { data: [] };
   similarSlugsResult = { data: [] };
   rpcSingleResult = { data: { id: "bank-1", slug: "test-bank", name: "Test Bank" }, error: null };
   getUserMock.mockClear();
@@ -87,12 +94,34 @@ describe("addBank", () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("returns the existing bank without calling the RPC when a name-normalized match exists", async () => {
-    existingBankResult = { data: { id: "existing-1", slug: "existing-bank", name: "Existing Bank" } };
+  it("returns the existing bank without calling the RPC when exactly one name-normalized match exists", async () => {
+    existingBankResult = {
+      data: [{ id: "existing-1", slug: "existing-bank", name: "Existing Bank", city: null, state: null, source_authority: null }],
+    };
 
     const result = await addBank("Existing Bank");
 
     expect(result).toEqual({ id: "existing-1", slug: "existing-bank", name: "Existing Bank" });
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an ambiguous result with every candidate when more than one name-normalized match exists, never inserting or picking one", async () => {
+    existingBankResult = {
+      data: [
+        { id: "bank-a", slug: "pinnacle-bank-tn", name: "Pinnacle Bank", city: "Nashville", state: "TN", source_authority: "fdic" },
+        { id: "bank-b", slug: "pinnacle-bank-ga", name: "Pinnacle Bank", city: "Elberton", state: "GA", source_authority: "fdic" },
+      ],
+    };
+
+    const result = await addBank("Pinnacle Bank");
+
+    expect(result).toEqual({
+      ambiguous: true,
+      candidates: [
+        { id: "bank-a", slug: "pinnacle-bank-tn", name: "Pinnacle Bank", city: "Nashville", state: "TN", sourceAuthority: "fdic" },
+        { id: "bank-b", slug: "pinnacle-bank-ga", name: "Pinnacle Bank", city: "Elberton", state: "GA", sourceAuthority: "fdic" },
+      ],
+    });
     expect(rpcMock).not.toHaveBeenCalled();
   });
 

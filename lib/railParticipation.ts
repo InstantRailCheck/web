@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeForSearch } from "@/lib/utils";
+import { matchInstitution, type LocationFields, type RailCandidate } from "@/lib/railParticipationMatch";
 
 export type RailParticipation = {
   fednow: boolean;
@@ -6,72 +8,65 @@ export type RailParticipation = {
   zelle: boolean;
 };
 
-export async function checkRailParticipation(name: string): Promise<RailParticipation> {
+export type BankForRailMatch = {
+  name: string;
+  city: string | null;
+  state: string | null;
+};
+
+export async function checkRailParticipation(bank: BankForRailMatch): Promise<RailParticipation> {
+  const supabase = createAdminClient();
+
+  // Every bank sharing this bank's normalized name, including itself — a
+  // group of exactly one means this isn't a duplicate-name situation at
+  // all, and matchInstitution falls back to the original name-only
+  // matching (location irrelevant).
+  const { data: siblingRows } = await supabase
+    .from("banks")
+    .select("city, state")
+    .eq("name_normalized", normalizeForSearch(bank.name));
+  const siblingLocations = (siblingRows ?? []).map((r) => ({ city: r.city, state: r.state }));
+
   const [fednow, rtp, zelle] = await Promise.all([
-    matchesTable("fednow_participants", name),
-    matchesTable("rtp_participants", name),
-    matchesTable("zelle_participants", name),
+    matchesTable(supabase, "fednow_participants", "city_state", bank, siblingLocations),
+    matchesTable(supabase, "rtp_participants", "state", bank, siblingLocations),
+    matchesTable(supabase, "zelle_participants", "none", bank, siblingLocations),
   ]);
 
   return { fednow, rtp, zelle };
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
+// One full-table fetch per rail per call rather than the original per-
+// truncation-level exact/ilike round trips — these participant lists are
+// on the same order of size as `banks` itself (low thousands), and this
+// runs on an occasional user action (adding a bank, submitting a
+// correction), never a hot path or a bulk loop (that case is
+// scripts/backfill-rail-participation.mjs's own single-prefetch design).
+// Building a targeted equivalent query would mean hand-escaping bank names
+// into a raw PostgREST .or() filter string, which is real injection/
+// parsing risk for a name containing '(', ')', or ',' — not worth it here.
 async function matchesTable(
+  supabase: ReturnType<typeof createAdminClient>,
   table: "fednow_participants" | "rtp_participants" | "zelle_participants",
-  name: string
+  locationFields: LocationFields,
+  bank: BankForRailMatch,
+  siblingLocations: Array<{ city: string | null; state: string | null }>
 ): Promise<boolean> {
-  const supabase = createAdminClient();
-  // Strip commas/periods before splitting — legal names like "Capital One,
-  // National Association" otherwise leave a trailing comma stuck to the
-  // last word of a truncated candidate ("capital one,"), which matches
-  // neither an exact nor an ilike lookup against a clean "capital one" row.
-  const words = name.replace(/[.,]/g, "").trim().split(/\s+/);
-  const floor = Math.min(2, words.length);
+  const columns =
+    locationFields === "city_state" ? "search_name, city, state" : locationFields === "state" ? "search_name, state" : "search_name";
 
-  for (let i = words.length; i >= floor; i--) {
-    const candidate = words.slice(0, i).join(" ").toLowerCase().trim();
+  const { data } = await supabase.from(table).select(columns);
+  // supabase-js infers a row shape from the select() string via a
+  // template-literal parser, which can't handle a runtime-computed
+  // column list — the three tables genuinely have different columns
+  // (zelle_participants has neither city nor state), so this can't be
+  // resolved with a literal string either. Cast through unknown, same as
+  // the underlying data's real (partial) shape below.
+  const candidates: RailCandidate[] = ((data ?? []) as unknown as Array<{ search_name: string; city?: string; state?: string }>).map((row) => ({
+    searchName: row.search_name,
+    city: row.city ?? null,
+    state: row.state ?? null,
+  }));
 
-    const { data: exact } = await supabase
-      .from(table)
-      .select("id")
-      .eq("search_name", candidate)
-      .limit(1)
-      .maybeSingle();
-
-    if (exact) return true;
-
-    // A substring match is only attempted on the complete, untruncated name
-    // — a truncated candidate like "New Haven" (from "New Haven Teachers")
-    // discards the part of the name that actually distinguishes the
-    // institution, so even a clean match (e.g. an unrelated "New Haven
-    // Bank") doesn't mean it's *this* institution.
-    if (i === words.length) {
-      const { data: partial } = await supabase
-        .from(table)
-        .select("search_name")
-        .ilike("search_name", `%${candidate}%`);
-
-      if (partial && partial.length > 0) {
-        // A raw substring match can also hit unrelated names by accident —
-        // "us bank" inside "pegasus bank", "chase" inside "purchase bank" —
-        // so require a whole-word boundary. And a word that's genuinely
-        // common ("farmers" legitimately appears in two dozen different
-        // "Farmers ___ Bank" entities) still isn't safe just because it's
-        // bounded — only trust it if it resolves to exactly one distinct
-        // institution. More than one is real ambiguity, not a match; per
-        // this project's "blank over wrong" rule, ambiguous means no match.
-        const boundary = new RegExp(`\\b${escapeRegex(candidate)}\\b`, "i");
-        const distinct = new Set(
-          partial.filter((row) => boundary.test(row.search_name)).map((row) => row.search_name)
-        );
-        if (distinct.size === 1) return true;
-      }
-    }
-  }
-
-  return false;
+  return matchInstitution(bank, siblingLocations, candidates, locationFields) === "matched";
 }

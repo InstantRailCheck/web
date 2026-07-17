@@ -25,15 +25,31 @@ export type Bank = {
   name: string;
 };
 
+export type BankCandidate = Bank & {
+  city: string | null;
+  state: string | null;
+  sourceAuthority: "fdic" | "ncua" | null;
+};
+
+export type AddBankOutcome = Bank | { ambiguous: true; candidates: BankCandidate[] };
+
+type SearchResult = Bank & { city?: string | null; state?: string | null };
+
 type BankSelectProps = {
   label: string;
   placeholder: string;
   initialBank?: Bank | null;
   onChange?: (bank: Bank | null) => void;
-  onAdd?: (name: string) => Promise<Bank>;
+  onAdd?: (name: string) => Promise<AddBankOutcome>;
   centerLabel?: boolean;
   centerText?: boolean;
 };
+
+function regulatorLabel(sourceAuthority: BankCandidate["sourceAuthority"]): string | null {
+  if (sourceAuthority === "fdic") return "FDIC";
+  if (sourceAuthority === "ncua") return "NCUA";
+  return null;
+}
 
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -51,8 +67,9 @@ export function BankSelect({
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [selectedBank, setSelectedBank] = useState<Bank | null>(initialBank);
-  const [results, setResults] = useState<Bank[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [ambiguousCandidates, setAmbiguousCandidates] = useState<BankCandidate[] | null>(null);
   const openedFetchedRef = useRef(false);
 
   // Fetches immediately the moment the popover opens (so it isn't empty on
@@ -98,11 +115,13 @@ export function BankSelect({
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) setLoading(true);
+    else setAmbiguousCandidates(null);
   }
 
   function handleSearchChange(value: string) {
     setSearch(value);
     setLoading(true);
+    setAmbiguousCandidates(null);
   }
 
   function handleSelect(bank: Bank) {
@@ -117,14 +136,27 @@ export function BankSelect({
     if (!onAdd || !search.trim()) return;
     setAdding(true);
     try {
-      const bank = await onAdd(search.trim());
-      setSelectedBank(bank);
-      onChange?.(bank);
+      const outcome = await onAdd(search.trim());
+      if ("ambiguous" in outcome) {
+        setAmbiguousCandidates(outcome.candidates);
+        return;
+      }
+      setSelectedBank(outcome);
+      onChange?.(outcome);
       setOpen(false);
       setSearch("");
     } finally {
       setAdding(false);
     }
+  }
+
+  function handleSelectCandidate(candidate: BankCandidate) {
+    const bank: Bank = { id: candidate.id, slug: candidate.slug, name: candidate.name };
+    setSelectedBank(bank);
+    onChange?.(bank);
+    setAmbiguousCandidates(null);
+    setOpen(false);
+    setSearch("");
   }
 
   return (
@@ -155,43 +187,75 @@ export function BankSelect({
           <Command className="bg-slate-950 text-white" shouldFilter={false}>
             <CommandInput placeholder="Search banks..." onValueChange={handleSearchChange} />
             <CommandList>
-              {loading && (
-                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500">
-                  <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-700 border-t-slate-400" />
-                  Searching...
+              {ambiguousCandidates ? (
+                <div className="p-1">
+                  <div className="px-2 py-1.5 text-xs text-slate-400">
+                    Multiple institutions share this name — which one?
+                  </div>
+                  {ambiguousCandidates.map((candidate) => {
+                    const regulator = regulatorLabel(candidate.sourceAuthority);
+                    const location = [candidate.city, candidate.state].filter(Boolean).join(", ");
+                    return (
+                      <button
+                        key={candidate.id}
+                        onClick={() => handleSelectCandidate(candidate)}
+                        className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-sm text-white hover:bg-slate-800"
+                      >
+                        <span>{candidate.name}</span>
+                        {(location || regulator) && (
+                          <span className="text-xs text-slate-400">
+                            {[location, regulator].filter(Boolean).join(" — ")}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+              ) : (
+                <>
+                  {loading && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500">
+                      <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-700 border-t-slate-400" />
+                      Searching...
+                    </div>
+                  )}
+                  <CommandEmpty>
+                    {!loading &&
+                      (onAdd && search.trim() ? (
+                        <button
+                          onClick={handleAdd}
+                          disabled={adding}
+                          className="flex w-full items-center gap-2 px-2 py-1.5 text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                        >
+                          {adding ? "Adding..." : `+ Add "${search.trim()}"`}
+                        </button>
+                      ) : (
+                        "No bank found."
+                      ))}
+                  </CommandEmpty>
+                </>
               )}
-              <CommandEmpty>
-                {!loading &&
-                  (onAdd && search.trim() ? (
-                    <button
-                      onClick={handleAdd}
-                      disabled={adding}
-                      className="flex w-full items-center gap-2 px-2 py-1.5 text-sm text-blue-400 hover:text-blue-300 disabled:opacity-50"
+              <CommandGroup className={cn(loading && "opacity-40", ambiguousCandidates && "hidden")}>
+                {results.map((bank) => {
+                  const location = [bank.city, bank.state].filter(Boolean).join(", ");
+                  return (
+                    <CommandItem
+                      key={bank.id}
+                      value={bank.name}
+                      onSelect={() => handleSelect(bank)}
+                      className="text-white aria-selected:bg-slate-800"
                     >
-                      {adding ? "Adding..." : `+ Add "${search.trim()}"`}
-                    </button>
-                  ) : (
-                    "No bank found."
-                  ))}
-              </CommandEmpty>
-              <CommandGroup className={cn(loading && "opacity-40")}>
-                {results.map((bank) => (
-                  <CommandItem
-                    key={bank.id}
-                    value={bank.name}
-                    onSelect={() => handleSelect(bank)}
-                    className="text-white aria-selected:bg-slate-800"
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedBank?.id === bank.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {bank.name}
-                  </CommandItem>
-                ))}
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedBank?.id === bank.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {bank.name}
+                      {location && <span className="ml-2 text-xs text-slate-500">{location}</span>}
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>

@@ -10,7 +10,19 @@ import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { getUserModerationStatus } from "@/lib/moderationStatus";
 
-export type AddBankResult = { id: string; slug: string; name: string } | { error: string };
+export type BankCandidate = {
+  id: string;
+  slug: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  sourceAuthority: "fdic" | "ncua" | null;
+};
+
+export type AddBankResult =
+  | { id: string; slug: string; name: string }
+  | { ambiguous: true; candidates: BankCandidate[] }
+  | { error: string };
 
 // The single authenticated entry point for adding a bank from the client.
 // Previously the client inserted into `banks` directly (relying on an RLS
@@ -48,13 +60,33 @@ export async function addBank(name: string): Promise<AddBankResult> {
   // National Association" row instead of creating a duplicate. Doesn't
   // catch a short/casual name ("US Bank") against a full legal name - that's
   // a fuzzy-matching problem, not a punctuation one; still a real gap.
-  const { data: existing } = await admin
+  // .maybeSingle() previously errored the moment two banks legitimately
+  // shared a normalized name (a real, permitted case since v8.0) — a
+  // plain array query and explicit 0/1/many branching handles that
+  // instead of silently falling through to create a third duplicate.
+  const { data: existingRows } = await admin
     .from("banks")
-    .select("id, slug, name")
-    .eq("name_normalized", normalizeForSearch(trimmed))
-    .maybeSingle();
+    .select("id, slug, name, city, state, source_authority")
+    .eq("name_normalized", normalizeForSearch(trimmed));
 
-  if (existing) return existing;
+  if (existingRows && existingRows.length === 1) {
+    const { id, slug, name: existingName } = existingRows[0];
+    return { id, slug, name: existingName };
+  }
+
+  if (existingRows && existingRows.length > 1) {
+    return {
+      ambiguous: true,
+      candidates: existingRows.map((b) => ({
+        id: b.id,
+        slug: b.slug,
+        name: b.name,
+        city: b.city,
+        state: b.state,
+        sourceAuthority: b.source_authority,
+      })),
+    };
+  }
 
   const baseSlug = slugify(trimmed);
   const { data: similarSlugs } = await admin

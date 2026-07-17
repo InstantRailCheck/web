@@ -1,8 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { lookupFdicBank } from "@/lib/fdicLookup";
-import { lookupNcuaCreditUnion } from "@/lib/ncuaLookup";
-import { lookupFinraBroker } from "@/lib/finraLookup";
+import { resolveOfficialMatch } from "@/lib/officialInstitutionMatch";
 import { checkRailParticipation } from "@/lib/railParticipation";
 
 // Plain server-only function, not a Server Action — its only legitimate
@@ -14,19 +12,17 @@ import { checkRailParticipation } from "@/lib/railParticipation";
 // bankId here instead closes that off at the signature level.
 export async function enrichBank(bankId: string) {
   const admin = createAdminClient();
-  const { data: bank } = await admin.from("banks").select("name").eq("id", bankId).maybeSingle();
+  const { data: bank } = await admin
+    .from("banks")
+    .select("name, city, state, fdic_cert, ncua_charter_number")
+    .eq("id", bankId)
+    .maybeSingle();
   if (!bank) return;
-  const bankName = bank.name;
 
-  const [fdicMatch, ncuaMatchPromise, finraMatchPromise, railParticipation] = await Promise.all([
-    lookupFdicBank(bankName),
-    lookupNcuaCreditUnion(bankName),
-    lookupFinraBroker(bankName),
-    checkRailParticipation(bankName),
+  const [{ fdicMatch, ncuaMatch, finraMatch }, railParticipation] = await Promise.all([
+    resolveOfficialMatch(bank),
+    checkRailParticipation(bank),
   ]);
-
-  const ncuaMatch = fdicMatch ? null : ncuaMatchPromise;
-  const finraMatch = fdicMatch || ncuaMatch ? null : finraMatchPromise;
 
   const website = fdicMatch?.website ?? ncuaMatch?.website ?? null;
   const address = fdicMatch?.address ?? ncuaMatch?.address ?? finraMatch?.address ?? null;

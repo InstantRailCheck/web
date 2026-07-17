@@ -1,41 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
+import { matchInstitution } from "../lib/railParticipationMatch.ts";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// Same word-boundary + uniqueness-of-1 matching as before, but operating on
-// an in-memory Set of search_names instead of issuing a DB round-trip per
-// truncation level per table per bank. The original DB-query version does
-// roughly banks x tables x truncation-levels network calls — for ~4,700
-// banks that's on the order of tens of thousands of sequential round-trips,
-// which made this take hours once it started running unattended on a cron
-// instead of occasionally by hand. Matching semantics are unchanged.
-function matchesSet(name, searchNames) {
-  const words = name.replace(/[.,]/g, "").trim().split(/\s+/);
-  const floor = Math.min(2, words.length);
-
-  for (let i = words.length; i >= floor; i--) {
-    const candidate = words.slice(0, i).join(" ").toLowerCase().trim();
-
-    if (searchNames.has(candidate)) return true;
-
-    if (i === words.length) {
-      const boundary = new RegExp(`\\b${escapeRegex(candidate)}\\b`, "i");
-      const distinct = new Set();
-      for (const sn of searchNames) {
-        if (boundary.test(sn)) distinct.add(sn);
-      }
-      if (distinct.size === 1) return true;
-    }
-  }
-
-  return false;
+// Matches lib/utils.ts's normalizeForSearch and the banks.name_normalized
+// generated column exactly — not imported directly because lib/utils.ts
+// pulls in other modules via the "@/" path alias, which plain Node (no
+// bundler) can't resolve the way lib/railParticipationMatch.ts (zero
+// dependencies) can.
+function normalizeForSearch(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 async function fetchAllRows(table, columns, orderBy) {
@@ -56,27 +33,54 @@ async function fetchAllRows(table, columns, orderBy) {
 }
 
 async function main() {
-  console.log("Loading participant lists...");
+  console.log("Loading participant lists and banks...");
   const [fednowRows, rtpRows, zelleRows, banks] = await Promise.all([
-    fetchAllRows("fednow_participants", "search_name", "id"),
-    fetchAllRows("rtp_participants", "search_name", "id"),
+    fetchAllRows("fednow_participants", "search_name, city, state", "id"),
+    fetchAllRows("rtp_participants", "search_name, state", "id"),
     fetchAllRows("zelle_participants", "search_name", "id"),
-    fetchAllRows("banks", "id, name, fednow_participant, rtp_participant, zelle_participant", "id"),
+    fetchAllRows(
+      "banks",
+      "id, name, city, state, name_normalized, fednow_participant, rtp_participant, zelle_participant",
+      "id"
+    ),
   ]);
 
-  const fednowSet = new Set(fednowRows.map((r) => r.search_name));
-  const rtpSet = new Set(rtpRows.map((r) => r.search_name));
-  const zelleSet = new Set(zelleRows.map((r) => r.search_name));
+  const fednowCandidates = fednowRows.map((r) => ({ searchName: r.search_name, city: r.city, state: r.state }));
+  const rtpCandidates = rtpRows.map((r) => ({ searchName: r.search_name, state: r.state }));
+  const zelleCandidates = zelleRows.map((r) => ({ searchName: r.search_name }));
+
+  // Every bank sharing a normalized name is a duplicate-name group of its
+  // own siblings, including itself — computed once for the whole batch
+  // rather than once per bank per rail.
+  const siblingsByNormalizedName = new Map();
+  for (const bank of banks) {
+    const key = bank.name_normalized ?? normalizeForSearch(bank.name);
+    const list = siblingsByNormalizedName.get(key) ?? [];
+    list.push({ city: bank.city, state: bank.state });
+    siblingsByNormalizedName.set(key, list);
+  }
 
   console.log(`Processing ${banks.length} bank(s).`);
 
   let updated = 0;
+  let ambiguous = 0;
   for (const bank of banks) {
+    const siblingLocations = siblingsByNormalizedName.get(bank.name_normalized ?? normalizeForSearch(bank.name)) ?? [bank];
+
+    const fednowResult = matchInstitution(bank, siblingLocations, fednowCandidates, "city_state");
+    const rtpResult = matchInstitution(bank, siblingLocations, rtpCandidates, "state");
+    const zelleResult = matchInstitution(bank, siblingLocations, zelleCandidates, "none");
+
+    if (fednowResult === "ambiguous" || rtpResult === "ambiguous" || zelleResult === "ambiguous") {
+      ambiguous++;
+    }
+
     // Never downgrade an already-true flag — a positive confirmation (even
-    // a manual one) outweighs an absence in a source that can be incomplete.
-    const fednow = bank.fednow_participant || matchesSet(bank.name, fednowSet);
-    const rtp = bank.rtp_participant || matchesSet(bank.name, rtpSet);
-    const zelle = bank.zelle_participant || matchesSet(bank.name, zelleSet);
+    // a manual one) outweighs an absence in a source that can be
+    // incomplete. "ambiguous" never sets or clears a flag either way.
+    const fednow = bank.fednow_participant || fednowResult === "matched";
+    const rtp = bank.rtp_participant || rtpResult === "matched";
+    const zelle = bank.zelle_participant || zelleResult === "matched";
 
     if (
       fednow === bank.fednow_participant &&
@@ -99,7 +103,7 @@ async function main() {
     }
   }
 
-  console.log(`Done. Updated ${updated}/${banks.length} bank(s).`);
+  console.log(`Done. Updated ${updated}/${banks.length} bank(s). ${ambiguous} bank(s) had at least one ambiguous (unresolved) rail match.`);
 }
 
 main().catch((err) => {
