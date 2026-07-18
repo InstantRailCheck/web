@@ -1,4 +1,8 @@
-import { slugify, uniqueSlug } from "@/lib/slugify";
+// Relative import, not the "@/" alias — lib/institutionSync.ts (in turn
+// imported directly by scripts/sync-institution-directory.mjs via Node's
+// native TypeScript stripping) depends on this file, and plain node can't
+// resolve Next.js's path alias.
+import { slugify, uniqueSlug } from "./slugify.ts";
 
 // v8.0 §9: a bare slugify(name) collision used to fall through straight to
 // uniqueSlug's numeric suffix (pinnacle-bank-2, pinnacle-bank-3, ...) —
