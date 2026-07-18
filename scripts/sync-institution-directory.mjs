@@ -180,6 +180,20 @@ async function computeBaseHash(sourceScope) {
   return data;
 }
 
+// Unconditional — every bank's id+slug, not scoped to source_authority.
+// fetchAllBanksInScope reads and reserves slugs (usedSlugs) against EVERY
+// bank, linked or not, in or out of this run's own scope — so
+// base_snapshot_hash alone (scoped to linked banks in-scope) can't catch a
+// slug-affecting write to an unlinked or out-of-scope bank during the
+// paginated read. A real collision would still be caught by the database's
+// own UNIQUE constraint at apply time, but this catches the drift itself,
+// up front, rather than only tolerating its worst-case symptom.
+async function computeAllSlugsHash() {
+  const { data, error } = await supabase.rpc("compute_all_bank_slugs_hash", {});
+  if (error) throw error;
+  return data;
+}
+
 // Fields finalize_sync_run can actually change on an existing bank —
 // mirrors its own jsonb-equality comparison as closely as JS reasonably
 // can, so the report's "would this row actually change anything" preview
@@ -301,17 +315,31 @@ async function doStage(sourceScope, runId) {
   // it (slug reuse, the inactivation-cap estimate, the diff itself) would
   // be unreliable. Aborting and requiring a fresh run is simpler and safer
   // than trying to reconcile a partial read.
-  console.log("Computing base_snapshot_hash before reading banks...");
+  //
+  // Two separate hashes, not one: base_snapshot_hash only covers linked
+  // banks within THIS run's own scope, but fetchAllBanksInScope reads (and
+  // reserves slugs against) every bank regardless of linkage or scope —
+  // compute_all_bank_slugs_hash covers that wider surface so a slug-
+  // affecting write elsewhere during the read is caught too, not just
+  // drift within the narrower scope base_snapshot_hash already protects.
+  console.log("Computing base_snapshot_hash and the all-bank slug hash before reading banks...");
   const hashBefore = await computeBaseHash(sourceScope);
+  const slugsHashBefore = await computeAllSlugsHash();
 
   console.log("Loading existing banks for slug/identifier context...");
   const existingBanks = await fetchAllBanksInScope();
 
-  console.log("Re-computing base_snapshot_hash after the read to confirm nothing changed mid-read...");
+  console.log("Re-computing both hashes after the read to confirm nothing changed mid-read...");
   const hashAfter = await computeBaseHash(sourceScope);
   if (hashBefore !== hashAfter) {
     throw new Error(
-      "banks state changed while this run was reading existing banks (before/after hash mismatch) — the read may be a mixed snapshot. Aborting; re-run staging."
+      "banks state changed while this run was reading existing banks (before/after base_snapshot_hash mismatch) — the read may be a mixed snapshot. Aborting; re-run staging."
+    );
+  }
+  const slugsHashAfter = await computeAllSlugsHash();
+  if (slugsHashBefore !== slugsHashAfter) {
+    throw new Error(
+      "a bank's slug changed somewhere while this run was reading existing banks (before/after slug hash mismatch) — proposed_slug decisions may be unreliable. Aborting; re-run staging."
     );
   }
   const baseHash = hashAfter;
@@ -569,6 +597,19 @@ async function apply(runId, allowLargeInactivation) {
   console.log(`  reactivated: ${result.reactivated}`);
   console.log(`  inactivated: ${result.inactivated}`);
   console.log(`  reappeared (manually inactive, left untouched): ${result.reappeared_manually_inactive}`);
+
+  // finalize_sync_run never touches fednow_participant/rtp_participant/
+  // zelle_participant — rail enrichment is a genuinely separate pipeline
+  // (scripts/backfill-rail-participation.mjs), and --apply is not yet
+  // wired to trigger it automatically. Any newly inserted institution
+  // above starts with all three flags null until that's run explicitly.
+  if (result.inserted > 0) {
+    console.log(
+      `\n${result.inserted} newly inserted institution(s) have no rail-participation data yet (fednow/rtp/zelle_participant all null).\n` +
+        `Run next, in order: refresh the participant sources (scripts/sync-rail-participants.mjs, scripts/sync-zelle-participants.mjs) if they haven't run recently, ` +
+        `then node scripts/backfill-rail-participation.mjs, then scripts/audit-duplicate-name-rail-flags.mjs to review anything left ambiguous.`
+    );
+  }
 }
 
 async function main() {

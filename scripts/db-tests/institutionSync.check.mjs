@@ -435,6 +435,34 @@ async function main() {
         assert(/does not match what was reviewed/i.test(error?.message ?? ""), `error message names the count mismatch (got: ${error?.message})`);
       }
 
+      console.log("  catches a compensating cross-authority count error a combined sum check would miss");
+      {
+        const ncuaCharter = nextCert();
+        await insertNcuaCreditUnion(ncuaCharter);
+        const runId = await createRun("both");
+        // 2 fdic rows + 1 ncua row staged (3 total), but recorded as
+        // fdic=1/ncua=2 — the SUM still matches (3), so only a per-
+        // authority check (not the old combined-total one) can catch this.
+        await stageInstitutions(runId, [
+          { source_authority: "fdic", source_identifier: nextCert(), status: "valid", name: "Fdic One", proposed_slug: "unused" },
+          { source_authority: "fdic", source_identifier: nextCert(), status: "valid", name: "Fdic Two", proposed_slug: "unused" },
+          { source_authority: "ncua", source_identifier: ncuaCharter, status: "valid", name: "Ncua One", proposed_slug: "unused" },
+        ]);
+        const { data: baseHash } = await admin.rpc("compute_banks_base_snapshot_hash", { p_source_scope: "both" });
+        const { data: stagingHash } = await admin.rpc("compute_staging_snapshot_hash", { p_run_id: runId });
+        await transition(runId, "running", "staged", {
+          base_snapshot_hash: baseHash,
+          source_snapshot_hash: stagingHash,
+          fdic_collected_count: 1,
+          ncua_collected_count: 2,
+        });
+        await transition(runId, "staged", "applying");
+
+        const { error } = await admin.rpc("finalize_sync_run", { p_run_id: runId });
+        assert(error?.code === "P0001", `rejected despite the combined total matching (got code ${error?.code}: ${error?.message})`);
+        assert(/staged fdic row/i.test(error?.message ?? ""), `error message specifically names the fdic mismatch (got: ${error?.message})`);
+      }
+
       console.log("  rejects a run whose staging rows changed since they were reviewed (source_snapshot_hash mismatch)");
       {
         const runId = await createRun("fdic");

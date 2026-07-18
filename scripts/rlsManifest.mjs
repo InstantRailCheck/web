@@ -159,6 +159,14 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // — proves the staged rows finalize_sync_run is about to apply are still
   // exactly what was staged/reviewed, not just that `banks` hasn't drifted.
   compute_staging_snapshot_hash: ["service_role"],
+  // Code review finding (post-v8.3.2): covers every bank's id+slug
+  // unconditionally (not scoped to source_authority) — the staging script
+  // reads and reserves slugs against ALL banks, not just linked ones in
+  // its own scope, so base_snapshot_hash alone can't catch a slug-
+  // affecting write to an unlinked or out-of-scope bank during the
+  // paginated read. Only ever compared before/after within one staging
+  // run; never persisted to sync_runs.
+  compute_all_bank_slugs_hash: ["service_role"],
   // v8.0 §5: invoked only from scripts/apply-reconciliation.mjs after that
   // script's own live re-corroboration check — never from client code.
   apply_bank_reconciliation: ["service_role"],

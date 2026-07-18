@@ -135,3 +135,19 @@ export function matchInstitution(
   const withLocation = nameMatches.filter((c) => locationsEqual(bank, c, locationFields));
   return withLocation.length > 0 ? "matched" : "ambiguous";
 }
+
+// Turns a MatchResult into the flag value that should actually be written
+// — pulled out of scripts/backfill-rail-participation.mjs so it's directly
+// unit-testable (its previous inline form, `current || result === "matched"`,
+// silently coerced a genuinely-unknown null into a confident false the
+// moment a result was merely "ambiguous", asserting non-participation the
+// matcher never actually confirmed; that bug went unnoticed for lack of a
+// test exactly like the ones below). "ambiguous" must leave whatever is
+// already there untouched — null stays null, an existing false or true is
+// preserved exactly, not just "not downgraded from true."
+export function resolveRailFlag(current: boolean | null, result: MatchResult): boolean | null {
+  if (current === true) return true;
+  if (result === "matched") return true;
+  if (result === "ambiguous") return current;
+  return false;
+}

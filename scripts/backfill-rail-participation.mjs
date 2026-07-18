@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { matchInstitution } from "../lib/railParticipationMatch.ts";
+import { matchInstitution, resolveRailFlag } from "../lib/railParticipationMatch.ts";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -75,12 +75,9 @@ async function main() {
       ambiguous++;
     }
 
-    // Never downgrade an already-true flag — a positive confirmation (even
-    // a manual one) outweighs an absence in a source that can be
-    // incomplete. "ambiguous" never sets or clears a flag either way.
-    const fednow = bank.fednow_participant || fednowResult === "matched";
-    const rtp = bank.rtp_participant || rtpResult === "matched";
-    const zelle = bank.zelle_participant || zelleResult === "matched";
+    const fednow = resolveRailFlag(bank.fednow_participant, fednowResult);
+    const rtp = resolveRailFlag(bank.rtp_participant, rtpResult);
+    const zelle = resolveRailFlag(bank.zelle_participant, zelleResult);
 
     if (
       fednow === bank.fednow_participant &&

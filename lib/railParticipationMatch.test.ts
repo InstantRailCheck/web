@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchInstitution } from "./railParticipationMatch";
+import { matchInstitution, resolveRailFlag } from "./railParticipationMatch";
 
 describe("matchInstitution", () => {
   it("matches a non-duplicate bank on name alone, location irrelevant", () => {
@@ -70,5 +70,28 @@ describe("matchInstitution", () => {
       { searchName: "pinnacle bank", city: "Springfield", state: "IL" },
     ];
     expect(matchInstitution(bank, siblings, candidates, "city_state")).toBe("matched");
+  });
+});
+
+describe("resolveRailFlag", () => {
+  it("never downgrades an already-true flag, regardless of this run's result", () => {
+    expect(resolveRailFlag(true, "matched")).toBe(true);
+    expect(resolveRailFlag(true, "ambiguous")).toBe(true);
+    expect(resolveRailFlag(true, "no_match")).toBe(true);
+  });
+
+  it("sets a confident true on a match", () => {
+    expect(resolveRailFlag(null, "matched")).toBe(true);
+    expect(resolveRailFlag(false, "matched")).toBe(true);
+  });
+
+  it("an ambiguous result leaves the current value completely untouched — including null", () => {
+    expect(resolveRailFlag(null, "ambiguous")).toBeNull();
+    expect(resolveRailFlag(false, "ambiguous")).toBe(false);
+  });
+
+  it("a genuine no_match sets false only when not already true", () => {
+    expect(resolveRailFlag(null, "no_match")).toBe(false);
+    expect(resolveRailFlag(false, "no_match")).toBe(false);
   });
 });
