@@ -147,23 +147,25 @@ describe("checkInactivationCap", () => {
     expect(checkInactivationCap("fdic", 10, 4000).exceeded).toBe(false);
   });
 
-  it("exceeds when over the absolute cap even though the relative cap would allow more", () => {
-    // 2% of 10,000 is 200, so the relative cap alone would allow 51 — the
-    // absolute cap of 50 must still be respected as a floor-level trigger
-    // only when it's the LARGER of the two, so use a small population here
-    // where the absolute cap (50) is actually the binding constraint.
-    expect(checkInactivationCap("fdic", 51, 1000).exceeded).toBe(true);
+  it("exceeds when over the absolute cap even in a huge population where the relative cap alone would allow far more", () => {
+    // 2% of 10,000 is 200 — the relative cap alone would never catch 51 —
+    // but the absolute floor of 50 must still mean something regardless of
+    // population size, so this trips anyway.
+    expect(checkInactivationCap("fdic", 51, 10000).exceeded).toBe(true);
   });
 
-  it("the relative cap can only ever be MORE generous than the absolute floor, never less — a small population always falls back to the absolute cap of 50", () => {
-    // 2% of 100 is 2, well under the absolute cap of 50 — the effective
-    // cap here is still 50 (the larger of the two), so 30 does not exceed.
-    expect(checkInactivationCap("fdic", 30, 100).exceeded).toBe(false);
+  it("exceeds when over the relative cap even though under the absolute cap, in a small population", () => {
+    // 2% of 100 is 2 — 5 is well under the absolute cap of 50, but clears
+    // the tighter relative cap for a small population.
+    expect(checkInactivationCap("fdic", 5, 100).exceeded).toBe(true);
   });
 
-  it("uses whichever cap is larger, not whichever is smaller", () => {
-    // Large population: 2% of 10,000 = 200, larger than the absolute cap
-    // of 50 — 100 inactivations should NOT exceed here.
-    expect(checkInactivationCap("fdic", 100, 10000).exceeded).toBe(false);
+  it("passes at exactly the absolute cap boundary", () => {
+    expect(checkInactivationCap("fdic", 50, 10000).exceeded).toBe(false);
+  });
+
+  it("passes at exactly the relative cap boundary", () => {
+    // 2% of 100 is 2 — exactly 2 does not exceed.
+    expect(checkInactivationCap("fdic", 2, 100).exceeded).toBe(false);
   });
 });

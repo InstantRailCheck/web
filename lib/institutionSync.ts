@@ -217,8 +217,13 @@ export function checkRetentionGuard(
 
 // Non-fatal — an unusually large inactivation batch is worth a human's
 // explicit attention, but not an automatic hard stop the way the guards
-// above are. Exceeding either the absolute or the relative cap requires
-// --allow-large-inactivation on apply; it never blocks staging itself.
+// above are. Exceeding EITHER threshold independently trips this (not
+// "whichever allowance is more generous") — the absolute floor of ~50 is
+// meant to mean something regardless of population size; a purely
+// relative-or-greater reading would make it irrelevant for any scope over
+// ~2,500 active institutions, which defeats the point of stating an
+// absolute number at all. Requires --allow-large-inactivation on apply;
+// it never blocks staging itself.
 export interface InactivationCapResult {
   exceeded: boolean;
   message: string;
@@ -232,12 +237,16 @@ export function checkInactivationCap(
   relativeCap = 0.02
 ): InactivationCapResult {
   const relativeThreshold = Math.ceil(activeInScopeCount * relativeCap);
-  const cap = Math.max(absoluteCap, relativeThreshold);
-  if (wouldInactivateCount <= cap) {
-    return { exceeded: false, message: `${source}: ${wouldInactivateCount} would be inactivated, within the cap of ${cap}` };
+  const exceededAbsolute = wouldInactivateCount > absoluteCap;
+  const exceededRelative = wouldInactivateCount > relativeThreshold;
+  if (!exceededAbsolute && !exceededRelative) {
+    return {
+      exceeded: false,
+      message: `${source}: ${wouldInactivateCount} would be inactivated, within both the absolute cap of ${absoluteCap} and the relative cap of ${relativeThreshold} (${(relativeCap * 100).toFixed(0)}% of ${activeInScopeCount} active)`,
+    };
   }
   return {
     exceeded: true,
-    message: `${source}: ${wouldInactivateCount} would be inactivated, exceeding the cap of ${cap} (absolute ${absoluteCap} / relative ${(relativeCap * 100).toFixed(0)}% of ${activeInScopeCount} active)`,
+    message: `${source}: ${wouldInactivateCount} would be inactivated, exceeding the ${exceededAbsolute ? `absolute cap of ${absoluteCap}` : `relative cap of ${relativeThreshold} (${(relativeCap * 100).toFixed(0)}% of ${activeInScopeCount} active)`}`,
   };
 }

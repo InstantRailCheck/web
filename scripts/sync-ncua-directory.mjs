@@ -121,6 +121,8 @@ async function main() {
     branchByCharter.set(row.CU_NUMBER, {
       address: address || null,
       phone: row.PhoneNumber || null,
+      city: row.PhysicalAddressCity || null,
+      state: row.PhysicalAddressStateCode || null,
     });
   }
 
@@ -187,6 +189,8 @@ async function main() {
       website: websiteByCharter.get(charterNumber) ?? null,
       address: branch?.address ?? null,
       phone: branch?.phone ?? null,
+      city: branch?.city ?? null,
+      state: branch?.state ?? null,
       total_assets: totalAssetsByCharter.get(charterNumber) ?? null,
       updated_at: new Date().toISOString(),
       last_seen_sync_id: syncLogId,

@@ -128,7 +128,7 @@ async function fetchNcuaCandidates(latestLogId) {
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("ncua_credit_unions")
-      .select("charter_number, name, website, address, phone, total_assets, search_names")
+      .select("charter_number, name, website, address, phone, city, state, total_assets, search_names")
       .eq("last_seen_sync_id", latestLogId)
       .order("charter_number", { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -144,8 +144,8 @@ function ncuaRecordToSourceInstitution(row) {
     sourceAuthority: "ncua",
     identifier: row.charter_number,
     name: row.name,
-    city: null, // ncua_credit_unions doesn't carry a separate city column
-    state: null,
+    city: row.city,
+    state: row.state,
     website: row.website,
     phone: row.phone,
     address: row.address,
@@ -222,6 +222,27 @@ async function stage(sourceScope) {
   const runId = run.id;
   console.log(`Run id: ${runId}`);
 
+  // Everything below can fail partway through (a network blip fetching
+  // ~8,500 records, a chunked insert failing on chunk 6 of 9) and would
+  // otherwise leave this run stuck at status='running' forever, possibly
+  // with a partial set of staging rows and no record of why. Any failure
+  // here is reported as a real 'failed' run, the same way an apply-time
+  // failure already was, rather than an orphaned row a human has to
+  // notice and diagnose from scratch.
+  try {
+    await doStage(sourceScope, runId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`\nStaging failed: ${message}`);
+    const failedOk = await transition(runId, "running", "failed", { guard_reason: message.slice(0, 500), finished_at: new Date().toISOString() });
+    if (!failedOk) {
+      console.error(`Could not mark run ${runId} as failed — it may have already transitioned. Check its actual status directly.`);
+    }
+    throw err;
+  }
+}
+
+async function doStage(sourceScope, runId) {
   console.log("Fetching all active FDIC institutions...");
   const { rows: fdicRaw, sourceTotal: fdicSourceTotal } = await fetchAllFdicInstitutions();
   const fdicRecords = fdicRaw.map(fdicRecordToSourceInstitution);
@@ -246,6 +267,20 @@ async function stage(sourceScope) {
 
   console.log("Loading existing banks for slug/identifier context...");
   const existingBanks = await fetchAllBanksInScope();
+
+  // Computed immediately after the read this whole run's diff is based
+  // on — not after building/staging the diff, which can take a while
+  // (paginated fetches, chunked inserts) and would otherwise leave a
+  // window where a concurrent production write is invisible to both this
+  // script's own decisions (slug reuse, the inactivation-cap estimate)
+  // AND to the drift check, since that only compares against whatever
+  // moment the hash itself was captured at. Capturing it here, at the
+  // same moment as the read, means ANY change from this point through to
+  // apply time is caught.
+  console.log("Computing base_snapshot_hash against the exact banks state this diff is built from...");
+  const { data: baseHash, error: hashError } = await supabase.rpc("compute_banks_base_snapshot_hash", { p_source_scope: sourceScope });
+  if (hashError) throw hashError;
+
   const usedSlugs = new Set(existingBanks.map((b) => b.slug));
   const existingLinked = existingBanks
     .filter((b) => (b.source_authority === "fdic" && b.fdic_cert !== null) || (b.source_authority === "ncua" && b.ncua_charter_number !== null))
@@ -254,6 +289,15 @@ async function stage(sourceScope) {
       identifier: b.source_authority === "fdic" ? b.fdic_cert : b.ncua_charter_number,
       slug: b.slug,
     }));
+  // Keyed the same way as buildStagingRows internally, so the report can
+  // classify each valid row as "new insert" vs. "update to an existing
+  // bank" for real review — finalize_sync_run alone knows the true
+  // insert/update/unchanged split (it does its own live lookup at apply
+  // time), so this is a preview, not a guarantee of what will happen.
+  const existingBankByKey = new Map(existingBanks.filter((b) => b.id).map((b) => [
+    `${b.source_authority}:${b.source_authority === "fdic" ? b.fdic_cert : b.ncua_charter_number}`,
+    b,
+  ]));
 
   console.log("Building staging rows (duplicate-identifier detection, slug assignment)...");
   const fdicStagingRows = buildStagingRows(fdicRecords, existingLinked, usedSlugs);
@@ -321,10 +365,6 @@ async function stage(sourceScope) {
   console.log(`Staging ${allStagingRows.length} row(s)...`);
   await chunkedInsert("sync_staging_institutions", allStagingRows.map((r) => ({ run_id: runId, ...r })));
 
-  console.log("Computing base_snapshot_hash...");
-  const { data: baseHash, error: hashError } = await supabase.rpc("compute_banks_base_snapshot_hash", { p_source_scope: sourceScope });
-  if (hashError) throw hashError;
-
   const stagedOk = await transition(runId, "running", "staged", {
     ...countUpdate,
     base_snapshot_hash: baseHash,
@@ -354,16 +394,36 @@ async function stage(sourceScope) {
   ];
   await printAndSummarize(summaryLines);
 
+  // The actual reviewable diff — every valid row classified as a new
+  // insert vs. an update to a specific existing bank (by id/slug/current
+  // name), not just the rejected rows. This is a preview computed from the
+  // same existingBanks snapshot the run was staged against; the true
+  // insert/update/unchanged split is only known for certain when
+  // finalize_sync_run runs its own live lookup at apply time.
+  const insertRows = [];
+  const updateRows = [];
+  for (const row of allStagingRows) {
+    if (row.status !== "valid") continue;
+    const existing = existingBankByKey.get(`${row.source_authority}:${row.source_identifier}`);
+    if (existing) {
+      updateRows.push({ ...row, existingBankId: existing.id, existingBankSlug: existing.slug });
+    } else {
+      insertRows.push(row);
+    }
+  }
+
   const reportPath = await writeReport(`institution-sync-${runId}.json`, {
     runId,
     sourceScope,
     stagedAt: new Date().toISOString(),
-    counts: { ...countUpdate, wouldInactivateFdic, wouldInactivateNcua },
+    counts: { ...countUpdate, wouldInactivateFdic, wouldInactivateNcua, previewInsertCount: insertRows.length, previewUpdateCount: updateRows.length },
     rejectReasonCounts,
     capExceeded,
+    insertRows,
+    updateRows,
     rejectedRows: allStagingRows.filter((r) => r.status === "rejected"),
   });
-  console.log(`\nFull staging report (rejected rows only, to keep it reviewable) written to ${reportPath}`);
+  console.log(`\nFull staging report (every row — inserts, updates, and rejects) written to ${reportPath}`);
 }
 
 async function apply(runId, allowLargeInactivation) {

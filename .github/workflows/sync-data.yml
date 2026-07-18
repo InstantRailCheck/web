@@ -108,6 +108,18 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # The report is the only way to actually review a staged run's real
+      # diff before approving --apply — it's real institution data, so it
+      # goes to a private workflow artifact, never committed or logged in
+      # full. `if: always()` so a guard_blocked run's (smaller) report
+      # still uploads even though the step above technically "failed"
+      # (non-zero exit).
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: institution-sync-report-fdic-${{ github.run_id }}
+          path: scripts/reports/institution-sync-*.json
+          retention-days: 90
 
   # Same-run job, not a separate cron-triggered run — shares
   # sync-ncua-and-assets's trigger via `needs:` so the NCUA reference sync
@@ -135,3 +147,9 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: institution-sync-report-full-${{ github.run_id }}
+          path: scripts/reports/institution-sync-*.json
+          retention-days: 90
