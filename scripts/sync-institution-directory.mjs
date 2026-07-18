@@ -154,13 +154,17 @@ function ncuaRecordToSourceInstitution(row) {
   };
 }
 
+// Full field set, not just id/slug/identifiers — a real reviewable diff
+// needs the CURRENT value of every field finalize_sync_run can change, so
+// the report can show before/after per field rather than just labeling
+// every matched row "update" with no way to tell what actually changes.
 async function fetchAllBanksInScope() {
   const pageSize = 1000;
   const rows = [];
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("banks")
-      .select("id, slug, source_authority, fdic_cert, ncua_charter_number, is_active")
+      .select("id, slug, name, city, state, website, phone, address, total_assets, aka_names, source_authority, fdic_cert, ncua_charter_number, is_active, inactive_reason")
       .order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
@@ -168,6 +172,29 @@ async function fetchAllBanksInScope() {
     if (data.length < pageSize) break;
   }
   return rows;
+}
+
+async function computeBaseHash(sourceScope) {
+  const { data, error } = await supabase.rpc("compute_banks_base_snapshot_hash", { p_source_scope: sourceScope });
+  if (error) throw error;
+  return data;
+}
+
+// Fields finalize_sync_run can actually change on an existing bank —
+// mirrors its own jsonb-equality comparison as closely as JS reasonably
+// can, so the report's "would this row actually change anything" preview
+// agrees with what apply time will really do.
+const DIFF_FIELDS = ["name", "city", "state", "website", "phone", "address", "total_assets", "aka_names"];
+function computeChangedFields(existing, staged) {
+  const changed = {};
+  for (const field of DIFF_FIELDS) {
+    const before = existing[field] ?? null;
+    const after = staged[field] ?? null;
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      changed[field] = { before, after };
+    }
+  }
+  return changed;
 }
 
 async function previousAppliedCount(column) {
@@ -265,21 +292,29 @@ async function doStage(sourceScope, runId) {
     console.log(`Loaded ${ncuaRecords.length} NCUA credit union(s) confirmed by the latest sync (closures already excluded).`);
   }
 
+  // Hashed both immediately before AND immediately after the paginated
+  // read (fetchAllBanksInScope makes several separate requests — it is
+  // NOT one atomic snapshot). If the two disagree, something wrote to
+  // `banks` while this run was reading it, meaning the in-memory
+  // existingBanks array could be a mixed snapshot (some rows reflect the
+  // state before that write, some after) — every decision built on top of
+  // it (slug reuse, the inactivation-cap estimate, the diff itself) would
+  // be unreliable. Aborting and requiring a fresh run is simpler and safer
+  // than trying to reconcile a partial read.
+  console.log("Computing base_snapshot_hash before reading banks...");
+  const hashBefore = await computeBaseHash(sourceScope);
+
   console.log("Loading existing banks for slug/identifier context...");
   const existingBanks = await fetchAllBanksInScope();
 
-  // Computed immediately after the read this whole run's diff is based
-  // on — not after building/staging the diff, which can take a while
-  // (paginated fetches, chunked inserts) and would otherwise leave a
-  // window where a concurrent production write is invisible to both this
-  // script's own decisions (slug reuse, the inactivation-cap estimate)
-  // AND to the drift check, since that only compares against whatever
-  // moment the hash itself was captured at. Capturing it here, at the
-  // same moment as the read, means ANY change from this point through to
-  // apply time is caught.
-  console.log("Computing base_snapshot_hash against the exact banks state this diff is built from...");
-  const { data: baseHash, error: hashError } = await supabase.rpc("compute_banks_base_snapshot_hash", { p_source_scope: sourceScope });
-  if (hashError) throw hashError;
+  console.log("Re-computing base_snapshot_hash after the read to confirm nothing changed mid-read...");
+  const hashAfter = await computeBaseHash(sourceScope);
+  if (hashBefore !== hashAfter) {
+    throw new Error(
+      "banks state changed while this run was reading existing banks (before/after hash mismatch) — the read may be a mixed snapshot. Aborting; re-run staging."
+    );
+  }
+  const baseHash = hashAfter;
 
   const usedSlugs = new Set(existingBanks.map((b) => b.slug));
   const existingLinked = existingBanks
@@ -354,23 +389,56 @@ async function doStage(sourceScope, runId) {
   const stagedNcuaIdentifiers = new Set(ncuaStagingRows.map((r) => r.source_identifier).filter((id) => id !== null));
   const activeFdicBanks = existingBanks.filter((b) => b.source_authority === "fdic" && b.is_active);
   const activeNcuaBanks = existingBanks.filter((b) => b.source_authority === "ncua" && b.is_active);
-  const wouldInactivateFdic = activeFdicBanks.filter((b) => !stagedFdicIdentifiers.has(b.fdic_cert)).length;
-  const wouldInactivateNcua = sourceScope === "both" ? activeNcuaBanks.filter((b) => !stagedNcuaIdentifiers.has(b.ncua_charter_number)).length : 0;
+  // The actual banks that would be inactivated, not just a count — a
+  // reviewer can't tell whether "12 would be inactivated" is fine or
+  // alarming without knowing which 12.
+  const toBankSummary = (b) => ({ id: b.id, slug: b.slug, name: b.name, sourceAuthority: b.source_authority, identifier: b.source_authority === "fdic" ? b.fdic_cert : b.ncua_charter_number });
+  const inactivateFdicRows = activeFdicBanks.filter((b) => !stagedFdicIdentifiers.has(b.fdic_cert)).map(toBankSummary);
+  const inactivateNcuaRows = sourceScope === "both" ? activeNcuaBanks.filter((b) => !stagedNcuaIdentifiers.has(b.ncua_charter_number)).map(toBankSummary) : [];
+  const wouldInactivateFdic = inactivateFdicRows.length;
+  const wouldInactivateNcua = inactivateNcuaRows.length;
 
   const capResults = [checkInactivationCap("fdic", wouldInactivateFdic, activeFdicBanks.length)];
   if (sourceScope === "both") capResults.push(checkInactivationCap("ncua", wouldInactivateNcua, activeNcuaBanks.length));
   const capExceeded = capResults.some((c) => c.exceeded);
   console.log(`  ${capResults.map((c) => c.message).join("\n  ")}`);
 
-  console.log(`Staging ${allStagingRows.length} row(s)...`);
-  await chunkedInsert("sync_staging_institutions", allStagingRows.map((r) => ({ run_id: runId, ...r })));
-
-  const stagedOk = await transition(runId, "running", "staged", {
-    ...countUpdate,
-    base_snapshot_hash: baseHash,
-    requires_override_reason: capExceeded ? "inactivation_cap_exceeded" : null,
-  });
-  if (!stagedOk) throw new Error(`could not transition run ${runId} to staged`);
+  // The real reviewable diff, classified using the SAME rules
+  // finalize_sync_run itself applies (reactivate only from
+  // inactive_reason='unlisted'; a manually-inactive match is left alone;
+  // an active match only counts as "update" if a field actually differs).
+  // insertRows/reactivateRows/manuallyInactiveRows/inactivateRows carry
+  // full data since every one of them is a real, reviewable event;
+  // updateRows only lists the fields that actually differ (not the whole
+  // row) to keep this readable at real scale; unchanged rows are counted,
+  // not listed — nothing to review there. This is still a PREVIEW: the
+  // true insert/update/unchanged split is only certain when
+  // finalize_sync_run does its own live lookup at apply time.
+  const insertRows = [];
+  const updateRows = [];
+  const reactivateRows = [];
+  const manuallyInactiveRows = [];
+  let unchangedCount = 0;
+  for (const row of allStagingRows) {
+    if (row.status !== "valid") continue;
+    const existing = existingBankByKey.get(`${row.source_authority}:${row.source_identifier}`);
+    if (!existing) {
+      insertRows.push(row);
+      continue;
+    }
+    if (!existing.is_active && existing.inactive_reason === "unlisted") {
+      reactivateRows.push({ existingBankId: existing.id, existingBankSlug: existing.slug, existingName: existing.name, staged: row });
+    } else if (!existing.is_active) {
+      manuallyInactiveRows.push({ existingBankId: existing.id, existingBankSlug: existing.slug, existingName: existing.name, existingInactiveReason: existing.inactive_reason });
+    } else {
+      const changedFields = computeChangedFields(existing, row);
+      if (Object.keys(changedFields).length > 0) {
+        updateRows.push({ existingBankId: existing.id, existingBankSlug: existing.slug, existingName: existing.name, changedFields });
+      } else {
+        unchangedCount++;
+      }
+    }
+  }
 
   const rejectReasonCounts = {};
   for (const row of allStagingRows) {
@@ -378,12 +446,63 @@ async function doStage(sourceScope, runId) {
     rejectReasonCounts[row.reject_reason] = (rejectReasonCounts[row.reject_reason] ?? 0) + 1;
   }
 
+  console.log(`Staging ${allStagingRows.length} row(s)...`);
+  await chunkedInsert("sync_staging_institutions", allStagingRows.map((r) => ({ run_id: runId, ...r })));
+
+  // Computed from the rows as actually persisted (their real generated
+  // ids), via the same canonical function finalize_sync_run recomputes at
+  // apply time — proves the staged data itself hasn't changed since
+  // review, the same way base_snapshot_hash proves `banks` hasn't.
+  console.log("Computing source_snapshot_hash over the persisted staging rows...");
+  const { data: stagingHash, error: stagingHashError } = await supabase.rpc("compute_staging_snapshot_hash", { p_run_id: runId });
+  if (stagingHashError) throw stagingHashError;
+
+  const report = {
+    runId,
+    sourceScope,
+    stagedAt: new Date().toISOString(),
+    counts: {
+      ...countUpdate,
+      wouldInactivateFdic,
+      wouldInactivateNcua,
+      insertCount: insertRows.length,
+      updateCount: updateRows.length,
+      unchangedCount,
+      reactivateCount: reactivateRows.length,
+      manuallyInactiveCount: manuallyInactiveRows.length,
+    },
+    rejectReasonCounts,
+    capExceeded,
+    insertRows,
+    updateRows,
+    reactivateRows,
+    manuallyInactiveRows,
+    inactivateRows: [...inactivateFdicRows, ...inactivateNcuaRows],
+    rejectedRows: allStagingRows.filter((r) => r.status === "rejected"),
+  };
+
+  // The report is written into sync_runs.report IN THE SAME atomic
+  // transition that marks the run 'staged' — a run only ever becomes
+  // applyable together with its own durable, reviewable report, never
+  // before it. Writing the report to a local file/artifact afterward
+  // (below) is best-effort convenience for humans without direct DB
+  // access; the DB row is the authoritative copy.
+  const stagedOk = await transition(runId, "running", "staged", {
+    ...countUpdate,
+    base_snapshot_hash: baseHash,
+    source_snapshot_hash: stagingHash,
+    requires_override_reason: capExceeded ? "inactivation_cap_exceeded" : null,
+    report,
+  });
+  if (!stagedOk) throw new Error(`could not transition run ${runId} to staged`);
+
   const summaryLines = [
     `## Institution sync — staged`,
     `Run: ${runId}`,
     `Scope: ${sourceScope}`,
     `FDIC: ${fdicCollectedCount} collected (source total ${fdicSourceTotal}), ${fdicRejectedCount} rejected, ~${wouldInactivateFdic} would be inactivated.`,
     ...(sourceScope === "both" ? [`NCUA: ${ncuaCollectedCount} collected (source total ${ncuaSourceTotal}), ${ncuaRejectedCount} rejected, ~${wouldInactivateNcua} would be inactivated.`] : []),
+    `Inserts: ${insertRows.length}, updates: ${updateRows.length}, unchanged: ${unchangedCount}, reactivations: ${reactivateRows.length}, manually-inactive (left alone): ${manuallyInactiveRows.length}.`,
     `Reject reasons: ${JSON.stringify(rejectReasonCounts)}`,
     capExceeded
       ? `INACTIVATION CAP EXCEEDED — apply requires --allow-large-inactivation.`
@@ -394,36 +513,12 @@ async function doStage(sourceScope, runId) {
   ];
   await printAndSummarize(summaryLines);
 
-  // The actual reviewable diff — every valid row classified as a new
-  // insert vs. an update to a specific existing bank (by id/slug/current
-  // name), not just the rejected rows. This is a preview computed from the
-  // same existingBanks snapshot the run was staged against; the true
-  // insert/update/unchanged split is only known for certain when
-  // finalize_sync_run runs its own live lookup at apply time.
-  const insertRows = [];
-  const updateRows = [];
-  for (const row of allStagingRows) {
-    if (row.status !== "valid") continue;
-    const existing = existingBankByKey.get(`${row.source_authority}:${row.source_identifier}`);
-    if (existing) {
-      updateRows.push({ ...row, existingBankId: existing.id, existingBankSlug: existing.slug });
-    } else {
-      insertRows.push(row);
-    }
+  try {
+    const reportPath = await writeReport(`institution-sync-${runId}.json`, report);
+    console.log(`\nFull staging report (also durably stored in sync_runs.report) written to ${reportPath}`);
+  } catch (err) {
+    console.error(`Could not write the local report file (the run is still safely staged — sync_runs.report is the authoritative copy): ${err instanceof Error ? err.message : err}`);
   }
-
-  const reportPath = await writeReport(`institution-sync-${runId}.json`, {
-    runId,
-    sourceScope,
-    stagedAt: new Date().toISOString(),
-    counts: { ...countUpdate, wouldInactivateFdic, wouldInactivateNcua, previewInsertCount: insertRows.length, previewUpdateCount: updateRows.length },
-    rejectReasonCounts,
-    capExceeded,
-    insertRows,
-    updateRows,
-    rejectedRows: allStagingRows.filter((r) => r.status === "rejected"),
-  });
-  console.log(`\nFull staging report (every row — inserts, updates, and rejects) written to ${reportPath}`);
 }
 
 async function apply(runId, allowLargeInactivation) {

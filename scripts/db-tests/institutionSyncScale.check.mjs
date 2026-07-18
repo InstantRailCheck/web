@@ -80,10 +80,18 @@ async function main() {
       p_source_scope: "fdic",
     });
     if (hashError) throw hashError;
+    // finalize_sync_run (post code-review hardening) checks the staged row
+    // count against fdic_collected_count and recomputes
+    // compute_staging_snapshot_hash against source_snapshot_hash — both
+    // required here the same way the real CLI now sets them.
+    const { data: stagingHash, error: stagingHashError } = await admin.rpc("compute_staging_snapshot_hash", {
+      p_run_id: runId,
+    });
+    if (stagingHashError) throw stagingHashError;
 
     const { data: stagedRows, error: stageError } = await admin
       .from("sync_runs")
-      .update({ status: "staged", base_snapshot_hash: hash })
+      .update({ status: "staged", base_snapshot_hash: hash, source_snapshot_hash: stagingHash, fdic_collected_count: ROW_COUNT })
       .eq("id", runId)
       .eq("status", "running")
       .select("id");

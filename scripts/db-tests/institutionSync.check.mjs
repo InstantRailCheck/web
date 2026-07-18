@@ -87,12 +87,41 @@ async function transition(runId, from, to, extra = {}) {
   return data.length === 1;
 }
 
+// Mirrors what scripts/sync-institution-directory.mjs itself now does at
+// staging time — finalize_sync_run (post code-review hardening) verifies
+// the staged row count against fdic_collected_count/ncua_collected_count
+// and recomputes compute_staging_snapshot_hash against source_snapshot_hash,
+// so a test run that skips either would fail those checks regardless of
+// what it's actually trying to exercise.
 async function stageRun(runId, sourceScope) {
+  const { count: fdicCount, error: fdicCountError } = await admin
+    .from("sync_staging_institutions")
+    .select("*", { count: "exact", head: true })
+    .eq("run_id", runId)
+    .eq("source_authority", "fdic");
+  if (fdicCountError) throw fdicCountError;
+  const { count: ncuaCount, error: ncuaCountError } = await admin
+    .from("sync_staging_institutions")
+    .select("*", { count: "exact", head: true })
+    .eq("run_id", runId)
+    .eq("source_authority", "ncua");
+  if (ncuaCountError) throw ncuaCountError;
+
   const { data: hash, error: hashError } = await admin.rpc("compute_banks_base_snapshot_hash", {
     p_source_scope: sourceScope,
   });
   if (hashError) throw hashError;
-  const ok = await transition(runId, "running", "staged", { base_snapshot_hash: hash });
+  const { data: stagingHash, error: stagingHashError } = await admin.rpc("compute_staging_snapshot_hash", {
+    p_run_id: runId,
+  });
+  if (stagingHashError) throw stagingHashError;
+
+  const ok = await transition(runId, "running", "staged", {
+    base_snapshot_hash: hash,
+    source_snapshot_hash: stagingHash,
+    fdic_collected_count: fdicCount,
+    ncua_collected_count: ncuaCount,
+  });
   if (!ok) throw new Error(`could not transition run ${runId} running -> staged`);
   return hash;
 }
@@ -360,6 +389,84 @@ async function main() {
         run_id: runId, source_authority: "fdic", source_identifier: cert, status: "rejected", reject_reason: "duplicate_identifier_in_source",
       });
       assert(!rejectedOneError && !rejectedTwoError, "any number of REJECTED rows for the same identifier coexist fine (the partial index only covers status='valid')");
+    }
+
+    console.log("\nScenario F: finalize_sync_run's staging-integrity checks (post code-review hardening)");
+    {
+      const cert = nextCert();
+      const bank = await insertBank({});
+
+      console.log("  rejects a staged row whose source_authority is outside the run's own scope");
+      {
+        const runId = await createRun("fdic");
+        await stageInstitutions(runId, [
+          { source_authority: "fdic", source_identifier: nextCert(), status: "valid", name: bank.name, proposed_slug: "unused" },
+        ]);
+        // Simulates a bug (or direct tampering) that staged an ncua-authority
+        // row under an fdic-scoped run — finalize_sync_run must catch this
+        // itself, not just trust that only its own CLI ever writes here.
+        await admin.from("sync_staging_institutions").insert({
+          run_id: runId, source_authority: "ncua", source_identifier: cert, status: "valid", name: "Out Of Scope", proposed_slug: "unused",
+        });
+        await stageRun(runId, "fdic");
+        await transition(runId, "staged", "applying");
+
+        const { error } = await admin.rpc("finalize_sync_run", { p_run_id: runId });
+        assert(error?.code === "P0001", `rejected for an out-of-scope staged authority (got code ${error?.code}: ${error?.message})`);
+        assert(/outside its own scope/i.test(error?.message ?? ""), `error message names the scope mismatch (got: ${error?.message})`);
+      }
+
+      console.log("  rejects a run whose staged row count doesn't match its recorded collected counts");
+      {
+        const runId = await createRun("fdic");
+        await stageInstitutions(runId, [
+          { source_authority: "fdic", source_identifier: nextCert(), status: "valid", name: bank.name, proposed_slug: "unused" },
+        ]);
+        await stageRun(runId, "fdic");
+        // Simulate drift after staging: a row silently added (or removed)
+        // post-review without the recorded count ever being updated to match.
+        await admin.from("sync_staging_institutions").insert({
+          run_id: runId, source_authority: "fdic", source_identifier: nextCert(), status: "valid", name: "Snuck In Afterward", proposed_slug: "unused",
+        });
+        await transition(runId, "staged", "applying");
+
+        const { error } = await admin.rpc("finalize_sync_run", { p_run_id: runId });
+        assert(error?.code === "P0001", `rejected for a staged-count mismatch (got code ${error?.code}: ${error?.message})`);
+        assert(/does not match what was reviewed/i.test(error?.message ?? ""), `error message names the count mismatch (got: ${error?.message})`);
+      }
+
+      console.log("  rejects a run whose staging rows changed since they were reviewed (source_snapshot_hash mismatch)");
+      {
+        const runId = await createRun("fdic");
+        await stageInstitutions(runId, [
+          { source_authority: "fdic", source_identifier: nextCert(), status: "valid", name: bank.name, proposed_slug: "unused" },
+        ]);
+        await stageRun(runId, "fdic");
+        // Simulate a staged row's content changing after review (count
+        // stays the same, so only the hash check can catch this).
+        const { data: stagedRow } = await admin.from("sync_staging_institutions").select("id").eq("run_id", runId).single();
+        await admin.from("sync_staging_institutions").update({ name: "Tampered Name" }).eq("id", stagedRow.id);
+        await transition(runId, "staged", "applying");
+
+        const { error } = await admin.rpc("finalize_sync_run", { p_run_id: runId });
+        assert(error?.code === "P0001", `rejected for a staging-content hash mismatch (got code ${error?.code}: ${error?.message})`);
+        assert(/changed since they were reviewed/i.test(error?.message ?? ""), `error message names the staging drift (got: ${error?.message})`);
+      }
+
+      console.log("  rejects a run with no source_snapshot_hash recorded at all (predates this integrity check)");
+      {
+        const runId = await createRun("fdic");
+        await stageInstitutions(runId, [
+          { source_authority: "fdic", source_identifier: nextCert(), status: "valid", name: bank.name, proposed_slug: "unused" },
+        ]);
+        const { data: hash } = await admin.rpc("compute_banks_base_snapshot_hash", { p_source_scope: "fdic" });
+        await transition(runId, "running", "staged", { base_snapshot_hash: hash, fdic_collected_count: 1 });
+        await transition(runId, "staged", "applying");
+
+        const { error } = await admin.rpc("finalize_sync_run", { p_run_id: runId });
+        assert(error?.code === "P0001", `rejected for a missing source_snapshot_hash (got code ${error?.code}: ${error?.message})`);
+        assert(/no source_snapshot_hash recorded/i.test(error?.message ?? ""), `error message names the missing hash (got: ${error?.message})`);
+      }
     }
   } finally {
     console.log("\nCleaning up...");

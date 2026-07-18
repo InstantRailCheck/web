@@ -154,6 +154,11 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // finalize_sync_run itself — see the migration comment for why this
   // isn't duplicated in JS.
   compute_banks_base_snapshot_hash: ["service_role"],
+  // Code review finding (post-v8.3.1): same shape as
+  // compute_banks_base_snapshot_hash above, but over sync_staging_institutions
+  // — proves the staged rows finalize_sync_run is about to apply are still
+  // exactly what was staged/reviewed, not just that `banks` hasn't drifted.
+  compute_staging_snapshot_hash: ["service_role"],
   // v8.0 §5: invoked only from scripts/apply-reconciliation.mjs after that
   // script's own live re-corroboration check — never from client code.
   apply_bank_reconciliation: ["service_role"],
