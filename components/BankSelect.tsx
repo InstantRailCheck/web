@@ -237,7 +237,15 @@ export function BankSelect({
               )}
               <CommandGroup className={cn(loading && "opacity-40", ambiguousCandidates && "hidden")}>
                 {results.map((bank) => {
-                  const location = [bank.city, bank.state].filter(Boolean).join(", ");
+                  // Only show city/state when this exact name appears more
+                  // than once in the current results — duplicate-legal-name
+                  // charters are common in this dataset, and without some
+                  // way to tell them apart a user could silently pick the
+                  // wrong one. The common case (a uniquely-named result)
+                  // just shows the bank name, per feedback that location
+                  // was cluttering every row.
+                  const isDuplicateName = results.filter((r) => r.name === bank.name).length > 1;
+                  const location = isDuplicateName ? [bank.city, bank.state].filter(Boolean).join(", ") : "";
                   return (
                     <CommandItem
                       key={bank.id}
