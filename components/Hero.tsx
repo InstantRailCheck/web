@@ -14,15 +14,15 @@ export function Hero() {
             height={153}
             unoptimized
             priority
-            className="block h-auto w-[520px] max-w-[90vw] md:w-[560px]"
+            className="block h-auto w-[640px] max-w-[90vw] md:w-[760px]"
           />
         </Link>
       </div>
 
       <div className="w-full min-w-0 flex flex-col items-center gap-3 font-sans">
-        <h1 className="m-0 max-w-5xl text-5xl font-extrabold leading-[0.95] tracking-tight text-white md:text-7xl">
-          Verify before you transfer.
-        </h1>
+        {/* Kept for accessibility/SEO (every page should have exactly one
+            h1) — the logo image now carries this visually. */}
+        <h1 className="sr-only">Verify before you transfer.</h1>
 
         {/* Full sentence doesn't fit on one line at any legible size below
             lg (section caps out at max-w-5xl, so wider screens don't buy
