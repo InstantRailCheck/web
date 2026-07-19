@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCommunityReportedBanks, getEddLeaderboardData, type CommunityRailEntry } from "@/lib/communityRails";
 import { typicalValueLabel, type EddLeaderboardEntry } from "@/lib/eddLeaderboard";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,12 @@ export default async function RailsExplorerPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
+        <PageBreadcrumb
+          items={[
+            { name: "Home", href: "/" },
+            { name: "Payment rail explorer", href: "/rails" },
+          ]}
+        />
         <h1 className="text-center text-3xl font-bold">Payment rail explorer</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           Banks in our database confirmed as participants on each network, verified against the

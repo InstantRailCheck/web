@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { API_URL } from "@/lib/siteConfig";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { EVIDENCE_LABELS } from "@/lib/routeConfidence";
 
 const EVIDENCE_DESCRIPTIONS: Record<keyof typeof EVIDENCE_LABELS, string> = {
@@ -50,6 +51,12 @@ export default function DevelopersPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
+        <PageBreadcrumb
+          items={[
+            { name: "Home", href: "/" },
+            { name: "Developers", href: "/developers" },
+          ]}
+        />
         <h1 className="text-center text-3xl font-bold">API</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           Read-only, unauthenticated, and CORS-enabled — free to use in your own tools.

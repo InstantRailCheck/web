@@ -323,7 +323,7 @@ export default async function BankProfilePage({
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
-        <BankBreadcrumb bankName={profile.bank.name} />
+        <BankBreadcrumb bankName={profile.bank.name} bankSlug={profile.bank.slug} />
         {!profile.bank.is_active && (
           <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-center text-sm text-yellow-200">
             {profile.bank.inactive_reason === "merged" && mergedInto ? (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeJsonLdString, buildBankBreadcrumbJsonLd } from "./jsonLd";
+import { safeJsonLdString, buildBankBreadcrumbJsonLd, buildBreadcrumbJsonLd } from "./jsonLd";
 
 describe("safeJsonLdString", () => {
   it("serializes plain data the same as JSON.stringify", () => {
@@ -25,5 +25,24 @@ describe("buildBankBreadcrumbJsonLd", () => {
         { "@type": "ListItem", position: 2, name: "Chase Bank", item: "https://www.instantrailcheck.com/banks/chase" },
       ],
     });
+  });
+});
+
+describe("buildBreadcrumbJsonLd", () => {
+  it("builds sequential list items with absolute canonical URLs", () => {
+    const result = buildBreadcrumbJsonLd([
+      { name: "Home", href: "/" },
+      { name: "All banks", href: "/banks?page=2" },
+    ]);
+
+    expect(result.itemListElement).toEqual([
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://www.instantrailcheck.com/" },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "All banks",
+        item: "https://www.instantrailcheck.com/banks?page=2",
+      },
+    ]);
   });
 });

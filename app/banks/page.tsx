@@ -5,8 +5,14 @@ import { CircleArrowRight, Users, Zap } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EDD_MIN_REPORTERS, dedupeEddReportsByReporterAndBank } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { normalizeForSearch } from "@/lib/utils";
-import { resolveDirectoryPage, banksDirectoryMetadata, type BanksDirectorySearchParams } from "@/lib/seo";
+import {
+  banksDirectoryCanonicalPath,
+  resolveDirectoryPage,
+  banksDirectoryMetadata,
+  type BanksDirectorySearchParams,
+} from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +87,12 @@ export default async function BanksDirectoryPage({
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
+        <PageBreadcrumb
+          items={[
+            { name: "Home", href: "/" },
+            { name: "All banks", href: banksDirectoryCanonicalPath(page) },
+          ]}
+        />
         <h1 className="text-center text-3xl font-bold">All banks</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           {total} bank{total !== 1 ? "s" : ""} matching your filters.

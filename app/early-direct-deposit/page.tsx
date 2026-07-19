@@ -13,6 +13,7 @@ import { EDD_MIN_REPORTERS } from "@/lib/bankProfile";
 import { formatMonthYear } from "@/lib/utils";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SITE_URL } from "@/lib/siteConfig";
 
 export const dynamic = "force-dynamic";
@@ -89,19 +90,12 @@ export default async function EarlyDirectDepositPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-3xl flex-col px-6 pt-10 pb-16">
-        <nav aria-label="Breadcrumb" className="mb-4 text-center text-sm text-slate-500">
-          <ol className="inline-flex items-center gap-2">
-            <li>
-              <Link href="/rails" className="hover:text-slate-300 transition">
-                Rail explorer
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li aria-current="page" className="text-slate-300">
-              Early Direct Deposit
-            </li>
-          </ol>
-        </nav>
+        <PageBreadcrumb
+          items={[
+            { name: "Rail explorer", href: "/rails" },
+            { name: "Early Direct Deposit", href: "/early-direct-deposit" },
+          ]}
+        />
 
         <h1 className="flex items-center justify-center gap-2 text-center text-3xl font-bold">
           <Clock className="h-7 w-7 text-teal-300" /> Early Direct Deposit Leaderboard

@@ -8,6 +8,7 @@ import {
 } from "@/lib/timingLeaderboard";
 import { formatMonthYear } from "@/lib/utils";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { railDisplayName } from "@/lib/railDisplayName";
 import { SITE_URL } from "@/lib/siteConfig";
 
@@ -70,19 +71,12 @@ export default async function TimingLeaderboardPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-3xl flex-col px-6 pt-10 pb-16">
-        <nav aria-label="Breadcrumb" className="mb-4 text-center text-sm text-slate-500">
-          <ol className="inline-flex items-center gap-2">
-            <li>
-              <Link href="/rails" className="hover:text-slate-300 transition">
-                Rail explorer
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li aria-current="page" className="text-slate-300">
-              Settlement Time Leaderboard
-            </li>
-          </ol>
-        </nav>
+        <PageBreadcrumb
+          items={[
+            { name: "Rail explorer", href: "/rails" },
+            { name: "Settlement Time Leaderboard", href: "/timing" },
+          ]}
+        />
 
         <h1 className="text-center text-3xl font-bold">Settlement Time Leaderboard</h1>
         <p className="mt-2 text-center text-sm text-slate-400">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getBankProfileBySlug, getBankBySlug, describeRailEvidence } from "@/lib/bankProfile";
 import { ComparePicker } from "@/components/ComparePicker";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { formatPhone, telHref, websiteHref } from "@/lib/utils";
 import { compareMetadata, type CompareSearchParams } from "@/lib/seo";
 
@@ -125,6 +126,12 @@ export default async function ComparePage({
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
+        <PageBreadcrumb
+          items={[
+            { name: "Home", href: "/" },
+            { name: "Compare banks", href: "/compare" },
+          ]}
+        />
         <h1 className="text-center text-3xl font-bold">Compare banks</h1>
         <p className="mt-1 text-center text-sm text-slate-400">
           Side-by-side rail capability, contact info, and network participation.
