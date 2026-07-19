@@ -8,6 +8,12 @@ import { getUserModerationStatus } from "@/lib/moderationStatus";
 
 export type CorrectionField = "website" | "phone";
 
+const VALID_CORRECTION_FIELDS: readonly CorrectionField[] = ["website", "phone"];
+
+function isValidCorrectionField(field: unknown): field is CorrectionField {
+  return typeof field === "string" && (VALID_CORRECTION_FIELDS as readonly string[]).includes(field);
+}
+
 export type CorrectionResult =
   | { status: "auto_applied"; message: string }
   | { status: "pending_review"; message: string }
@@ -18,6 +24,15 @@ export async function submitCorrection(
   field: CorrectionField,
   value: string
 ): Promise<CorrectionResult> {
+  // `field`'s TS type is not enforced at runtime — a Server Action is a
+  // real endpoint, callable with arbitrary JSON regardless of what the
+  // exported signature says. Everything below assumes field is exactly
+  // "website" or "phone"; this is what actually guarantees that, not the
+  // TypeScript union.
+  if (!isValidCorrectionField(field)) {
+    return { status: "error", message: "Invalid correction field." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -42,14 +57,24 @@ export async function submitCorrection(
     return { status: "error", message: "Please enter a value." };
   }
 
-  const { data: bank } = await admin
+  const { data: bank, error: bankLookupError } = await admin
     .from("banks")
-    .select("id, name, website, phone, fdic_cert, ncua_charter_number")
+    .select("id, name, website, phone, fdic_cert, ncua_charter_number, is_active")
     .eq("id", bankId)
     .maybeSingle();
 
+  if (bankLookupError) {
+    return { status: "error", message: "Something went wrong looking up this institution. Please try again." };
+  }
+
   if (!bank) {
     return { status: "error", message: "Bank not found." };
+  }
+
+  // The RPC below enforces this too (real guard, can't be bypassed) — this
+  // is only a friendlier early exit that skips a pointless outbound lookup.
+  if (!bank.is_active) {
+    return { status: "error", message: "This institution is no longer listed and can't accept corrections." };
   }
 
   const previousValue = field === "website" ? bank.website : bank.phone;
@@ -67,21 +92,25 @@ export async function submitCorrection(
 
   const matches = officialValue ? valuesMatch(field, trimmed, officialValue) : false;
 
-  await admin.from("bank_corrections").insert({
-    bank_id: bankId,
-    user_id: user.id,
-    field,
-    submitted_value: trimmed,
-    previous_value: previousValue,
-    status: matches ? "auto_applied" : "pending_review",
+  // One atomic RPC: inserts the bank_corrections row and (only when
+  // matched) updates exactly one hardcoded column, in a single
+  // transaction — no computed update key, and an insert failure rolls
+  // back the update too rather than leaving them independently fallible.
+  const { error: applyError } = await admin.rpc("apply_bank_correction", {
+    p_bank_id: bankId,
+    p_user_id: user.id,
+    p_field: field,
+    p_submitted_value: trimmed,
+    p_previous_value: previousValue,
+    p_matched: matches,
+    p_official_value: officialValue,
   });
 
-  if (matches) {
-    await admin
-      .from("banks")
-      .update({ [field]: officialValue })
-      .eq("id", bankId);
+  if (applyError) {
+    return { status: "error", message: "Something went wrong submitting this correction. Please try again." };
+  }
 
+  if (matches) {
     return {
       status: "auto_applied",
       message: "Thanks — this matched our official source and has been updated.",

@@ -170,4 +170,10 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // v8.0 §5: invoked only from scripts/apply-reconciliation.mjs after that
   // script's own live re-corroboration check — never from client code.
   apply_bank_reconciliation: ["service_role"],
+  // Code review finding (post-v8.3.4): invoked via admin.rpc(...) from
+  // submitCorrection.ts. Makes the correction-record insert and the
+  // (matched-only) single-column bank update one atomic transaction, and
+  // enforces the field allowlist and inactive-bank rejection at the table
+  // boundary itself rather than trusting the Server Action alone.
+  apply_bank_correction: ["service_role"],
 };
