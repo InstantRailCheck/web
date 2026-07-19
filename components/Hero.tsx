@@ -21,7 +21,7 @@ export function Hero() {
 
       <div className="w-full min-w-0 flex flex-col items-center gap-3 font-sans">
         <h1 className="m-0 max-w-5xl text-5xl font-extrabold leading-[0.95] tracking-tight text-white md:text-7xl">
-          Know before you transfer.
+          Verify before you transfer.
         </h1>
 
         {/* Full sentence doesn't fit on one line at any legible size below

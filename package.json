@@ -1,6 +1,6 @@
 {
   "name": "instantrailcheck",
-  "version": "8.4.2",
+  "version": "8.4.3",
   "private": true,
   "engines": {
     "node": "22.x"

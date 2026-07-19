@@ -1,6 +1,6 @@
 # InstantRailCheck
 
-**Know before you transfer.**
+**Verify before you transfer.**
 
 Crowdsourced database of real-world bank transfer compatibility across RTP, FedNow, ACH, Wire, Zelle, and more.
 
