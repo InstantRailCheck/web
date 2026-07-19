@@ -147,7 +147,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="border-slate-800 bg-slate-900 text-white sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-white">
+          <DialogTitle className="text-center text-lg font-semibold text-white">
             {step === "email" ? "Sign in to submit" : "Check your email"}
           </DialogTitle>
         </DialogHeader>
