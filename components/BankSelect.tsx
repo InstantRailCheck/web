@@ -249,7 +249,14 @@ export function BankSelect({
                   return (
                     <CommandItem
                       key={bank.id}
-                      value={bank.name}
+                      // cmdk tracks the active/highlighted item by `value`,
+                      // not by React key — two duplicate-name charters
+                      // sharing value={bank.name} caused BOTH rows to light
+                      // up together on hover/keyboard nav. shouldFilter is
+                      // already false (search happens server-side above),
+                      // so value has no search role here and can safely be
+                      // the guaranteed-unique bank id instead.
+                      value={bank.id}
                       onSelect={() => handleSelect(bank)}
                       className="text-white aria-selected:bg-slate-800"
                     >
