@@ -506,6 +506,8 @@ This release starts with a full security pass of every API route and RLS policy 
 - `engines.node` is also read by Vercel to select its build/runtime Node version — verified no `vercel.json` or prior `engines` field existed to compare against, so this is a genuine (low-risk, intended) production-facing change, not just a local-tooling hint. `npm install` still succeeds under a mismatched local Node version (warns, doesn't fail — no `engine-strict` set)
 - Also set this repo's local `core.autocrlf` to `input` (git config, not a versioned file) — not because it was misconfigured (it wasn't set to anything, contrary to what prompted this), but as cheap defensive hygiene given this project's real prior history of CRLF pain on its Windows-based sessions
 
+> **Current-state note:** the Node 22 target described above (and anywhere else in this history through v8.11.5) was accurate at the time it shipped. As of v8.11.6 the project targets **Node 24.x** everywhere — `package.json`, `.node-version`, every CI workflow, and Vercel's project setting. See "Build Rules" below. Don't treat the Node 22 references above as present instructions.
+
 ## Version 6.5.0 (v6.5.0 — shipped July 11 2026)
 
 **Route Explorer polish, per ChatGPT's "ship today" feature review**
@@ -731,6 +733,194 @@ This release starts with a full security pass of every API route and RLS policy 
 - The per-user all-time submission counts used to distinguish a brand-new reporter from an established account weren't checking their count queries for errors, so a transient failure would silently read as zero and could mislabel a known account as new (triggering the high-severity new-reporter signal). Now throws on either query's error instead of treating a failed count as zero
 - Verification: TypeScript, ESLint, all 574 tests, production build, and `git diff --check` pass locally; GitHub `test`/`db-test` jobs pending on push
 
+## Version 8.0.0 (v8.0.0 — shipped July 16 2026)
+
+**Institution directory sync — schema and staging infrastructure (rollout step 1: local rehearsal only, no production data touched)**
+- `banks` gains `city`/`state`/`source_authority`/`source_last_synced_at`/`inactive_reason`/`merged_into_bank_id` with a full lifecycle constraint set (an institution can be linked to at most one of FDIC/NCUA, an inactive bank must carry a reason, a merge target must itself be active)
+- New `sync_runs`/`sync_staging_institutions` stage a diff before anything in `banks` is touched; `finalize_sync_run` applies it in one transaction bound to `compute_banks_base_snapshot_hash`, so an approved dry-run can never drift from what actually gets applied
+- `route_reports`/`edd_reports` now reject writes against an inactive bank at the table itself
+- `ncua_reference_sync_log` fixes NCUA closure detection, which `ncua_credit_unions` could never support on its own (it never removes/flags a charter absent from the latest file)
+- Old `import-fdic-banks.mjs`/`import-ncua-credit-unions.mjs` scripts retired in favor of the new sync path
+- Local rehearsal against real Postgres caught and fixed three bugs before production: a `name[]` vs `text[]` operator mismatch in the self-checking migration, a missing `service_role` `EXECUTE` grant on six trigger functions, and a flaky test that trusted transaction-frozen `now()` under lock contention
+
+## Version 8.1.0 (v8.1.0 — shipped July 16 2026)
+
+**Duplicate-safe rail matching, identifier-based enrichment, ambiguous addBank handling, SEO/lifecycle work, API scale (rollout step 3)**
+- `lib/railParticipationMatch.ts` replaces four copy-pasted rail-matching implementations with one duplicate-name-group-safe, location-unique-aware matcher — a single matching participant-list name could previously set a rail flag on every bank sharing that name
+- `enrichBank`/`submitCorrection` now use identifier-based FDIC/NCUA lookups once a bank is already linked, instead of a name search that could resolve to a different charter sharing the same name
+- `addBank()` returns an explicit ambiguous-match shape instead of silently creating a duplicate once two banks legitimately share a normalized name; `BankSelect` renders a picker
+- Bank profile pages gain city/state/regulator-id in metadata, heading, and JSON-LD; `lib/institutionIndexability.ts` gives a real indexability predicate shared by `generateMetadata` and the sitemap builder so thin pages are consistently noindex'd
+- `banks.is_active` enforced end-to-end: Server Actions pre-check, inactive/merged banks stay viewable with a banner instead of 404ing, every public selector defaults to active-only
+- `/api/banks` defaults to `is_active=true` (`?include_inactive=true` opts back in), adds city/state, reports `truncated`/`next_offset` — `API_VERSION` bumped to 7; unpaginated cap lowered to 5,000 after a measured ~4.4MB payload came dangerously close to Vercel's 4.5MB limit
+
+## Version 8.2.0 (v8.2.0 — shipped July 16 2026)
+
+**Existing-data reconciliation for unlinked banks (rollout step 5)**
+- Reconciles the 546 banks with neither `fdic_cert` nor `ncua_charter_number` against FDIC/NCUA so they can be linked to a real charter
+- `audit-unlinked-banks.mjs` (read-only): trusts a candidate only once corroborated by a second, independent fact (the bank's own recorded website or phone actually matching) — a name match alone is never enough; multiple corroborated candidates is real ambiguity, never arbitrarily resolved
+- New `apply_bank_reconciliation` RPC links approved matches atomically, re-verifying at write time that each bank is still unlinked and each identifier isn't already claimed
+- `apply-reconciliation.mjs` re-runs each match fresh against current data before writing, comparing against the hash recorded at audit time — a mismatch (source data or the bank's own record changed since) skips that entry as stale rather than applying it
+- Ran against production (read-only): 109 confident matches, 4 ambiguous, 433 unresolved out of 546 — nothing applied yet, reports are local-only
+
+## Version 8.3.0 (v8.3.0 — shipped July 17 2026)
+
+**The FDIC/NCUA institution-directory sync script itself**
+- `lib/institutionSync.ts`: pure staging-row builder (duplicate/missing-identifier rejection, slug assignment/reuse) plus the exact-count/reject-rate/retention/inactivation-cap guards that must pass before `finalize_sync_run`'s atomic apply
+- `scripts/sync-institution-directory.mjs` wires this to a live FDIC API fetch and the locally-synced NCUA table, stages a `sync_runs` row set, and drives `staged → applying → applied/failed`
+- Verified end-to-end against local Postgres with real live FDIC data (4,257 institutions): insert, idempotent no-op re-run, a corrected field producing an update, and a synthetic vanished institution correctly triggering inactivation
+- `.github/workflows/sync-data.yml` gains two scoped jobs (weekly FDIC-only, monthly full) with an explicit `sync_scope` dispatch input so a manual run only ever launches one path — ships staged-only, no `--apply` wired into CI yet
+
+## Version 8.3.1–8.3.3 (v8.3.1–v8.3.3 — shipped July 17 2026)
+
+**Three rounds of external review findings on the institution sync, before any real `--apply`**
+- Real `ncua_credit_unions.city`/`state` columns (previously discarded into a combined address string); `compute_banks_base_snapshot_hash` extended to cover `aka_names`; inactivation-cap semantics fixed from "exceeds the larger threshold" to "exceeds either independently"; a mid-staging failure now transitions the run to `failed` with a real error instead of hanging at `running` forever
+- The staging report gained real before/after diffs (not just "update" with no detail) and the actual named list of banks that would be inactivated; a new `compute_staging_snapshot_hash` closes the gap where `finalize_sync_run` trusted staged rows completely; the `staged` transition now embeds the full report atomically instead of writing it as a separate, crash-vulnerable step
+- **HIGH severity**: `backfill-rail-participation.mjs` silently coerced a genuinely-unknown null rail flag to false whenever a match was merely "ambiguous," contradicting its own "ambiguous never sets or clears" rule — extracted into `resolveRailFlag`, now directly unit-tested; `finalize_sync_run`'s combined fdic+ncua staged-row-count check split into independent per-authority checks so a compensating error can't slip past; a new `compute_all_bank_slugs_hash` closes a gap where `base_snapshot_hash` didn't cover slug-affecting writes to out-of-scope banks
+- Verified at real scale (8,593 rows) against local Postgres throughout; full gate green (635 tests) by the end of v8.3.3
+
+## Version 8.3.4 (v8.3.4 — shipped July 17 2026)
+
+**Allow `bank_rail_history` to record a flag reverting to unknown**
+- `new_value` was `NOT NULL` because, before v8.3.3's `resolveRailFlag` fix, no path could legitimately write a rail flag back to null — now that a correction can transition a wrongly-set false back to null, the audit table needs to record it
+- Also grants `service_role` explicit access to `bank_rail_history` (a fresh-replay-vs-production grant gap the same as `20260714030000` fixed elsewhere, just this table was missed)
+
+## Version 8.4.0 (v8.4.0 — shipped July 18 2026)
+
+**Fix runtime field-injection in `submitCorrection`, make its apply atomic**
+- `field` was only validated by its TS union type, but a Server Action is a real endpoint callable with arbitrary JSON — an out-of-union field could reach a computed-key `.update()` on the service-role client. Replaced with `apply_bank_correction`, a `SECURITY DEFINER` RPC that allowlists `field`, rejects inactive institutions, and inserts the correction record plus the column update in one transaction
+- Also grants `service_role` full privileges on `bank_corrections`, a grant gap missed by an earlier pass fixing the same issue for other tables
+
+## Version 8.4.1–8.4.2 (v8.4.1–v8.4.2 — shipped July 18 2026)
+
+**Rebuild the duplicate-name rail-flag audit, then resolve everything it found**
+- The old audit only flagged a rail set true on more than one member of a duplicate-name group — missing the more common case where exactly one member has it true but a fresh `matchInstitution` call now returns "ambiguous" for it. Rebuilt around `matchInstitution` directly; confirmed 82 duplicate-name groups / 86 banks / 143 bank-rail pairs needing review
+- One-time correction (v8.4.2) resets all 143 pairs back to null (unconfirmed, not "not participating"), deliberately overriding the normal "never downgrade an already-true value" rule since these predated duplicate-safe matching entirely. Production backup taken first, dry-run matched the audit exactly (zero drift), applied and verified: audit now reports zero remaining flagged pairs
+
+## Version 8.4.3 (v8.4.3 — shipped July 18 2026)
+
+**Homepage tagline changed to "Verify before you transfer."**
+
+## Version 8.5.0–8.5.2 (v8.5.0–v8.5.2 — shipped July 18 2026)
+
+**Reddit sign-in, added then hidden pending OAuth approval**
+- Reddit isn't a built-in Supabase Auth provider — signed in via a registered `custom:reddit` OAuth2 provider
+- A same-day review pass fixed a real correctness gap: `apply_bank_correction` locked the bank row but never checked the field being written still matched the previously-read value, so a concurrent write in that window could be silently clobbered — now compares with `IS NOT DISTINCT FROM` and aborts on mismatch, covered by a real-Postgres race test
+- `REDDIT_SIGN_IN_ENABLED = false` hides the button pending Reddit's Responsible Builder Policy approval; everything else (handler, icon, provider call) stays in place for when it's approved
+
+## Version 8.6.0 (v8.6.0 — shipped July 18 2026)
+
+**Swap Reddit sign-in for GitHub**
+- GitHub is one of Supabase Auth's built-in providers (confirmed live against production's `/auth/v1/settings` before shipping) — a straight swap of button/provider/copy; Reddit's icon/handler/flag removed entirely rather than left dead pending indefinite approval
+
+## Version 8.6.1–8.6.4 (v8.6.1–v8.6.4 — shipped July 18 2026)
+
+**Small UI fixes**
+- Centered the sign-in modal title
+- Privacy/terms copy updated to mention GitHub alongside Google
+- Removed the visible tagline under the homepage logo (kept as a sr-only `h1` for accessibility/SEO), enlarged the logo
+- FedNow's color changed from purple to white everywhere (was visually near-indistinguishable from Zelle's violet on `/rails`, where their columns sit side by side)
+
+## Version 8.7.0–8.7.3 (v8.7.0–v8.7.3 — shipped July 18 2026)
+
+**New banner logo, and the fringe it took three follow-up fixes to actually remove**
+- v8.7.0 replaced `logo.svg` with a new full banner image (`public/logo-banner.png`)
+- v8.7.1 found the new asset had no alpha channel, so its rounded corners were literal white pixels against the dark background — fixed via a border flood-fill, but the fix reduced alpha at the boundary while leaving white RGB underneath, which still bled through as a faint halo
+- v8.7.2 rebuilt from the pristine pre-transparency source with a corrected pipeline (sharpen before masking, then flood-fill + hard alpha cutoff + color-decontaminate), but sourced decontamination color from the wrong pixels
+- v8.7.3 found the actual root cause: a genuine single-pixel antialiasing ring at the true edge fell just under the whiteness threshold, got classified as foreground, and became the decontamination source for the entire corner — tinting it light gray, invisible at native resolution but visible once scaled down to real display size. Fixed by dilating the background mask by 2px before decontaminating, verified via direct pixel inspection at real display sizes
+
+## Version 8.8.0–8.8.4 (v8.8.0–v8.8.4 — shipped July 18 2026)
+
+**Logo replaced again with a fringe-free asset, then resized/recolored to match**
+- v8.8.0 replaced the logo with a newly-regenerated fringe-free 1072×128 asset (no rounded card this time), verified via real Playwright/Chromium screenshots rather than synthetic proxies
+- v8.8.1 reverted an over-correction: v8.8.0 displayed it shrunk to fit the 1072×128 box, reading too small — restored native-resolution display against the same fringe-free source
+- v8.8.2 matched the site background to the logo's own sampled background color (`#000112`, close to but not exactly Tailwind's `slate-950`), overridden once via Tailwind v4's `@theme`; also updated the PWA manifest and regenerated every favicon/icon from the new color
+- v8.8.3 changed FedNow's icon/color back to purple to match the new logo's own rail-icon row (explicitly flagged as reintroducing some visual similarity to Zelle's violet, prioritized anyway to match the new brand asset)
+- v8.8.4 bumped the header logo size a step and fixed the homepage tagline wrapping awkwardly on mobile at 320px width
+
+## Version 8.9.0–8.9.3 (v8.9.0–v8.9.3 — shipped July 18 2026)
+
+**Zelle rebrand and duplicate-name search cleanup**
+- v8.9.0 renamed Zelle to "P2P Payments" in the UI only — every internal identifier that participates in data matching (`zelle_participant`, `rail_used` values) stays literally "Zelle"; a new `railDisplayName()` helper translates at the render boundary
+- v8.9.2 relabeled it again to "P2P - Zelle" — naming Zelle directly is more honest than implying broader P2P-app coverage that doesn't exist (no official directory exists for Venmo/Cash App/PayPal, and even community-reported data wouldn't carry much signal for them)
+- v8.9.1 split terms contact info onto separate lines
+- v8.9.3 only shows city/state in the home page's bank search dropdown when the result set actually contains a same-named duplicate, instead of unconditionally
+
+## Version 8.10.0 (v8.10.0 — shipped July 18 2026)
+
+**NCUA name casing and 415 duplicate pre-sync institutions merged**
+- `lib/institutionNameCase.ts`'s `smartTitleCase()` converts NCUA's all-caps `CU_NAME` convention into normal display text (possessives, name-pattern apostrophes, hyphenated compounds, ordinals, initials-with-periods, single-letter words) — backfilled 4,233 affected names; the sync now applies the same transform going forward so it can't regress
+- `scripts/audit-duplicate-institutions.mjs`: 424 banks added before this project's official-directory sync existed turned out to be duplicates of a bank the sync later added under its real charter. Matched on phone number, but phone alone isn't reliable — every match also required corroborating address and non-conflicting `total_assets`; anything else flagged for manual review, never auto-merged. 415 confirmed, 4 flagged, merged via the existing `merged_into_bank_id` mechanism
+- Production backup taken first; both changes dry-run-verified against a fresh production read immediately before applying
+
+## Version 8.11.0 (v8.11.0 — shipped July 19 2026)
+
+**Bank-profile source attribution, unsafe NCUA trade-name aliases, ANECA casing**
+- `source_authority` (not a name-string heuristic) now decides "sourced from FDIC/NCUA" text — the old check mislabeled NCUA-only institutions like ANECA whose name doesn't contain "credit union"
+- `computeAkaNamesFromSearchNames` now suppresses an NCUA TradeNames entry from the public `aka_names` field unless it shares a lexical relationship with the institution's own name — ANECA's TradeNames row listed "morgan stanley"/"jp morgan" with no real connection to either company
+- ANECA added to the curated acronyms list so its name displays correctly instead of being flattened to "Aneca"
+
+## Version 8.11.1 (v8.11.1 — shipped July 19 2026)
+
+**Fix duplicate-name bank search rows highlighting together** — cmdk tracks the active item by `CommandItem`'s `value` prop, not React key; two charters sharing a name both used `value={bank.name}`, so cmdk couldn't tell them apart. Switched to the guaranteed-unique bank id.
+
+## Version 8.11.2–8.11.3 (v8.11.2–v8.11.3 — shipped July 19 2026)
+
+**Website cleanup — truncated NCUA values, malformed FDIC values**
+- NCUA's own website field is fixed-width and truncates long domains mid-word (Richland Credit Union's was literally cut off) — `isValidWebsiteDomain` now rejects anything that doesn't look like a real domain before it reaches `banks.website`, for both sources
+- A separate, genuinely mechanical bug: `sync-ncua-directory.mjs`'s case-sensitive protocol check double-prefixed a handful of values; caught in a dry run before applying that an earlier draft of this fix was about to rewrite every ordinary `http://` website to `https://`, which was never the intent
+- `repairFdicWebsite` mechanically recovers what's safe (two websites crammed into one field, stray/doubled periods) — a colon or comma standing in for a period is deliberately left alone rather than guessed at
+- Backfills applied to the 55 (NCUA) and 12 (FDIC) already-affected production banks
+
+## Version 8.11.4 (v8.11.4 — shipped July 19 2026)
+
+**`sync_protected_fields` so a manually-verified field survives the next sync** — `finalize_sync_run` unconditionally rewrote every synced field from fresh source data every run, so a manual correction (Richland's website truncation, unresolvable at the source) would get silently reverted the next time NCUA/FDIC produced a value. `banks.sync_protected_fields` names which fields are protected per bank; `apply_bank_correction` populates it automatically on an auto-applied correction; covered by `base_snapshot_hash`.
+
+## Version 8.11.5 (v8.11.5 — shipped July 19 2026)
+
+**Fix broken FDIC bank website links** — every FDIC-linked bank's website was stored with no protocol (`"ozk.com"`), so `href="ozk.com"` resolved relative to the current page instead of externally, 404ing every FDIC bank's website link back onto this site's own domain. `websiteHref()` (`lib/utils.ts`) guarantees an absolute link regardless of stored shape; the FDIC sync now stores the protocol going forward; ~4,162 already-affected production banks backfilled.
+
+## Version 8.11.6 (v8.11.6 — shipped July 19 2026)
+
+**Bump `engines.node` to 24.x to match Vercel's project setting** — `package.json`'s `engines` field was pinning builds to Node 22.x, which Vercel honors over its own dashboard Node.js Version setting, so builds kept running 22.x even with the project set to 24.x.
+
+## Version 8.12.0 (v8.12.0 — shipped July 19 2026)
+
+**Dedicated Early Direct Deposit leaderboard at `/early-direct-deposit`**
+- New pure aggregation helper `lib/eddLeaderboard.ts`, shared by `/early-direct-deposit` and the `/rails` preview so the two surfaces can't drift apart
+- Ranks by median instead of the previous raw arithmetic mean, which silently mistreated the `days_early = 6` sentinel ("more than 5 days early") as a literal 6 — one such report could produce nonsense like "4+ days." The median falls back to a categorical "more than 5 days early" whenever an interpolated median would cross the censored bucket, rather than inventing a number
+- Adds `is_active` filtering (inactive institutions were never excluded from the old ranking — a real gap) and a separate `EDD_LEADERBOARD_MIN_REPORTERS = 5` bar for a ranked position, distinct from `EDD_MIN_REPORTERS = 2`'s lower bar for showing any evidence at all (2-4 reporters land in an unranked "Early evidence" section instead)
+- A read-only preflight found `edd_reports` has zero rows in production — the submission form is only reachable from individual bank profile pages. Ships with a real empty state rather than lowering the threshold to force something onto the page
+
+## Version 8.12.1 (v8.12.1 — shipped July 19 2026)
+
+**Bump `@types/node` to `^24`, regenerate the lockfile under Node 24** — brings `@types/node` in line with the `engines.node: 24.x` switch; `package-lock.json` regenerated with npm running under Node 24.18.0 so its root metadata and the resolved `@types/node` version agree with `package.json`. Adds a Dependabot ignore rule for semver-major `@types/node` bumps (a prior PR had jumped straight to 26.x), removed only when intentionally upgrading the runtime to Node 26 LTS.
+
+## Version 8.13.0 (v8.13.0 — shipped July 19 2026)
+
+**Settlement-time leaderboard brought to the same conventions as EDD**
+- `lib/timingLeaderboard.ts` splits into a pure `computeTimingLeaderboard` (fully unit-testable) and a thin fetch wrapper, same shape as `lib/eddLeaderboard.ts`
+- Ranks by median settlement time instead of a raw average — not a censoring concern like EDD's sentinel, but the same robustness argument: one outlier report can swing a mean far more than a median
+- Fixes a real gap: inactive institutions were never excluded from the old ranking, so a bank's stale evidence could keep it ranked after going inactive
+- Adds a deterministic tie-break (typical time ascending, then share of reports at-or-below typical, then sample size, then name), sample-size evidence labels, and latest-observation-date/180-day staleness marking
+- `/timing` gains a breadcrumb, plain-language disclaimer, a methodology section, and real metadata/canonical/OG tags it previously lacked
+- Verified against production directly: `route_reports` currently has zero rows with `settlement_time_minutes` set, so the empty state shown live is correct today, not a bug
+
+## Version 8.13.1 (v8.13.1 — shipped July 19 2026)
+
+**Center the "View all"/leaderboard links under each rail column on `/rails`**
+
+## Version 8.13.2 (v8.13.2 — shipped July 19 2026)
+
+**Documentation and runtime-alignment cleanup — no leaderboard calculations or production data touched**
+- Finished the Node 24 migration v8.11.6/v8.12.1 started: `.node-version` and every `actions/setup-node` step (`test.yml`'s two jobs, `audit-rls.yml`, `sync-data.yml`'s four jobs) were still pinned to 22, so GitHub's checks were reporting green while actually executing on the wrong runtime. Verified the existing Node-24 lockfile needed no regeneration
+- `README.md`: documents the dedicated `/early-direct-deposit` page (`/rails` reframed as a preview), links `/timing`, notes both leaderboards now rank by median/typical values rather than a raw average, and adds a Node 24.x local-dev prerequisite recommending `.node-version` + a version manager + `npm ci` for a reproducible install
+- `app/methodology/page.tsx`: replaced the obsolete HIGH/MEDIUM/LOW confidence-tier section with the actual current route-evidence states (`lib/routeConfidence.ts`), and added new sections for the Early Direct Deposit leaderboard, the settlement-time leaderboard, and institution name/alias/source-attribution behavior (the v8.11.0 fix) — written for ordinary users, not as internal implementation notes. Date bumped to the real release date
+- `app/developers/page.tsx`: made explicit that `/banks/:id`'s `avgDaysEarly` (a plain per-bank average) is a separate methodology from `/early-direct-deposit`'s median/categorical ranking and the two aren't expected to match, and that `hasMoreThanFive` only flags average-understatement, never implying a censored report was counted as exactly six days
+- `PROJECT.md` itself: backfilled the missing v8.0.0–v8.13.1 history (the full institution-directory sync rollout, duplicate-name/rail-participation safety work, the branding/logo saga, casing/alias/website/protocol fixes, `sync_protected_fields`, both leaderboard rebuilds, and this release) from real git history, not memory; added a current-state note pointing at the historical Node 22 entries so they can't be mistaken for present instructions, and updated Build Rules to state Node 24.x as the supported runtime explicitly
+- Along the way, found and fixed real (some pre-existing, unrelated to this release) missing-space rendering bugs on `/methodology` and `/developers` — a recurring JSX quirk where a space right after a closing tag/expression gets silently dropped when the following text wraps onto a new source line (e.g. "P2P - Zelle— checked", "avgDaysEarlyis this endpoint's") — fixed with explicit `{" "}` spacers, the same pattern already used to fix an identical bug on `/early-direct-deposit` in v8.12.0
+- Verified `/changelog` is still purely a live community-activity feed with no hardcoded software release notes, and audited the rest of the tracked repo for other stale current-state claims (average-based leaderboard wording, EDD-only-on-`/rails`, the old confidence tiers, the old methodology date, TradeNames-as-safe-alias claims) — found nothing else stale; every other case (bank-profile/route-level `avgTime`, the v6-breaking-change historical note, PROJECT.md's own dated history) was already accurate for what it actually describes
+- Full gate run under real Node 24.18.0 (`npm ci`, tsc, lint, 742 tests, build, `test:db` against real local Postgres — 12/12 suites — `audit-rls-manifest.mjs` against production, `git diff --check`), plus manual desktop/mobile inspection of `/methodology`, `/developers`, `/early-direct-deposit`, `/timing`, and `/rails`
+
 ## Data Principles
 
 - Real-world reports only
@@ -755,4 +945,5 @@ This release starts with a full security pass of every API route and RLS policy 
 - Test before pushing
 - Keep MVP focused
 - No feature creep
-- Update PROJECT.md with the new version's release notes before pushing a feature (don't let it drift out of sync again — see the v5.0.2–v6.1.0 backfill)
+- Update PROJECT.md with the new version's release notes before pushing a feature (don't let it drift out of sync again — see the v5.0.2–v6.1.0 backfill, and again the v8.0.0–v8.13.1 backfill)
+- **Node 24.x is the supported runtime** for local development, CI, and production — `.node-version`, `package.json`'s `engines.node`, `@types/node`, every `actions/setup-node` step, and Vercel's project setting must all agree. Earlier entries in this file mentioning Node 22 are historical (accurate through v8.11.5); don't follow them as current instructions

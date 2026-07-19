@@ -15,9 +15,10 @@ Live at [instantrailcheck.com](https://www.instantrailcheck.com)
 - Bank profile pages with website, address, and phone auto-filled from FDIC, NCUA, and FINRA
 - FedNow, RTP, and Zelle network participation, verified against official/semi-official directories where available
 - Visa Direct and Mastercard Send tracked as community-reported (no official directory exists for either)
-- Early Direct Deposit tracking, self-reported — ranked on the [rail explorer](https://www.instantrailcheck.com/rails) leaderboards alongside per-rail community rankings
+- Early Direct Deposit tracking, self-reported — dedicated leaderboard at [/early-direct-deposit](https://www.instantrailcheck.com/early-direct-deposit) (median/typical days early, not a raw average; a ranked position needs 5+ distinct reporters, 2–4 shows as unranked "early evidence"; "more than 5 days" is a real observation, not treated as exactly six), previewed on the [rail explorer](https://www.instantrailcheck.com/rails) alongside per-rail community rankings
 - Compare two banks side by side
-- Settlement time leaderboard and a changelog of recent activity
+- Settlement time leaderboard at [/timing](https://www.instantrailcheck.com/timing), also ranked by median/typical time rather than a raw average, and a changelog of recent activity
+- Both leaderboards describe community-reported observations, not a guarantee of future timing
 - SEO-friendly bank URLs (`/banks/chase`, not a UUID) with automatic redirects from old links
 - Suggest a correction to a bank's website/phone — auto-verified against official sources before applying
 - Public read-only API with CSV export and webhooks — see [/developers](https://www.instantrailcheck.com/developers)
@@ -31,10 +32,14 @@ Live at [instantrailcheck.com](https://www.instantrailcheck.com)
 
 ## Local development
 
+**Prerequisite:** Node.js 24.x (matches `.node-version` / `package.json`'s `engines.node`) — recommended via a version manager that reads `.node-version` automatically, e.g. [fnm](https://github.com/Schniz/fnm), [nvm](https://github.com/nvm-sh/nvm), or [asdf](https://asdf-vm.com).
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
+
+`npm ci` gives a reproducible install matching the committed lockfile; only fall back to `npm install` if you're intentionally changing a dependency.
 
 Create a `.env.local` with:
 

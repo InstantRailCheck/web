@@ -78,8 +78,8 @@ export default function DevelopersPage() {
         <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
           <h2 className="text-lg font-semibold">Route evidence states</h2>
           <p className="mt-2 text-sm text-slate-400">
-            <code>/routes</code> and <code>/banks/:id</code> describe evidence rather than a
-            single confidence score. A report only counts if it&apos;s from a signed-in user
+            <code>/routes</code> and <code>/banks/:id</code>{" "}
+            describe evidence rather than a single confidence score. A report only counts if it&apos;s from a signed-in user
             (unattributed/legacy rows never count), and only each reporter&apos;s newest report
             for a given route and rail is used — so one person can&apos;t inflate the count.
             A route or rail with no attributable reports is simply absent from the response,
@@ -107,14 +107,30 @@ export default function DevelopersPage() {
           </p>
           <p className="mt-2 text-sm text-slate-400">
             Reporters can optionally note what kind of deposit it was and which payroll platform
-            or provider paid it. <code>providers</code> breaks out bank-wide EDD evidence by
-            provider (e.g. &quot;ADP payroll deposits were reported 2 days early by 6 distinct
+            or provider paid it. <code>providers</code>{" "}
+            breaks out bank-wide EDD evidence by provider (e.g. &quot;ADP payroll deposits were reported 2 days early by 6 distinct
             reporters&quot;), but only once a provider has <strong className="text-slate-300">3</strong>{" "}
             distinct reporters — a higher bar than overall <code>eddEvidence</code>, since naming a
             specific company is more identifying. A provider below that threshold is simply
             absent from the array, not included as a zero-count entry. Deposit types that
             aren&apos;t payroll (government benefits, tax refunds, pensions) never contribute to a
             provider&apos;s count, even if a provider was recorded alongside them.
+          </p>
+          <p className="mt-2 text-sm text-slate-400">
+            <code>avgDaysEarly</code>{" "}
+            is this endpoint&apos;s own bank-profile aggregate — a plain
+            average of each reporter&apos;s newest value. It is a separate methodology from the{" "}
+            <Link href="/early-direct-deposit" className="text-blue-400 hover:text-blue-300 transition">
+              /early-direct-deposit
+            </Link>{" "}
+            leaderboard, which ranks by a median/categorical typical value instead; the two are not
+            expected to produce identical numbers for the same bank.{" "}
+            <code>hasMoreThanFive</code>{" "}
+            only flags that the average understates reality because at
+            least one reporter selected the open-ended &quot;more than 5 days&quot; option — it does
+            not mean those reports were counted as exactly six days anywhere in this response.
+            Raw <code>edd_reports</code> rows and reporter identities are never exposed by this or
+            any other endpoint — only these pre-aggregated values.
           </p>
         </div>
 
