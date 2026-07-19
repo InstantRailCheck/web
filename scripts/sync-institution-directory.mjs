@@ -29,7 +29,15 @@ import {
   checkRetentionGuard,
   checkInactivationCap,
 } from "../lib/institutionSync.ts";
-import { normalizeWebsite, extractFdicAkaNames, deriveDomainInitialsAka, mergeAkaNames, computeAkaNamesFromSearchNames } from "./lib/bankAkaNames.mjs";
+import {
+  normalizeWebsite,
+  extractFdicAkaNames,
+  deriveDomainInitialsAka,
+  mergeAkaNames,
+  computeAkaNamesFromSearchNames,
+  isValidWebsiteDomain,
+  repairDoubledProtocol,
+} from "./lib/bankAkaNames.mjs";
 import { smartTitleCase, isAllCapsName } from "../lib/institutionNameCase.ts";
 
 const supabase = createClient(
@@ -93,7 +101,13 @@ async function fetchAllFdicInstitutions() {
 }
 
 function fdicRecordToSourceInstitution(row) {
-  const website = row.WEBADDR ? normalizeWebsite(row.WEBADDR.startsWith("http") ? row.WEBADDR : `https://${row.WEBADDR}`) : null;
+  // FDIC's own WEBADDR field has occasional data-entry typos (a colon or
+  // comma where a period belongs, "n/a" placeholders, two websites crammed
+  // into one field) - isValidWebsiteDomain suppresses those rather than
+  // publishing a dead link; there's nothing to algorithmically repair here
+  // the way there is for NCUA's fixed-width truncation/double-protocol bug.
+  const rawWebsite = row.WEBADDR ? normalizeWebsite(row.WEBADDR.startsWith("http") ? row.WEBADDR : `https://${row.WEBADDR}`) : null;
+  const website = isValidWebsiteDomain(rawWebsite) ? rawWebsite : null;
   const officialAka = extractFdicAkaNames(row, row.NAME);
   const domainAka = deriveDomainInitialsAka(row.NAME, website);
   const akaNames = mergeAkaNames(officialAka, domainAka);
@@ -152,7 +166,14 @@ function ncuaRecordToSourceInstitution(row) {
     name: isAllCapsName(row.name) ? smartTitleCase(row.name) : row.name,
     city: row.city,
     state: row.state,
-    website: row.website,
+    // NCUA's own FS220D website field is fixed-width and truncates long
+    // domains mid-word (confirmed live: charter 3391/Richland) -
+    // repairDoubledProtocol fixes a separate, genuinely mechanical bug
+    // (sync-ncua-directory.mjs used to double-prefix a handful of values,
+    // fixed alongside this) and otherwise changes nothing; isValidWebsiteDomain
+    // then rejects whatever's still truncated rather than promoting a dead
+    // link into the public banks.website field.
+    website: isValidWebsiteDomain(repairDoubledProtocol(row.website)) ? repairDoubledProtocol(row.website) : null,
     phone: row.phone,
     address: row.address,
     totalAssets: row.total_assets,

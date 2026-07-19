@@ -259,7 +259,12 @@ async function main() {
 function normalizeWebsite(raw) {
   const trimmed = raw.trim();
   if (!trimmed) return null;
-  return trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+  // .startsWith("http") is case-sensitive - NCUA's own FS220D data has at
+  // least one row (charter 67486, Reed Credit Union) with the protocol
+  // submitted as "HTTPS://..." in all-caps, which this check failed to
+  // recognize as already having a protocol, prepending a second
+  // "https://" on top of it ("https://HTTPS://WWW.REEDCREDITUNION.COM").
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
 main().catch((err) => {

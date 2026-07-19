@@ -8,6 +8,8 @@ import {
   mergeAkaNames,
   classifyAlias,
   isSafePublicAlias,
+  isValidWebsiteDomain,
+  repairDoubledProtocol,
 } from "./bankAkaNames.mjs";
 
 describe("normalizeWebsite", () => {
@@ -23,6 +25,64 @@ describe("normalizeWebsite", () => {
   it("returns null for null/empty input", () => {
     expect(normalizeWebsite(null)).toBeNull();
     expect(normalizeWebsite("")).toBeNull();
+  });
+});
+
+describe("isValidWebsiteDomain", () => {
+  it("rejects the real Richland truncation (charter 3391)", () => {
+    expect(isValidWebsiteDomain("http://www.richlandfederalcredituni")).toBe(false);
+  });
+
+  it("only validates the host - a truncated path doesn't fail it (charter 22785; the domain root still works as a link)", () => {
+    expect(isValidWebsiteDomain("http://www.richland.k12.la.us/credi")).toBe(true);
+  });
+
+  it("accepts a normal, complete website with or without protocol/www", () => {
+    expect(isValidWebsiteDomain("https://www.aneca.org")).toBe(true);
+    expect(isValidWebsiteDomain("aneca.org")).toBe(true);
+    expect(isValidWebsiteDomain("www.aneca.org")).toBe(true);
+  });
+
+  it("rejects a doubly-prefixed value (the real Reed Credit Union bug, charter 67486)", () => {
+    expect(isValidWebsiteDomain("https://HTTPS://WWW.REEDCREDITUNION.COM")).toBe(false);
+  });
+
+  it("rejects FDIC data-entry typos (colon/comma instead of a period)", () => {
+    expect(isValidWebsiteDomain("www:zcbank.com")).toBe(false);
+    expect(isValidWebsiteDomain("www,fieldpointprivate.com")).toBe(false);
+  });
+
+  it("rejects a literal placeholder value", () => {
+    expect(isValidWebsiteDomain("n/a")).toBe(false);
+  });
+
+  it("rejects null/empty", () => {
+    expect(isValidWebsiteDomain(null)).toBe(false);
+    expect(isValidWebsiteDomain("")).toBe(false);
+  });
+});
+
+describe("repairDoubledProtocol", () => {
+  it("collapses a doubled protocol prefix down to one (charter 67486)", () => {
+    expect(repairDoubledProtocol("https://HTTPS://WWW.REEDCREDITUNION.COM")).toBe("https://WWW.REEDCREDITUNION.COM");
+  });
+
+  it("leaves an already-correct value completely unchanged - never rewrites a working http:// to https://", () => {
+    expect(repairDoubledProtocol("http://www.selectsevencu.org")).toBe("http://www.selectsevencu.org");
+    expect(repairDoubledProtocol("https://www.aneca.org")).toBe("https://www.aneca.org");
+  });
+
+  it("leaves a bare domain (no protocol at all) unchanged", () => {
+    expect(repairDoubledProtocol("aneca.org")).toBe("aneca.org");
+  });
+
+  it("leaves a genuinely truncated host unchanged (charter 3391) - isValidWebsiteDomain is what suppresses it, not this", () => {
+    expect(repairDoubledProtocol("http://www.richlandfederalcredituni")).toBe("http://www.richlandfederalcredituni");
+  });
+
+  it("returns the input unchanged for null/empty", () => {
+    expect(repairDoubledProtocol(null)).toBeNull();
+    expect(repairDoubledProtocol("")).toBe("");
   });
 });
 

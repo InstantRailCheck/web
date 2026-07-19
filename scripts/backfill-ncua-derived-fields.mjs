@@ -1,23 +1,28 @@
-// One-time production correction for two fixes shipped together: the
+// One-time production correction for three fixes shipped together: the
 // alias-safety filter in computeAkaNamesFromSearchNames (suppresses
 // unrelated major-brand/unlexically-related NCUA TradeNames entries, e.g.
-// ANECA's "morgan stanley"/"jp morgan") and the ANECA ACRONYMS addition in
-// institutionNameCase.ts (restores "ANECA" instead of "Aneca").
+// ANECA's "morgan stanley"/"jp morgan"), the ANECA ACRONYMS addition in
+// institutionNameCase.ts (restores "ANECA" instead of "Aneca"), and
+// repairDoubledProtocol/isValidWebsiteDomain (fixes a doubly-prefixed
+// website exactly, changes nothing else, and nulls out a truncation
+// NCUA's own fixed-width source field can't recover, e.g. Richland Credit
+// Union / charter 3391 - never rewrites a website that was already fine).
 //
-// Recomputes `name` and `aka_names` for every NCUA-linked bank straight
-// from ncua_credit_unions (the raw source of truth), the exact same way
-// sync-institution-directory.mjs / sync-ncua-directory.mjs already do —
-// so this is provably the same result a normal sync would produce, not a
-// one-off calculation that could drift from the ongoing pipeline. Because
-// both fixes live in the shared functions those pipelines already call,
-// this script (and the regular monthly sync) can never re-introduce a
-// suppressed alias or the wrong casing later.
+// Recomputes `name`, `aka_names`, and `website` for every NCUA-linked bank
+// straight from ncua_credit_unions (the raw source of truth), the exact
+// same way sync-institution-directory.mjs / sync-ncua-directory.mjs
+// already do — so this is provably the same result a normal sync would
+// produce, not a one-off calculation that could drift from the ongoing
+// pipeline. Because all three fixes live in the shared functions those
+// pipelines already call, this script (and the regular monthly sync) can
+// never re-introduce a suppressed alias, the wrong casing, or a broken
+// website later.
 //
 // name_normalized is a Postgres STORED GENERATED column derived from
 // name + aka_names — Postgres recomputes it automatically on this UPDATE,
 // no separate step needed. Dry-run by default; --apply to write.
 import { createClient } from "@supabase/supabase-js";
-import { computeAkaNamesFromSearchNames, deriveDomainInitialsAka, mergeAkaNames } from "./lib/bankAkaNames.mjs";
+import { computeAkaNamesFromSearchNames, deriveDomainInitialsAka, mergeAkaNames, isValidWebsiteDomain, repairDoubledProtocol } from "./lib/bankAkaNames.mjs";
 import { isAllCapsName, smartTitleCase } from "../lib/institutionNameCase.ts";
 
 const APPLY = process.argv.includes("--apply");
@@ -33,7 +38,7 @@ async function fetchAllNcuaCreditUnions() {
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("ncua_credit_unions")
-      .select("charter_number, name, search_names")
+      .select("charter_number, name, search_names, website")
       .order("charter_number", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
@@ -82,18 +87,22 @@ async function main() {
     if (!source) continue; // charter not present in the latest ncua_credit_unions snapshot
 
     const correctName = isAllCapsName(source.name) ? smartTitleCase(source.name) : source.name;
+    const repairedWebsite = repairDoubledProtocol(source.website);
+    const newWebsite = isValidWebsiteDomain(repairedWebsite) ? repairedWebsite : null;
     const ncuaAka = computeAkaNamesFromSearchNames(correctName, source.search_names ?? []);
-    const domainAka = deriveDomainInitialsAka(correctName, bank.website);
+    const domainAka = deriveDomainInitialsAka(correctName, newWebsite);
     const newAka = mergeAkaNames(ncuaAka, domainAka);
 
     const nameChanged = correctName !== bank.name;
     const akaChanged = !sameAka(newAka, bank.aka_names);
-    if (!nameChanged && !akaChanged) continue;
+    const websiteChanged = newWebsite !== bank.website;
+    if (!nameChanged && !akaChanged && !websiteChanged) continue;
 
     plannedCount++;
     const changes = [];
     if (nameChanged) changes.push(`name: "${bank.name}" -> "${correctName}"`);
     if (akaChanged) changes.push(`aka_names: ${JSON.stringify(bank.aka_names)} -> ${JSON.stringify(newAka)}`);
+    if (websiteChanged) changes.push(`website: ${JSON.stringify(bank.website)} -> ${JSON.stringify(newWebsite)}`);
     console.log(`- ${bank.name} (${bank.slug}): ${changes.join("; ")}`);
 
     if (!APPLY) continue;
@@ -101,6 +110,7 @@ async function main() {
     const update = {};
     if (nameChanged) update.name = correctName;
     if (akaChanged) update.aka_names = newAka;
+    if (websiteChanged) update.website = newWebsite;
     const { error } = await supabase.from("banks").update(update).eq("id", bank.id);
     if (error) {
       failedCount++;

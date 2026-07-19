@@ -9,6 +9,48 @@ export function normalizeWebsite(url) {
   return trimmed || null;
 }
 
+// NCUA's FS220D.txt website field (Acct_891) is fixed-width in NCUA's own
+// raw export - a long domain gets truncated mid-word (confirmed live:
+// charter 3391/Richland's website is literally "http://www.richlandfeder
+// alcredituni", cut off with nothing after it - NCUA's own source data,
+// not something introduced by this pipeline's parsing). FDIC's data has
+// its own, unrelated data-entry typos (colons/commas where a period
+// belongs, "n/a" placeholders, two websites crammed into one field).
+// Rather than guess at repairing either, this just checks the hostname
+// actually looks like a real domain before letting it reach the public
+// banks.website field and get rendered as a (broken) link - "blank over
+// wrong" for URLs the same as for aliases.
+const HOST_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,24}$/i;
+
+// Only validates the HOST, deliberately - a path after the host isn't part
+// of what makes a domain real or fake, and this must never rewrite a
+// value that's already fine (an earlier version of this reconstructed the
+// URL with a hardcoded https:// prefix, silently "upgrading" thousands of
+// perfectly normal http:// websites that were never broken - caught in a
+// dry run before it ever reached production). This only strips ONE
+// protocol layer for validation purposes - a doubly-prefixed value is
+// intentionally NOT considered valid here even though it's recoverable;
+// repairDoubledProtocol below is the one that fixes it, byte-for-byte
+// unchanged apart from the actual duplication.
+export function isValidWebsiteDomain(raw) {
+  if (!raw) return false;
+  const stripped = raw.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  const hostPart = stripped.split("/")[0];
+  return HOST_PATTERN.test(hostPart);
+}
+
+// Fixes ONLY the exact doubled-protocol pattern (sync-ncua-directory.mjs's
+// own case-sensitive protocol check produced values like
+// "https://HTTPS://WWW.X.COM" before it was fixed alongside this) - collapses
+// the two leading protocols into one, leaving literally everything else
+// (case, www, path, or a value with no problem at all) untouched. This is
+// a narrow, mechanical repair, not a general normalizer - it can never
+// rewrite a website that wasn't already doubly-prefixed.
+export function repairDoubledProtocol(raw) {
+  if (!raw) return raw;
+  return raw.replace(/^(https?:\/\/)https?:\/\//i, "$1");
+}
+
 // NCUA's own TradeNames.txt is submitted by each credit union's own staff
 // with no independent verification of what an entry represents (NCUA's own
 // guidance treats a trade name as a self-registered marketing alias, not an
