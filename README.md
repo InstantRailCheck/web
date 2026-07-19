@@ -11,7 +11,7 @@ Live at [instantrailcheck.com](https://www.instantrailcheck.com)
 - Search any two US banks to see which payment rails work between them
 - View success rates, average settlement times, and data freshness
 - Submit your own real transfer outcomes to improve the database
-- Accounts via Google, email one-time code, or passkey — no password required
+- Accounts via Google, GitHub, email one-time code, or passkey — no password required
 - Bank profile pages with website, address, and phone auto-filled from FDIC, NCUA, and FINRA
 - FedNow, RTP, and Zelle network participation, verified against official/semi-official directories where available
 - Visa Direct and Mastercard Send tracked as community-reported (no official directory exists for either)
