@@ -10,6 +10,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+// Flip to true once Reddit approves the custom OAuth2 app under their
+// Responsible Builder Policy and it's configured on the Supabase project
+// — the button and its handler are already fully wired, just hidden
+// until sign-in would actually work.
+const REDDIT_SIGN_IN_ENABLED = false;
+
 type Step = "email" | "sent";
 
 type Props = {
@@ -174,18 +180,22 @@ export function AuthModal({ open, onOpenChange }: Props) {
               We only use your Google account to verify your identity — we never access your
               Gmail, Drive, or other Google data.
             </p>
-            <button
-              onClick={handleRedditSignIn}
-              disabled={redditLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-            >
-              {!redditLoading && <RedditIcon />}
-              {redditLoading ? "Redirecting..." : "Continue with Reddit"}
-            </button>
-            <p className="text-center text-xs text-slate-500">
-              We only use your Reddit account to verify your identity — we never post or access
-              your Reddit activity.
-            </p>
+            {REDDIT_SIGN_IN_ENABLED && (
+              <>
+                <button
+                  onClick={handleRedditSignIn}
+                  disabled={redditLoading}
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {!redditLoading && <RedditIcon />}
+                  {redditLoading ? "Redirecting..." : "Continue with Reddit"}
+                </button>
+                <p className="text-center text-xs text-slate-500">
+                  We only use your Reddit account to verify your identity — we never post or
+                  access your Reddit activity.
+                </p>
+              </>
+            )}
             <button
               onClick={handlePasskeySignIn}
               disabled={passkeyLoading}
