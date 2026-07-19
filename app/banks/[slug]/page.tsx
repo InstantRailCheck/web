@@ -22,6 +22,7 @@ import { BankBreadcrumb } from "@/components/BankBreadcrumb";
 import { SITE_URL } from "@/lib/siteConfig";
 import { safeJsonLdString, buildBankBreadcrumbJsonLd } from "@/lib/jsonLd";
 import { railDisplayName } from "@/lib/railDisplayName";
+import { resolveProvenance, contactInfoSourceLabel } from "@/lib/institutionProvenance";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -249,6 +250,9 @@ export default async function BankProfilePage({
     notFound();
   }
 
+  const provenance = resolveProvenance(profile.bank);
+  const contactSourceLabel = contactInfoSourceLabel(provenance);
+
   // Inactive banks stay viewable with a banner, never 404 — an existing
   // shared link or indexed page shouldn't break just because the
   // institution has since gone unlisted, closed, or merged.
@@ -327,13 +331,13 @@ export default async function BankProfilePage({
         )}
         <div className="text-center">
           <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
-          {(profile.bank.city || profile.bank.state || regulatorLabel(profile.bank.source_authority)) && (
+          {(profile.bank.city || profile.bank.state || regulatorLabel(provenance)) && (
             <p className="mt-1 text-sm text-slate-400">
               {[
                 [profile.bank.city, profile.bank.state].filter(Boolean).join(", "),
-                regulatorLabel(profile.bank.source_authority) && profile.bank.fdic_cert
+                regulatorLabel(provenance) && profile.bank.fdic_cert
                   ? `FDIC Cert #${profile.bank.fdic_cert}`
-                  : regulatorLabel(profile.bank.source_authority) && profile.bank.ncua_charter_number
+                  : regulatorLabel(provenance) && profile.bank.ncua_charter_number
                     ? `NCUA Charter #${profile.bank.ncua_charter_number}`
                     : null,
               ]
@@ -362,13 +366,9 @@ export default async function BankProfilePage({
               <PhoneText phone={profile.bank.phone} />
             </p>
           )}
-          {(profile.bank.website || profile.bank.address || profile.bank.phone) && (
+          {(profile.bank.website || profile.bank.address || profile.bank.phone) && contactSourceLabel && (
             <p className="mt-1 text-xs text-slate-600">
-              Contact info sourced from{" "}
-              {profile.bank.name.toLowerCase().includes("credit union")
-                ? "NCUA's quarterly call report data"
-                : "FDIC BankFind"}
-              . See{" "}
+              Contact info sourced from {contactSourceLabel}. See{" "}
               <Link href="/methodology" className="text-slate-500 hover:text-slate-400 underline transition">
                 methodology
               </Link>

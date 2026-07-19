@@ -64,6 +64,10 @@ describe("smartTitleCase", () => {
     expect(smartTitleCase("HMC (NJ)")).toBe("Hmc (NJ)");
   });
 
+  it("preserves ANECA's own genuine all-caps name rather than flattening it to 'Aneca' (charter 3212)", () => {
+    expect(smartTitleCase("ANECA")).toBe("ANECA");
+  });
+
   it("leaves bare numbers and symbol-only tokens untouched", () => {
     expect(smartTitleCase("1166")).toBe("1166");
     expect(smartTitleCase("Y-12")).toBe("Y-12");

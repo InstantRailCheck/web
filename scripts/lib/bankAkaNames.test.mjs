@@ -6,6 +6,8 @@ import {
   pickFdicMatch,
   deriveDomainInitialsAka,
   mergeAkaNames,
+  classifyAlias,
+  isSafePublicAlias,
 } from "./bankAkaNames.mjs";
 
 describe("normalizeWebsite", () => {
@@ -24,10 +26,43 @@ describe("normalizeWebsite", () => {
   });
 });
 
+describe("classifyAlias", () => {
+  it("flags a real NCUA data quirk: ANECA's TradeNames row lists an unrelated major brokerage", () => {
+    expect(classifyAlias("ANECA", "morgan stanley").safe).toBe(false);
+    expect(classifyAlias("ANECA", "jp morgan").safe).toBe(false);
+  });
+
+  it("does not flag a brand term that's part of the institution's own name", () => {
+    // "Chase" is JPMorgan Chase's own real trade name, not a foreign brand claim.
+    const result = classifyAlias("JPMorgan Chase Bank, National Association", "Chase");
+    expect(result).toEqual({ safe: true, reason: "shares a meaningful word with the primary name" });
+  });
+
+  it("allows a genuine abbreviation that shares no brand term but relates lexically", () => {
+    expect(classifyAlias("First Neshoba Federal Credit Union", "fnfcu").safe).toBe(true);
+  });
+
+  it("allows a compound-vs-spaced variant of the same word (jpmorgan vs morgan)", () => {
+    expect(classifyAlias("JPMorgan Chase Bank, National Association", "J.P.Morgan").safe).toBe(true);
+  });
+
+  it("rejects an alias with zero lexical relationship to the primary name, even without a brand hit", () => {
+    const result = classifyAlias("Westex Community Credit Union", "Rainier Hardware Supply");
+    expect(result).toEqual({ safe: false, reason: "no lexical relationship to the primary name" });
+  });
+});
+
+describe("isSafePublicAlias", () => {
+  it("is a boolean wrapper over classifyAlias", () => {
+    expect(isSafePublicAlias("ANECA", "morgan stanley")).toBe(false);
+    expect(isSafePublicAlias("First Neshoba Federal Credit Union", "fnfcu")).toBe(true);
+  });
+});
+
 describe("computeAkaNamesFromSearchNames", () => {
   it("filters out the primary name (case-insensitively) from search_names", () => {
-    const result = computeAkaNamesFromSearchNames("First Neshoba Credit Union", [
-      "first neshoba credit union",
+    const result = computeAkaNamesFromSearchNames("First Neshoba Federal Credit Union", [
+      "first neshoba federal credit union",
       "fnfcu",
     ]);
     expect(result).toEqual(["fnfcu"]);
@@ -41,6 +76,20 @@ describe("computeAkaNamesFromSearchNames", () => {
   it("returns null for an empty or missing search_names array", () => {
     expect(computeAkaNamesFromSearchNames("Acme Credit Union", [])).toBeNull();
     expect(computeAkaNamesFromSearchNames("Acme Credit Union", undefined)).toBeNull();
+  });
+
+  it("suppresses an unrelated major-brand alias from the real ANECA data (charter 3212)", () => {
+    const result = computeAkaNamesFromSearchNames("ANECA", ["aneca", "morgan stanley", "jp morgan"]);
+    expect(result).toBeNull();
+  });
+
+  it("keeps a genuine alias alongside a suppressed unsafe one", () => {
+    const result = computeAkaNamesFromSearchNames("Westex Community Credit Union", [
+      "westex community credit union",
+      "wccu",
+      "Rainier Hardware Supply",
+    ]);
+    expect(result).toEqual(["wccu"]);
   });
 });
 

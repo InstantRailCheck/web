@@ -26,6 +26,15 @@ const ACRONYMS = new Set([
   "MO", "MD", "WI", "CO", "MN", "SC", "AL", "LA", "KY", "OR", "OK", "CT", "UT",
   "IA", "NV", "AR", "MS", "KS", "NM", "NE", "WV", "ID", "HI", "NH", "ME", "RI",
   "MT", "DE", "SD", "ND", "AK", "VT", "WY", "DBA", "II", "III", "IV",
+  // Institution-specific: added only after confirming (via the
+  // institution's own site/domain, not a guess) that the all-caps form is
+  // the credit union's genuine, deliberate legal/brand name, not just a
+  // side effect of NCUA's all-caps source format. See
+  // scripts/audit-ncua-short-name-casing.mjs for the broader population of
+  // short all-caps NCUA names this same judgment call would need to be
+  // made for — most are ordinary words/brand names already correctly
+  // title-cased and are NOT added here.
+  "ANECA",
 ]);
 
 const MINOR_WORDS = new Set(["of", "and", "the", "for", "in", "at", "by", "on", "an", "or", "to"]);

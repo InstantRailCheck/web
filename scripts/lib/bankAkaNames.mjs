@@ -9,13 +9,117 @@ export function normalizeWebsite(url) {
   return trimmed || null;
 }
 
+// NCUA's own TradeNames.txt is submitted by each credit union's own staff
+// with no independent verification of what an entry represents (NCUA's own
+// guidance treats a trade name as a self-registered marketing alias, not an
+// attestation of affiliation or a merger record) — confirmed live to
+// contain at least one row (ANECA, charter 3212) listing "morgan stanley"
+// and "jp morgan" with no discoverable relationship to either company.
+// Blindly promoting every TradeNames entry into the public aka_names field
+// (and from there into page text, metadata, and JSON-LD alternateName)
+// risks publishing a false claim of affiliation with a real, unrelated,
+// well-known institution.
+//
+// Never delete the raw data — ncua_credit_unions.search_names keeps every
+// entry NCUA published, verbatim, for auditability. This only gates what's
+// safe to promote into the PUBLIC banks.aka_names field.
+//
+// A candidate is unsafe to promote if either:
+//  1. It names a distinct, well-known major bank/brokerage brand that this
+//     institution's own name doesn't already reference (an "also known as
+//     Morgan Stanley" claim implies affiliation the data can't support).
+//  2. It shares no meaningful word with the institution's own name at all —
+//     a genuine DBA/trade name is normally a shortened, abbreviated, or
+//     rebranded form of the SAME name (e.g. "FNFCU" for "First Neshoba
+//     Federal Credit Union"), so zero lexical relationship is itself a
+//     signal something else is going on, even without a brand-name hit.
+// Anything that doesn't clearly pass is suppressed by default — "blank
+// over wrong" applied to the source data itself, not just to our own
+// matching logic elsewhere in this project.
+const MAJOR_FINANCIAL_BRAND_TERMS = [
+  "jpmorgan", "jpmorganchase", "morganstanley", "chase", "wellsfargo", "bankofamerica",
+  "citibank", "citigroup", "citi", "goldmansachs", "hsbc", "barclays", "capitalone",
+  "usaa", "pncbank", "truist", "usbank", "regionsbank", "fifththird", "tdbank",
+  "santander", "discoverbank", "americanexpress", "amex", "merrilllynch", "charlesschwab",
+  "fidelity", "vanguard", "allyfinancial", "morgan", "stanley",
+];
+
+const GENERIC_INSTITUTION_WORDS = new Set([
+  "federal", "credit", "union", "fcu", "cu", "employees", "employee", "inc",
+  "incorporated", "association", "assn", "the", "of", "and", "no", "number",
+  "corp", "corporation", "company", "co", "bank", "national", "na", "trust",
+]);
+
+function flatten(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function meaningfulTokens(name) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !GENERIC_INSTITUTION_WORDS.has(w));
+}
+
+// Substring-based, not exact-match, so a compound token like "jpmorgan"
+// still relates to a spaced-out alias token like "morgan" — real trade-name
+// data routinely compounds or splits words differently than the primary
+// name does.
+function tokensRelated(aliasTokens, primaryTokens) {
+  return aliasTokens.some((a) => primaryTokens.some((p) => a === p || a.includes(p) || p.includes(a)));
+}
+
+export function classifyAlias(primaryName, candidateAlias) {
+  const flatAlias = flatten(candidateAlias);
+  const flatPrimary = flatten(primaryName);
+  const brandTerm = MAJOR_FINANCIAL_BRAND_TERMS.find((term) => flatAlias.includes(term));
+  if (brandTerm && !flatPrimary.includes(brandTerm)) {
+    return { safe: false, reason: `contains unrelated major-brand term "${brandTerm}"` };
+  }
+
+  // A genuine initialism of the primary name (e.g. "fnfcu" for "First
+  // Neshoba Federal Credit Union") shares no literal substring with any of
+  // the expanded words it stands for — the token-overlap check below can
+  // never accept it on its own, so it needs its own check, reusing the
+  // same initials computation deriveDomainInitialsAka already trusts
+  // elsewhere in this file. A short (<2-letter) match is too likely to be
+  // coincidental to rely on here.
+  const initials = computeNameInitials(primaryName);
+  if (initials.length >= 2 && flatAlias === initials) {
+    return { safe: true, reason: "matches the primary name's own initials" };
+  }
+
+  const primaryTokens = meaningfulTokens(primaryName);
+  const aliasTokens = meaningfulTokens(candidateAlias);
+  if (aliasTokens.length === 0) {
+    return primaryTokens.length === 0
+      ? { safe: true, reason: "no meaningful tokens on either side" }
+      : { safe: false, reason: "alias has no meaningful words to relate to the primary name" };
+  }
+  if (tokensRelated(aliasTokens, primaryTokens)) {
+    return { safe: true, reason: "shares a meaningful word with the primary name" };
+  }
+  return { safe: false, reason: "no lexical relationship to the primary name" };
+}
+
+export function isSafePublicAlias(primaryName, candidateAlias) {
+  return classifyAlias(primaryName, candidateAlias).safe;
+}
+
 // ncua_credit_unions.search_names already includes the credit union's own
 // primary name (lowercased) alongside any real trade names from NCUA's
 // TradeNames.txt — strip it out so aka_names only ever holds genuine
-// alternates, never a redundant copy of the name already on the page.
+// alternates, never a redundant copy of the name already on the page. Also
+// filters through classifyAlias/isSafePublicAlias above so an unverifiable
+// or brand-colliding TradeNames entry never reaches the public field —
+// deterministic and idempotent, so a future sync recomputing this never
+// restores something already suppressed.
 export function computeAkaNamesFromSearchNames(primaryName, searchNames) {
   const primaryLower = primaryName.toLowerCase().trim();
-  const akaNames = (searchNames ?? []).filter((n) => n.toLowerCase().trim() !== primaryLower);
+  const akaNames = (searchNames ?? [])
+    .filter((n) => n.toLowerCase().trim() !== primaryLower)
+    .filter((n) => isSafePublicAlias(primaryName, n));
   return akaNames.length > 0 ? akaNames : null;
 }
 
