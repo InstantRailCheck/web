@@ -55,12 +55,18 @@ function WebsiteCell({ website }: { website: string | null }) {
   );
 }
 
-function EddCell({ evidence }: { evidence: { avgDaysEarly: number; reportCount: number; hasMoreThanFive: boolean } | null }) {
+function EddCell({ evidence }: { evidence: { avgDaysEarly: number | null; reportCount: number; hasMoreThanFive: boolean } | null }) {
   if (!evidence) return <span className="text-slate-600">No data</span>;
   return (
     <span>
-      {evidence.avgDaysEarly}
-      {evidence.hasMoreThanFive && "+"} day{evidence.avgDaysEarly !== 1 ? "s" : ""} early
+      {evidence.avgDaysEarly === null ? (
+        "more than 5 days early"
+      ) : (
+        <>
+          {evidence.avgDaysEarly}
+          {evidence.hasMoreThanFive && "+"} day{evidence.avgDaysEarly !== 1 ? "s" : ""} early
+        </>
+      )}
       <span className="text-slate-500">
         {" "}
         ({evidence.reportCount} report{evidence.reportCount !== 1 ? "s" : ""})

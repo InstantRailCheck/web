@@ -51,12 +51,15 @@ export type RailEvidence = {
 export type EddProviderEvidence = {
   provider: PayrollProvider;
   providerLabel: string;
-  avgDaysEarly: number;
+  // null when every attributable reporter chose the open-ended "more than 5
+  // days" sentinel — there is no numeric value to average in that case. See
+  // averageExactDaysEarly.
+  avgDaysEarly: number | null;
   reportCount: number;
 };
 
 export type EddEvidence = {
-  avgDaysEarly: number;
+  avgDaysEarly: number | null;
   reportCount: number;
   hasMoreThanFive: boolean;
   // Only providers meeting EDD_PROVIDER_MIN_REPORTERS appear here — a
@@ -131,6 +134,19 @@ function dedupeEddReportsByReporterBankAndContext(rows: EddReportRow[]): EddRepo
   );
 }
 
+// EDD_DAYS_SENTINEL (6, "more than 5 days") is a censored category, not a
+// real count — it must never be summed or divided as though it meant
+// literally six. Averages only the exact-valued (0-5) rows; returns null if
+// every row is the sentinel, rather than fabricating a number or dividing by
+// a length that doesn't match what was actually summed. Shared by both the
+// bank-level (buildProfile) and provider-level (computeEddProviderEvidence)
+// aggregates so they can't drift into two different bugs here.
+function averageExactDaysEarly(rows: { days_early: number }[]): number | null {
+  const exact = rows.filter((r) => r.days_early !== EDD_DAYS_SENTINEL);
+  if (exact.length === 0) return null;
+  return Math.round((exact.reduce((acc, r) => acc + r.days_early, 0) / exact.length) * 10) / 10;
+}
+
 // Builds the public, provider-named evidence list for one bank. Excludes:
 // unattributed rows (via the dedup step), deposit types that aren't payroll
 // (government_benefit/tax_refund/pension — a "government_treasury" answer
@@ -173,8 +189,7 @@ export function computeEddProviderEvidence(rows: EddReportRow[]): EddProviderEvi
     results.push({
       provider: provider as PayrollProvider,
       providerLabel: payrollProviderLabel(provider) ?? provider,
-      avgDaysEarly:
-        Math.round((perUser.reduce((acc, r) => acc + r.days_early, 0) / perUser.length) * 10) / 10,
+      avgDaysEarly: averageExactDaysEarly(perUser),
       reportCount: perUser.length,
     });
   }
@@ -184,11 +199,16 @@ export function computeEddProviderEvidence(rows: EddReportRow[]): EddProviderEvi
 
 // e.g. "ADP payroll deposits were reported 2 days early by 6 distinct
 // reporters." Describes evidence, not a guarantee — never "ADP deposits
-// arrive 2 days early."
+// arrive 2 days early." avgDaysEarly is null only when every distinct
+// reporter for this provider chose the open-ended "more than 5 days" option.
 export function describeEddProviderEvidence(entry: EddProviderEvidence): string {
+  const reporterPhrase = `by ${entry.reportCount} distinct reporter${entry.reportCount !== 1 ? "s" : ""}.`;
+  if (entry.avgDaysEarly === null) {
+    return `${entry.providerLabel} payroll deposits were reported as more than 5 days early ${reporterPhrase}`;
+  }
   return (
     `${entry.providerLabel} payroll deposits were reported ${entry.avgDaysEarly} ` +
-    `day${entry.avgDaysEarly !== 1 ? "s" : ""} early by ${entry.reportCount} distinct reporter${entry.reportCount !== 1 ? "s" : ""}.`
+    `day${entry.avgDaysEarly !== 1 ? "s" : ""} early ${reporterPhrase}`
   );
 }
 
@@ -343,10 +363,7 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
   const eddEvidence: EddEvidence | null =
     attributableEddRows.length >= EDD_MIN_REPORTERS
       ? {
-          avgDaysEarly:
-            Math.round(
-              (attributableEddRows.reduce((acc, r) => acc + r.days_early, 0) / attributableEddRows.length) * 10
-            ) / 10,
+          avgDaysEarly: averageExactDaysEarly(attributableEddRows),
           reportCount: attributableEddRows.length,
           // The average would understate reality if any report used the
           // "more than 5" sentinel — flag it so the display can say "5.5+"

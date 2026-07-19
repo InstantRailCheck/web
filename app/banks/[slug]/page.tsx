@@ -153,14 +153,25 @@ function EddCard({ evidence, bankName }: { evidence: EddEvidence; bankName: stri
         <Clock className="h-4 w-4" /> Early Direct Deposit
       </div>
       <p className="mt-2 text-slate-300">
-        {bankName} releases direct deposits an average of{" "}
-        <strong className="text-white">
-          {evidence.avgDaysEarly}
-          {evidence.hasMoreThanFive && "+"}
-        </strong>{" "}
-        day{evidence.avgDaysEarly !== 1 ? "s" : ""} early, based on {evidence.reportCount}{" "}
-        community report{evidence.reportCount !== 1 ? "s" : ""}
-        {evidence.hasMoreThanFive && " (some reported more than 5 days)"}.
+        {evidence.avgDaysEarly === null ? (
+          <>
+            {bankName} releases direct deposits{" "}
+            <strong className="text-white">more than 5 days</strong>{" "}
+            early, based on {evidence.reportCount}{" "}
+            community report{evidence.reportCount !== 1 ? "s" : ""}.
+          </>
+        ) : (
+          <>
+            {bankName} releases direct deposits an average of{" "}
+            <strong className="text-white">
+              {evidence.avgDaysEarly}
+              {evidence.hasMoreThanFive && "+"}
+            </strong>{" "}
+            day{evidence.avgDaysEarly !== 1 ? "s" : ""} early, based on {evidence.reportCount}{" "}
+            community report{evidence.reportCount !== 1 ? "s" : ""}
+            {evidence.hasMoreThanFive && " (some reported more than 5 days)"}.
+          </>
+        )}
       </p>
       <p className="mt-1 text-xs text-slate-500">
         Self-reported — no official directory exists for this feature. See the{" "}

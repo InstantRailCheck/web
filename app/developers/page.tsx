@@ -102,8 +102,9 @@ export default function DevelopersPage() {
             least 2 distinct signed-in reporters have reported early direct deposit for that
             bank (same one-report-per-reporter rule as route evidence). When present, it includes{" "}
             <code>avgDaysEarly</code>, <code>reportCount</code>, <code>hasMoreThanFive</code>{" "}
-            (some reporters selected &quot;more than 5 days&quot;, so the average understates
-            reality), and <code>providers</code>.
+            (some reporters selected the open-ended &quot;more than 5 days&quot; option, which{" "}
+            <code>avgDaysEarly</code> excludes rather than averaging in), and{" "}
+            <code>providers</code>.
           </p>
           <p className="mt-2 text-sm text-slate-400">
             Reporters can optionally note what kind of deposit it was and which payroll platform
@@ -119,16 +120,22 @@ export default function DevelopersPage() {
           <p className="mt-2 text-sm text-slate-400">
             <code>avgDaysEarly</code>{" "}
             is this endpoint&apos;s own bank-profile aggregate — a plain
-            average of each reporter&apos;s newest value. It is a separate methodology from the{" "}
+            average of each reporter&apos;s newest value, excluding any reporter who chose the
+            open-ended &quot;more than 5 days&quot; option (that sentinel is never averaged in
+            as though it meant literally six days). It is a separate methodology from the{" "}
             <Link href="/early-direct-deposit" className="text-blue-400 hover:text-blue-300 transition">
               /early-direct-deposit
             </Link>{" "}
             leaderboard, which ranks by a median/categorical typical value instead; the two are not
             expected to produce identical numbers for the same bank.{" "}
+            <code>avgDaysEarly</code>{" "}
+            is <code>null</code> — not a number, not omitted — when every attributable reporter
+            chose the open-ended option, since no numeric average exists in that case.{" "}
             <code>hasMoreThanFive</code>{" "}
-            only flags that the average understates reality because at
-            least one reporter selected the open-ended &quot;more than 5 days&quot; option — it does
-            not mean those reports were counted as exactly six days anywhere in this response.
+            flags that at least one reporter selected the open-ended option, independently of
+            whether <code>avgDaysEarly</code> is a number or <code>null</code>. The same{" "}
+            <code>avgDaysEarly: number | null</code> contract applies to each entry in{" "}
+            <code>providers</code>.
             Raw <code>edd_reports</code> rows and reporter identities are never exposed by this or
             any other endpoint — only these pre-aggregated values.
           </p>
@@ -159,6 +166,20 @@ export default function DevelopersPage() {
             (<code>truncated</code>/<code>next_offset</code>) and CSV
             (<code>X-Truncated</code>/<code>X-Next-Offset</code> headers) now say
             explicitly whether more rows exist beyond the current response.
+          </p>
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold">v8 breaking change</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            <code>eddEvidence.avgDaysEarly</code> and each entry in{" "}
+            <code>eddEvidence.providers[].avgDaysEarly</code> are now typed{" "}
+            <code>number | null</code> instead of always <code>number</code>. Previously, a
+            reporter who chose the open-ended &quot;more than 5 days&quot; option was averaged
+            in as though they meant literally six days, silently overstating the true average.
+            The sentinel is now excluded from the arithmetic entirely; <code>null</code> means
+            every attributable reporter for that bank (or provider) chose the open-ended option,
+            so no numeric average exists.
           </p>
         </div>
 

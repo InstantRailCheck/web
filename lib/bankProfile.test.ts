@@ -38,6 +38,7 @@ const {
   getBankProfileById,
   EDD_MIN_REPORTERS,
   EDD_PROVIDER_MIN_REPORTERS,
+  EDD_DAYS_SENTINEL,
 } = await import("./bankProfile");
 
 beforeEach(() => {
@@ -188,12 +189,41 @@ describe("computeEddProviderEvidence", () => {
     const rows = Array.from({ length: 5 }, (_, i) => eddRow({ user_id: `u${i}`, deposit_type: "paycheck" }));
     expect(computeEddProviderEvidence(rows)).toEqual([]);
   });
+
+  it("excludes the open-ended 'more than 5 days' sentinel from the average, but still counts that reporter", () => {
+    const rows = [
+      eddRow({ user_id: "u1", deposit_type: "paycheck", payroll_provider: "adp", days_early: 2 }),
+      eddRow({ user_id: "u2", deposit_type: "paycheck", payroll_provider: "adp", days_early: 4 }),
+      eddRow({ user_id: "u3", deposit_type: "paycheck", payroll_provider: "adp", days_early: EDD_DAYS_SENTINEL }),
+    ];
+    const result = computeEddProviderEvidence(rows);
+    // (2 + 4) / 2 = 3 — the sentinel-valued report is excluded from the sum
+    // and the divisor, not averaged in as though it meant literally six.
+    expect(result).toEqual([
+      { provider: "adp", providerLabel: "ADP", avgDaysEarly: 3, reportCount: 3 },
+    ]);
+  });
+
+  it("returns a null average (never a fabricated number) when every reporter chose the open-ended option", () => {
+    const rows = Array.from({ length: EDD_PROVIDER_MIN_REPORTERS }, (_, i) =>
+      eddRow({ user_id: `u${i}`, deposit_type: "paycheck", payroll_provider: "adp", days_early: EDD_DAYS_SENTINEL })
+    );
+    const result = computeEddProviderEvidence(rows);
+    expect(result).toEqual([
+      { provider: "adp", providerLabel: "ADP", avgDaysEarly: null, reportCount: EDD_PROVIDER_MIN_REPORTERS },
+    ]);
+  });
 });
 
 describe("describeEddProviderEvidence", () => {
   it("describes evidence, not a guarantee", () => {
     const text = describeEddProviderEvidence({ provider: "adp", providerLabel: "ADP", avgDaysEarly: 2, reportCount: 6 });
     expect(text).toBe("ADP payroll deposits were reported 2 days early by 6 distinct reporters.");
+  });
+
+  it("describes a null average categorically, never as a fabricated number", () => {
+    const text = describeEddProviderEvidence({ provider: "adp", providerLabel: "ADP", avgDaysEarly: null, reportCount: 4 });
+    expect(text).toBe("ADP payroll deposits were reported as more than 5 days early by 4 distinct reporters.");
   });
 });
 
@@ -233,6 +263,29 @@ describe("getBankProfileById — EDD evidence and payroll context", () => {
     const profile = await getBankProfileById("bank-a");
     expect(profile.eddEvidence?.reportCount).toBe(2);
     expect(profile.eddEvidence?.providers).toEqual([]);
+  });
+
+  it("excludes the open-ended 'more than 5 days' sentinel from the bank-level average", async () => {
+    setup([
+      eddRow({ user_id: "u1", days_early: 1 }),
+      eddRow({ user_id: "u2", days_early: 3 }),
+      eddRow({ user_id: "u3", days_early: EDD_DAYS_SENTINEL }),
+    ]);
+
+    const profile = await getBankProfileById("bank-a");
+    // (1 + 3) / 2 = 2 — the sentinel report contributes to reportCount and
+    // hasMoreThanFive, but not to the average's sum or divisor.
+    expect(profile.eddEvidence).toEqual({ avgDaysEarly: 2, reportCount: 3, hasMoreThanFive: true, providers: [] });
+  });
+
+  it("returns a null bank-level average when every attributable reporter chose the open-ended option", async () => {
+    setup([
+      eddRow({ user_id: "u1", days_early: EDD_DAYS_SENTINEL }),
+      eddRow({ user_id: "u2", days_early: EDD_DAYS_SENTINEL }),
+    ]);
+
+    const profile = await getBankProfileById("bank-a");
+    expect(profile.eddEvidence).toEqual({ avgDaysEarly: null, reportCount: 2, hasMoreThanFive: true, providers: [] });
   });
 
   it("includes provider evidence once the provider threshold is met", async () => {

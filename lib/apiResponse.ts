@@ -8,8 +8,13 @@ import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 // (v8.0): /banks defaults to active institutions only (?include_inactive=true
 // opts back in), adds city/state to every row, and JSON/CSV responses gain
 // pagination-parity fields (truncated/next_offset in JSON,
-// X-Total-Count/X-Truncated/X-Next-Offset headers in CSV).
-const API_VERSION = "7";
+// X-Total-Count/X-Truncated/X-Next-Offset headers in CSV). v8: /banks/:id's
+// eddEvidence.avgDaysEarly and eddEvidence.providers[].avgDaysEarly are now
+// number | null instead of always number — null means every attributable
+// reporter chose the open-ended "more than 5 days" option, so no numeric
+// average exists (previously that sentinel was silently averaged in as a
+// literal six, overstating the true average).
+const API_VERSION = "8";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
