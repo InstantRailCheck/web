@@ -10,6 +10,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 type BankRow = {
   id: string;
+  slug: string;
   name: string;
   website: string | null;
   phone: string | null;
@@ -20,6 +21,7 @@ type BankRow = {
 let bankResult: { data: BankRow | null; error: { message: string } | null } = {
   data: {
     id: "bank-1",
+    slug: "test-bank",
     name: "Test Bank",
     website: "https://old.example.com",
     phone: null,
@@ -51,6 +53,11 @@ vi.mock("@/lib/rateLimit", () => ({
   isActionRateLimited: (...args: unknown[]) => isActionRateLimitedMock(...args),
 }));
 
+const submitUrlsToIndexNowMock = vi.fn(() => Promise.resolve());
+vi.mock("@/lib/indexNow", () => ({
+  submitUrlsToIndexNow: (...args: unknown[]) => submitUrlsToIndexNowMock(...args),
+}));
+
 const lookupFdicBankByCertMock = vi.fn();
 const lookupNcuaCreditUnionByCharterMock = vi.fn();
 vi.mock("@/lib/fdicLookup", () => ({
@@ -70,6 +77,7 @@ beforeEach(() => {
   bankResult = {
     data: {
       id: "bank-1",
+      slug: "test-bank",
       name: "Test Bank",
       website: "https://old.example.com",
       phone: null,
@@ -87,6 +95,7 @@ beforeEach(() => {
   getUserModerationStatusMock.mockResolvedValue({ blocked: false });
   isActionRateLimitedMock.mockClear();
   isActionRateLimitedMock.mockResolvedValue(false);
+  submitUrlsToIndexNowMock.mockClear();
   lookupFdicBankByCertMock.mockClear();
   lookupFdicBankByCertMock.mockResolvedValue(null);
   lookupNcuaCreditUnionByCharterMock.mockClear();
@@ -162,6 +171,7 @@ describe("submitCorrection", () => {
     bankResult = {
       data: {
         id: "bank-1",
+        slug: "closed-bank",
         name: "Closed Bank",
         website: "https://old.example.com",
         phone: null,
@@ -205,6 +215,7 @@ describe("submitCorrection", () => {
     bankResult = {
       data: {
         id: "bank-1",
+        slug: "pinnacle-bank",
         name: "Pinnacle Bank",
         website: null,
         phone: null,
@@ -224,12 +235,21 @@ describe("submitCorrection", () => {
       "apply_bank_correction",
       expect.objectContaining({ p_matched: true, p_official_value: "https://real-charter.example.com" })
     );
+    expect(submitUrlsToIndexNowMock).toHaveBeenCalledWith(["https://www.instantrailcheck.com/banks/pinnacle-bank"]);
+  });
+
+  it("never notifies IndexNow when the correction is only pending review, not auto-applied", async () => {
+    const result = await submitCorrection("bank-1", "website", "https://new.example.com");
+
+    expect(result.status).toBe("pending_review");
+    expect(submitUrlsToIndexNowMock).not.toHaveBeenCalled();
   });
 
   it("uses the identifier-based NCUA lookup, not a name search, when the bank is already ncua-linked", async () => {
     bankResult = {
       data: {
         id: "bank-1",
+        slug: "pinnacle-bank",
         name: "Pinnacle Bank",
         website: null,
         phone: "555-0100",

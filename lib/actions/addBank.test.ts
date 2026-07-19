@@ -48,6 +48,7 @@ vi.mock("@/lib/rateLimit", () => ({
 
 vi.mock("@/lib/actions/enrichBank", () => ({ enrichBank: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/lib/actions/triggerWebhooks", () => ({ triggerWebhooks: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/lib/indexNow", () => ({ submitUrlsToIndexNow: vi.fn(() => Promise.resolve()) }));
 
 const { addBank } = await import("./addBank");
 

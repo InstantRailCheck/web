@@ -7,6 +7,8 @@ import { slugify, uniqueSlug } from "@/lib/slugify";
 import { normalizeForSearch } from "@/lib/utils";
 import { enrichBank } from "@/lib/actions/enrichBank";
 import { triggerWebhooks } from "@/lib/actions/triggerWebhooks";
+import { submitUrlsToIndexNow } from "@/lib/indexNow";
+import { SITE_URL } from "@/lib/siteConfig";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { getUserModerationStatus } from "@/lib/moderationStatus";
 
@@ -108,6 +110,7 @@ export async function addBank(name: string): Promise<AddBankResult> {
 
   enrichBank(data.id).catch(() => {});
   triggerWebhooks("bank_added", { bankId: data.id, bankName: data.name }).catch(() => {});
+  submitUrlsToIndexNow([`${SITE_URL}/banks/${data.slug}`]).catch(() => {});
 
   return data;
 }

@@ -931,6 +931,14 @@ This release starts with a full security pass of every API route and RLS policy 
 - Breaking API correction: `API_VERSION` bumped `"7"` → `"8"`; `/developers` documents the nullable field, the sentinel-exclusion behavior, and the breaking change explicitly (verified accurate against the shipped code, not just the intent)
 - v9.0's Community Contribution Hub begins from this clean release boundary
 
+## Version 8.14.1 (v8.14.1 — shipped July 19 2026)
+
+**Automated IndexNow submissions on content change**
+- New `lib/indexNow.ts`: `submitUrlsToIndexNow()` POSTs changed URLs to `https://api.indexnow.org/indexnow` so IndexNow-participating search engines (Bing, Yandex, and others) can recrawl specific pages immediately instead of waiting on their own schedule. Dependency-light by design (only a relative import of `./siteConfig.ts`, no `server-only`) so it's importable from both Next.js Server Actions and `scripts/sync-institution-directory.mjs` via Node's native TypeScript stripping, mirroring `lib/institutionSlug.ts`. Never throws — every call site fires it and forgets, the same pattern already used for `triggerWebhooks()`
+- `INDEXNOW_KEY` matches the key file already published at `public/f285701b97c54bf0850ab2c205c02daa.txt`; a test reads that file directly off disk and asserts it matches the constant, so the two can never silently drift apart
+- Wired into the three points where indexable content actually changes: `lib/actions/addBank.ts` (new bank), `lib/actions/submitCorrection.ts` (auto-applied website/phone correction — its bank lookup gained `slug`), and `scripts/sync-institution-directory.mjs`'s `apply()` (after a successful `finalize_sync_run`, queries `banks` for `updated_at >= run.started_at` within the run's `source_authority` scope — `updated_at` only moves for a row this run genuinely inserted/updated/reactivated/inactivated, since `source_last_synced_at`'s own write is excluded from that comparison, so this needed no schema change to identify exactly the right URL set)
+- Deliberately not wired to `route_reports`/`edd_reports` submissions or moderation-driven deletions — too high-frequency and low marginal value per event relative to what IndexNow is for; the three mutation points above already cover every case where a page's content materially changes or a new indexable page appears
+
 ## Data Principles
 
 - Real-world reports only

@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveOfficialMatch } from "@/lib/officialInstitutionMatch";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { getUserModerationStatus } from "@/lib/moderationStatus";
+import { submitUrlsToIndexNow } from "@/lib/indexNow";
+import { SITE_URL } from "@/lib/siteConfig";
 
 export type CorrectionField = "website" | "phone";
 
@@ -68,7 +70,7 @@ export async function submitCorrection(
 
   const { data: bank, error: bankLookupError } = await admin
     .from("banks")
-    .select("id, name, website, phone, fdic_cert, ncua_charter_number, is_active")
+    .select("id, slug, name, website, phone, fdic_cert, ncua_charter_number, is_active")
     .eq("id", bankId)
     .maybeSingle();
 
@@ -120,6 +122,7 @@ export async function submitCorrection(
   }
 
   if (matches) {
+    submitUrlsToIndexNow([`${SITE_URL}/banks/${bank.slug}`]).catch(() => {});
     return {
       status: "auto_applied",
       message: "Thanks — this matched our official source and has been updated.",

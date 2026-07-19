@@ -40,6 +40,8 @@ import {
   repairFdicWebsite,
 } from "./lib/bankAkaNames.mjs";
 import { smartTitleCase, isAllCapsName } from "../lib/institutionNameCase.ts";
+import { submitUrlsToIndexNow } from "../lib/indexNow.ts";
+import { SITE_URL } from "../lib/siteConfig.ts";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -650,6 +652,38 @@ async function apply(runId, allowLargeInactivation) {
         `Run next, in order: refresh the participant sources (scripts/sync-rail-participants.mjs, scripts/sync-zelle-participants.mjs) if they haven't run recently, ` +
         `then node scripts/backfill-rail-participation.mjs, then scripts/audit-duplicate-name-rail-flags.mjs to review anything left ambiguous.`
     );
+  }
+
+  const totalChanged = result.inserted + result.updated + result.reactivated + result.inactivated;
+  if (totalChanged > 0) {
+    try {
+      // banks.updated_at only actually moves for a row this run genuinely
+      // inserted, updated, reactivated, or inactivated — source_last_synced_at's
+      // own write on every present-in-source row is excluded from
+      // banks_set_updated_at()'s comparison (20260716000500), so an
+      // unchanged row's updated_at is untouched. Filtering on run.started_at
+      // (not finished_at, which isn't set until the UPDATE just above) gives
+      // exactly the changed set with no schema change needed.
+      const scopeAuthorities = run.source_scope === "both" ? ["fdic", "ncua"] : [run.source_scope];
+      const { data: changedBanks, error: changedError } = await supabase
+        .from("banks")
+        .select("slug")
+        .in("source_authority", scopeAuthorities)
+        .gte("updated_at", run.started_at);
+      if (changedError) throw changedError;
+
+      const urls = [
+        `${SITE_URL}/banks`,
+        `${SITE_URL}/sitemap.xml`,
+        ...(changedBanks ?? []).map((b) => `${SITE_URL}/banks/${b.slug}`),
+      ];
+      console.log(`\nNotifying IndexNow of ${urls.length} changed URL(s)...`);
+      await submitUrlsToIndexNow(urls);
+    } catch (err) {
+      // The sync itself already succeeded and committed — a failure here
+      // must never look like the sync failed.
+      console.error(`IndexNow notification failed (sync itself still succeeded): ${err instanceof Error ? err.message : err}`);
+    }
   }
 }
 
