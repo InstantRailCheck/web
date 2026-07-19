@@ -38,7 +38,7 @@ function escapeRegex(s: string): string {
 // operating on an in-memory candidate list so callers can choose either a
 // per-lookup DB query (lib/railParticipation.ts) or a single bulk
 // prefetch (scripts/backfill-rail-participation.mjs).
-function findNameMatches(name: string, candidates: RailCandidate[]): RailCandidate[] {
+export function findNameMatches(name: string, candidates: RailCandidate[]): RailCandidate[] {
   const words = name.replace(/[.,]/g, "").trim().split(/\s+/);
   const floor = Math.min(2, words.length);
 
