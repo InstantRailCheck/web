@@ -6,10 +6,10 @@ export default function MaintenancePage() {
       <Image
         src="/logo-banner.png"
         alt="InstantRailCheck"
-        width={1072}
-        height={128}
+        width={1983}
+        height={793}
         unoptimized
-        className="mb-8 h-auto w-[1072px] max-w-full"
+        className="mb-8 h-16 w-auto"
       />
       <h1 className="text-3xl font-bold">We&apos;ll be right back.</h1>
       <p className="mt-4 max-w-md text-slate-400">

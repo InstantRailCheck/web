@@ -10,11 +10,11 @@ export function Hero() {
           <Image
             src="/logo-banner.png"
             alt="InstantRailCheck"
-            width={1072}
-            height={128}
+            width={1983}
+            height={793}
             unoptimized
             priority
-            className="block h-auto w-[1072px] max-w-[90vw]"
+            className="block h-auto w-[640px] max-w-[90vw] md:w-[760px]"
           />
         </Link>
       </div>

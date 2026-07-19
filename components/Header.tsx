@@ -20,10 +20,10 @@ export function Header() {
         <Image
           src="/logo-banner.png"
           alt="InstantRailCheck"
-          width={1072}
-          height={128}
+          width={1983}
+          height={793}
           unoptimized
-          className="h-auto w-[1072px] max-w-full"
+          className="h-20 w-auto"
         />
       </Link>
       {!NO_TOP_NAV_PATHS.has(pathname) && <SiteNavLinks />}
