@@ -23,7 +23,7 @@ export function Header() {
           width={1983}
           height={793}
           unoptimized
-          className="h-20 w-auto"
+          className="h-24 w-auto"
         />
       </Link>
       {!NO_TOP_NAV_PATHS.has(pathname) && <SiteNavLinks />}

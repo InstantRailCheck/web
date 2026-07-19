@@ -32,7 +32,7 @@ export function Hero() {
           Check RTP, FedNow, ACH, wire, and other bank transfer compatibility between U.S.
           financial institutions.
         </p>
-        <p className="mt-1 m-0 text-base leading-7 text-slate-300 lg:hidden">
+        <p className="mt-1 m-0 whitespace-nowrap text-sm leading-7 tracking-tight text-slate-300 lg:hidden">
           Check RTP, FedNow, ACH &amp; wire compatibility.
         </p>
 
