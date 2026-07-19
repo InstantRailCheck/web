@@ -89,11 +89,12 @@ export default function TermsPage() {
                 <a href="mailto:legal@instantrailcheck.com" className="text-blue-400 hover:text-blue-300 transition">
                   legal@instantrailcheck.com
                 </a>
-                . General support:{" "}
+              </p>
+              <p className="mt-2">
+                General support:{" "}
                 <a href="mailto:support@instantrailcheck.com" className="text-blue-400 hover:text-blue-300 transition">
                   support@instantrailcheck.com
                 </a>
-                .
               </p>
             </section>
           </div>
