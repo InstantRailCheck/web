@@ -112,9 +112,49 @@ async function main() {
       const refreshed = await getBank(bank.id);
       assert(refreshed.website === "https://real-charter.example.com", "the bank's website was updated");
       assert(refreshed.phone === "555-0000", "the bank's phone (a different column) was left untouched");
+      assert(
+        JSON.stringify(refreshed.sync_protected_fields) === JSON.stringify(["website"]),
+        `the corrected field joins sync_protected_fields, so the next automated sync can't revert it (got ${JSON.stringify(refreshed.sync_protected_fields)})`
+      );
 
       const corrections = await correctionsFor(bank.id);
       assert(corrections.length === 1 && corrections[0].status === "auto_applied", "one auto_applied correction row was recorded");
+    }
+
+    console.log("\nA second auto-applied correction to a different field adds to sync_protected_fields without duplicating or dropping the first");
+    {
+      const bank = await insertBank({});
+      await admin
+        .rpc("apply_bank_correction", {
+          p_bank_id: bank.id,
+          p_user_id: userId,
+          p_field: "website",
+          p_submitted_value: "https://real-charter.example.com",
+          p_previous_value: bank.website,
+          p_matched: true,
+          p_official_value: "https://real-charter.example.com",
+        })
+        .single();
+
+      const afterFirst = await getBank(bank.id);
+      const { error } = await admin
+        .rpc("apply_bank_correction", {
+          p_bank_id: bank.id,
+          p_user_id: userId,
+          p_field: "phone",
+          p_submitted_value: "555-1234",
+          p_previous_value: afterFirst.phone,
+          p_matched: true,
+          p_official_value: "555-1234",
+        })
+        .single();
+      assert(!error, `second correction succeeds (error: ${error?.message})`);
+
+      const refreshed = await getBank(bank.id);
+      assert(
+        JSON.stringify([...refreshed.sync_protected_fields].sort()) === JSON.stringify(["phone", "website"]),
+        `both corrected fields are protected, no duplicates (got ${JSON.stringify(refreshed.sync_protected_fields)})`
+      );
     }
 
     console.log("\nOn a non-match, records pending_review without touching the bank");

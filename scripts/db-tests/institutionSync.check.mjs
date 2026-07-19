@@ -496,6 +496,38 @@ async function main() {
         assert(/no source_snapshot_hash recorded/i.test(error?.message ?? ""), `error message names the missing hash (got: ${error?.message})`);
       }
     }
+
+    console.log("\nScenario G: sync_protected_fields keeps a manually-verified field untouched through finalize_sync_run (the real Richland Credit Union case)");
+    {
+      const cert = nextCert();
+      const bank = await insertBank({
+        source_authority: "fdic", fdic_cert: cert,
+        website: "https://verified-by-a-human.example", total_assets: 1000,
+        sync_protected_fields: ["website"],
+      });
+
+      const runId = await createRun("fdic");
+      await stageInstitutions(runId, [
+        {
+          source_authority: "fdic", source_identifier: cert, status: "valid", name: bank.name,
+          website: "https://truncated-source-value.example", total_assets: 2000, proposed_slug: "unused",
+        },
+      ]);
+      await stageRun(runId, "fdic");
+      await transition(runId, "staged", "applying");
+
+      const { data: result, error } = await admin.rpc("finalize_sync_run", { p_run_id: runId });
+      assert(!error, `finalize_sync_run succeeds (error: ${error?.message})`);
+      assert(result?.updated === 1, `reports the row as updated, since total_assets genuinely changed (got ${result?.updated})`);
+
+      const refreshed = await getBank(bank.id);
+      assert(refreshed.website === "https://verified-by-a-human.example", "the protected website field was left completely untouched");
+      assert(refreshed.total_assets === 2000, "an unprotected field (total_assets) still updates normally on the same row");
+      assert(
+        JSON.stringify(refreshed.sync_protected_fields) === JSON.stringify(["website"]),
+        "sync_protected_fields itself is untouched by finalize_sync_run"
+      );
+    }
   } finally {
     console.log("\nCleaning up...");
     if (createdRunIds.length) await admin.from("sync_runs").delete().in("id", createdRunIds);

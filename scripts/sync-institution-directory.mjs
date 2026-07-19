@@ -193,7 +193,7 @@ async function fetchAllBanksInScope() {
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("banks")
-      .select("id, slug, name, city, state, website, phone, address, total_assets, aka_names, source_authority, fdic_cert, ncua_charter_number, is_active, inactive_reason")
+      .select("id, slug, name, city, state, website, phone, address, total_assets, aka_names, source_authority, fdic_cert, ncua_charter_number, is_active, inactive_reason, sync_protected_fields")
       .order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
@@ -226,11 +226,17 @@ async function computeAllSlugsHash() {
 // Fields finalize_sync_run can actually change on an existing bank —
 // mirrors its own jsonb-equality comparison as closely as JS reasonably
 // can, so the report's "would this row actually change anything" preview
-// agrees with what apply time will really do.
+// agrees with what apply time will really do. A field named in the bank's
+// own sync_protected_fields (set by a manually-verified correction, e.g.
+// Richland Credit Union's website) is never actually overwritten by
+// finalize_sync_run — skipped here too, so the review report doesn't cry
+// wolf about a change that isn't really going to happen.
 const DIFF_FIELDS = ["name", "city", "state", "website", "phone", "address", "total_assets", "aka_names"];
 function computeChangedFields(existing, staged) {
   const changed = {};
+  const protectedFields = existing.sync_protected_fields ?? [];
   for (const field of DIFF_FIELDS) {
+    if (protectedFields.includes(field)) continue;
     const before = existing[field] ?? null;
     const after = staged[field] ?? null;
     if (JSON.stringify(before) !== JSON.stringify(after)) {
