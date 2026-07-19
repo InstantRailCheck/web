@@ -8,10 +8,10 @@ export function Hero() {
       <div className="mb-1 flex w-full justify-center">
         <Link href="/">
           <Image
-            src="/logo.svg"
+            src="/logo-banner.png"
             alt="InstantRailCheck"
-            width={680}
-            height={153}
+            width={1983}
+            height={793}
             unoptimized
             priority
             className="block h-auto w-[640px] max-w-[90vw] md:w-[760px]"

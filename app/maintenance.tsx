@@ -4,10 +4,10 @@ export default function MaintenancePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-center text-white">
       <Image
-        src="/logo.svg"
+        src="/logo-banner.png"
         alt="InstantRailCheck"
-        width={680}
-        height={153}
+        width={1983}
+        height={793}
         unoptimized
         className="mb-8 h-16 w-auto"
       />
