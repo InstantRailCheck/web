@@ -45,10 +45,10 @@ export default function TermsPage() {
             <section>
               <h2 className="text-lg font-semibold text-white">Your account and submissions</h2>
               <p className="mt-2">
-                Signing in requires a real email address (via Google or a one-time code) or a
-                passkey tied to a real account — no anonymous submissions. Route reports should
-                reflect actual transfers you&apos;ve made or observed. Submitting false or intentionally
-                misleading reports may result in account suspension.
+                Signing in requires a real email address (via Google, GitHub, or a one-time code)
+                or a passkey tied to a real account — no anonymous submissions. Route reports
+                should reflect actual transfers you&apos;ve made or observed. Submitting false or
+                intentionally misleading reports may result in account suspension.
               </p>
             </section>
 
