@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Check whether banks and credit unions support RTP, FedNow, ACH, wire transfers, and other payment rails before sending money.",
     start_url: "/",
     display: "standalone",
-    background_color: "#020617",
-    theme_color: "#020617",
+    background_color: "#000112",
+    theme_color: "#000112",
     icons: [
       {
         src: "/android-chrome-192x192.png",

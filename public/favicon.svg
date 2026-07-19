@@ -14,7 +14,7 @@
     </filter>
   </defs>
 
-  <rect width="256" height="256" rx="54" fill="#020617"/>
+  <rect width="256" height="256" rx="54" fill="#000112"/>
   <g filter="url(#glow)" stroke="url(#mark)" stroke-linecap="round" stroke-linejoin="round">
     <path d="M105 44H193C210 44 221 59 217 75L194 184C191 199 179 210 164 210H76C59 210 48 195 52 179L76 69C79 54 90 44 105 44Z" stroke-width="15"/>
     <path d="M93 129L120 157L178 99" stroke-width="18"/>
