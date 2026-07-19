@@ -35,7 +35,7 @@ vi.mock("@/lib/allBanks", () => ({
   fetchAllBanks: async () => tableData.banks ?? [],
 }));
 
-const { getCommunityReportedBanks, getEddRankedBanks } = await import("./communityRails");
+const { getCommunityReportedBanks, getEddLeaderboardData } = await import("./communityRails");
 
 beforeEach(() => {
   tableData = {};
@@ -93,10 +93,10 @@ describe("getCommunityReportedBanks — dedup by directional route before poolin
   });
 });
 
-describe("getEddRankedBanks — dedup by reporter+bank", () => {
-  const banks = [{ id: "bank-a", slug: "bank-a", name: "Bank A" }];
+describe("getEddLeaderboardData — fetches real rows and defers to the shared computeEddLeaderboard", () => {
+  const banks = [{ id: "bank-a", slug: "bank-a", name: "Bank A", is_active: true }];
 
-  it("does not let repeat submissions from one reporter inflate the average or count", async () => {
+  it("does not let repeat submissions from one reporter inflate the count", async () => {
     tableData.banks = banks;
     tableData.edd_reports = [
       { bank_id: "bank-a", user_id: "u1", days_early: 0, created_at: "2026-01-01" },
@@ -104,21 +104,23 @@ describe("getEddRankedBanks — dedup by reporter+bank", () => {
       { bank_id: "bank-a", user_id: "u2", days_early: 2, created_at: "2026-01-03" },
     ];
 
-    const result = await getEddRankedBanks();
-    expect(result).toEqual([
-      { bankId: "bank-a", bankSlug: "bank-a", bankName: "Bank A", avgDaysEarly: 2, reportCount: 2, hasMoreThanFive: false },
-    ]);
+    const { ranked, earlyEvidence } = await getEddLeaderboardData();
+    expect(ranked).toEqual([]);
+    expect(earlyEvidence).toHaveLength(1);
+    expect(earlyEvidence[0].reportCount).toBe(2);
   });
 
-  it("stays below the reporting threshold with only one distinct reporter, however many rows they submit", async () => {
-    tableData.banks = banks;
-    tableData.edd_reports = [
-      { bank_id: "bank-a", user_id: "u1", days_early: 1, created_at: "2026-01-01" },
-      { bank_id: "bank-a", user_id: "u1", days_early: 1, created_at: "2026-01-02" },
-      { bank_id: "bank-a", user_id: "u1", days_early: 1, created_at: "2026-01-03" },
-    ];
+  it("excludes an inactive bank from the leaderboard even with plenty of evidence", async () => {
+    tableData.banks = [{ ...banks[0], is_active: false }];
+    tableData.edd_reports = Array.from({ length: 6 }, (_, i) => ({
+      bank_id: "bank-a",
+      user_id: `u${i}`,
+      days_early: 1,
+      created_at: `2026-01-0${i + 1}`,
+    }));
 
-    const result = await getEddRankedBanks();
-    expect(result).toEqual([]);
+    const { ranked, earlyEvidence } = await getEddLeaderboardData();
+    expect(ranked).toEqual([]);
+    expect(earlyEvidence).toEqual([]);
   });
 });

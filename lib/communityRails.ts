@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { dedupeToNewestPerReporter, type ReportStatus } from "@/lib/routeConfidence";
-import { EDD_MIN_REPORTERS, EDD_DAYS_SENTINEL, dedupeEddReportsByReporterAndBank } from "@/lib/bankProfile";
+import { computeEddLeaderboard, type EddLeaderboardResult } from "@/lib/eddLeaderboard";
 
 // This is a rail-ranking claim ("banks with the most confirmed successes on
 // this rail"), a different product claim from EDD's or timing's — kept as
@@ -73,48 +73,21 @@ export async function getCommunityReportedBanks(rail: string): Promise<Community
     .sort((a, b) => b.successCount - a.successCount);
 }
 
-export type EddRankedEntry = {
-  bankId: string;
-  bankSlug: string;
-  bankName: string;
-  avgDaysEarly: number;
-  reportCount: number;
-  hasMoreThanFive: boolean;
-};
-
-export async function getEddRankedBanks(): Promise<EddRankedEntry[]> {
+// Fetches real edd_reports/banks rows and hands them to the shared, pure
+// computeEddLeaderboard — the one place both /early-direct-deposit and
+// the /rails preview get their ranking from, so the two surfaces can
+// never show different numbers for the same underlying evidence.
+export async function getEddLeaderboardData(): Promise<EddLeaderboardResult> {
   const supabase = createAdminClient();
 
   const [{ data: eddRows }, allBanks] = await Promise.all([
     supabase.from("edd_reports").select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider"),
-    fetchAllBanks<{ id: string; slug: string; name: string }>(supabase, "id, slug, name"),
+    fetchAllBanks<{ id: string; slug: string; name: string; is_active: boolean }>(
+      supabase,
+      "id, slug, name, is_active"
+    ),
   ]);
 
-  const bankById = new Map(allBanks.map((b) => [b.id, b]));
-  const attributableRows = dedupeEddReportsByReporterAndBank(eddRows ?? []);
-
-  const daysByBank = new Map<string, number[]>();
-  for (const row of attributableRows) {
-    const arr = daysByBank.get(row.bank_id) ?? [];
-    arr.push(row.days_early);
-    daysByBank.set(row.bank_id, arr);
-  }
-
-  const entries: EddRankedEntry[] = [];
-  for (const [bankId, days] of daysByBank) {
-    if (days.length < EDD_MIN_REPORTERS) continue;
-    const bank = bankById.get(bankId);
-    if (!bank) continue;
-
-    entries.push({
-      bankId,
-      bankSlug: bank.slug,
-      bankName: bank.name,
-      avgDaysEarly: Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10,
-      reportCount: days.length,
-      hasMoreThanFive: days.some((d) => d === EDD_DAYS_SENTINEL),
-    });
-  }
-
-  return entries.sort((a, b) => b.avgDaysEarly - a.avgDaysEarly);
+  const banks = allBanks.map((b) => ({ id: b.id, slug: b.slug, name: b.name, isActive: b.is_active }));
+  return computeEddLeaderboard(eddRows ?? [], banks);
 }

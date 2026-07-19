@@ -53,6 +53,13 @@ export function normalizeForSearch(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// e.g. "July 2026" — used for "Last reported ..." style copy where the
+// exact day isn't shown (a specific date plus a small reporter count could
+// help identify who submitted a report).
+export function formatMonthYear(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
 // Re-exported from lib/slugify.ts, which has zero dependencies so the
 // plain Node scripts (backfill-bank-slugs.mjs, the bulk import scripts)
 // can import it directly without pulling in clsx/tailwind-merge.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPhone, slugify, telHref, websiteHref } from "./utils";
+import { formatMonthYear, formatPhone, slugify, telHref, websiteHref } from "./utils";
 
 describe("slugify", () => {
   it("lowercases and joins words with dashes", () => {
@@ -110,5 +110,15 @@ describe("websiteHref", () => {
   it("returns null for null/empty input", () => {
     expect(websiteHref(null)).toBeNull();
     expect(websiteHref("")).toBeNull();
+  });
+});
+
+describe("formatMonthYear", () => {
+  it("formats an ISO timestamp as 'Month YYYY', not an exact date", () => {
+    expect(formatMonthYear("2026-07-15T12:00:00Z")).toBe("July 2026");
+  });
+
+  it("uses UTC so a near-midnight timestamp doesn't shift months by server timezone", () => {
+    expect(formatMonthYear("2026-07-01T00:30:00Z")).toBe("July 2026");
   });
 });

@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { href: "/banks", label: "Browse all" },
   { href: "/timing", label: "Timing" },
   { href: "/rails", label: "Rail explorer" },
+  { href: "/early-direct-deposit", label: "Early deposit" },
   { href: "/compare", label: "Compare" },
   { href: "/changelog", label: "Changelog" },
   { href: "/developers", label: "API" },

@@ -163,7 +163,11 @@ function EddCard({ evidence, bankName }: { evidence: EddEvidence; bankName: stri
         {evidence.hasMoreThanFive && " (some reported more than 5 days)"}.
       </p>
       <p className="mt-1 text-xs text-slate-500">
-        Self-reported — no official directory exists for this feature.
+        Self-reported — no official directory exists for this feature. See the{" "}
+        <Link href="/early-direct-deposit#methodology" className="underline decoration-slate-600 underline-offset-2 hover:text-white hover:decoration-slate-400 transition">
+          leaderboard methodology
+        </Link>
+        .
       </p>
       {evidence.providers.length > 0 && (
         <ul className="mt-3 space-y-1 border-t border-teal-500/20 pt-3 text-xs text-slate-400">

@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Clock, CircleArrowRight, Users, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getCommunityReportedBanks, getEddRankedBanks, type CommunityRailEntry, type EddRankedEntry } from "@/lib/communityRails";
+import { getCommunityReportedBanks, getEddLeaderboardData, type CommunityRailEntry } from "@/lib/communityRails";
+import { typicalValueLabel, type EddLeaderboardEntry } from "@/lib/eddLeaderboard";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 
 export const dynamic = "force-dynamic";
@@ -89,17 +90,21 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
   );
 }
 
-function EddColumn({ entries }: { entries: EddRankedEntry[] }) {
+function EddColumn({ entries }: { entries: EddLeaderboardEntry[] }) {
   const shown = entries.slice(0, DISPLAY_LIMIT);
   return (
     <section>
       <h2 className="flex items-center justify-center gap-2 text-center text-lg font-semibold text-teal-300">
         <Clock className="h-[18px] w-[18px]" /> Early Direct Deposit
       </h2>
-      <p className="mt-1 text-center text-xs text-slate-500">{entries.length} banks, ranked by average days early</p>
+      <p className="mt-1 text-center text-xs text-slate-500">
+        {entries.length} bank{entries.length !== 1 ? "s" : ""} ranked by typical (median) days early
+      </p>
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {shown.length === 0 ? (
-          <p className="px-5 py-4 text-sm text-slate-500">No reports yet.</p>
+          <p className="px-5 py-4 text-sm text-slate-500">
+            No institution has enough community-reported evidence yet to appear here.
+          </p>
         ) : (
           shown.map((entry) => (
             <Link
@@ -109,19 +114,15 @@ function EddColumn({ entries }: { entries: EddRankedEntry[] }) {
             >
               <span>{entry.bankName}</span>
               <span className="text-xs text-slate-500">
-                {entry.avgDaysEarly}
-                {entry.hasMoreThanFive && "+"} day{entry.avgDaysEarly !== 1 ? "s" : ""} ·{" "}
-                {entry.reportCount} report{entry.reportCount !== 1 ? "s" : ""}
+                {typicalValueLabel(entry.typical)} · {entry.reportCount} report{entry.reportCount !== 1 ? "s" : ""}
               </span>
             </Link>
           ))
         )}
       </div>
-      {entries.length > shown.length && (
-        <Link href="/banks?edd=true" className="mt-2 block text-xs text-blue-400 hover:text-blue-300 transition">
-          View all {entries.length} →
-        </Link>
-      )}
+      <Link href="/early-direct-deposit" className="mt-2 block text-xs text-blue-400 hover:text-blue-300 transition">
+        View the full leaderboard →
+      </Link>
     </section>
   );
 }
@@ -135,7 +136,7 @@ export default async function RailsExplorerPage() {
     { data: zelle, count: zelleCount },
     visaDirect,
     mastercardSend,
-    eddRanked,
+    eddLeaderboard,
   ] = await Promise.all([
       supabase
         .from("banks")
@@ -163,7 +164,7 @@ export default async function RailsExplorerPage() {
         .limit(DISPLAY_LIMIT),
       getCommunityReportedBanks("Visa Direct"),
       getCommunityReportedBanks("Mastercard Send"),
-      getEddRankedBanks(),
+      getEddLeaderboardData(),
     ]);
 
   return (
@@ -221,11 +222,15 @@ export default async function RailsExplorerPage() {
           <p className="text-center text-sm text-slate-400">
             A per-bank feature, not a network — no official directory exists since it&apos;s a
             marketing feature banks choose to offer, so this is based on user-submitted reports
-            only. Requires at least 2 reports to appear.
+            only. A preview of the{" "}
+            <Link href="/early-direct-deposit" className="text-blue-400 hover:text-blue-300 transition">
+              full leaderboard
+            </Link>
+            , which requires at least 5 distinct reporters to rank an institution.
           </p>
 
           <div className="mt-6">
-            <EddColumn entries={eddRanked} />
+            <EddColumn entries={eddLeaderboard.ranked} />
           </div>
         </div>
 
