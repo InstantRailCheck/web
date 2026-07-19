@@ -52,7 +52,7 @@ function RailColumn({
         )}
       </div>
       {total > banks.length && (
-        <Link href={viewAllHref} className="mt-2 block text-xs text-blue-400 hover:text-blue-300 transition">
+        <Link href={viewAllHref} className="mt-2 block text-center text-xs text-blue-400 hover:text-blue-300 transition">
           View all {total} →
         </Link>
       )}
@@ -120,7 +120,7 @@ function EddColumn({ entries }: { entries: EddLeaderboardEntry[] }) {
           ))
         )}
       </div>
-      <Link href="/early-direct-deposit" className="mt-2 block text-xs text-blue-400 hover:text-blue-300 transition">
+      <Link href="/early-direct-deposit" className="mt-2 block text-center text-xs text-blue-400 hover:text-blue-300 transition">
         View the full leaderboard →
       </Link>
     </section>
