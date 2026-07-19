@@ -28,6 +28,20 @@ function GoogleIcon() {
   );
 }
 
+function RedditIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="#FF4500" />
+      <circle cx="10" cy="5.5" r="1.1" fill="#fff" />
+      <line x1="10" y1="6.6" x2="10" y2="9" stroke="#fff" strokeWidth="1" />
+      <ellipse cx="10" cy="12.5" rx="5.3" ry="4" fill="#fff" />
+      <circle cx="7.7" cy="12" r="1" fill="#FF4500" />
+      <circle cx="12.3" cy="12" r="1" fill="#FF4500" />
+      <path d="M7.3 14.2c.8.7 1.8 1 2.7 1s1.9-.3 2.7-1" stroke="#FF4500" strokeWidth="0.9" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function AuthModal({ open, onOpenChange }: Props) {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -35,6 +49,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [redditLoading, setRedditLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGoogleSignIn() {
@@ -50,6 +65,26 @@ export function AuthModal({ open, onOpenChange }: Props) {
       setError(error.message);
     }
     // On success the browser navigates to Google — no further state to set.
+  }
+
+  async function handleRedditSignIn() {
+    setRedditLoading(true);
+    setError(null);
+    const supabase = createClient();
+    // Reddit isn't one of Supabase Auth's built-in providers (unlike
+    // google) — it's wired up as a custom OAuth2 provider on the Supabase
+    // project itself. "reddit" here is the identifier that provider must
+    // be registered under; if it's configured under a different
+    // identifier this string needs to match.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "custom:reddit",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      setRedditLoading(false);
+      setError(error.message);
+    }
+    // On success the browser navigates to Reddit — no further state to set.
   }
 
   async function handlePasskeySignIn() {
@@ -138,6 +173,18 @@ export function AuthModal({ open, onOpenChange }: Props) {
             <p className="text-center text-xs text-slate-500">
               We only use your Google account to verify your identity — we never access your
               Gmail, Drive, or other Google data.
+            </p>
+            <button
+              onClick={handleRedditSignIn}
+              disabled={redditLoading}
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+            >
+              {!redditLoading && <RedditIcon />}
+              {redditLoading ? "Redirecting..." : "Continue with Reddit"}
+            </button>
+            <p className="text-center text-xs text-slate-500">
+              We only use your Reddit account to verify your identity — we never post or access
+              your Reddit activity.
             </p>
             <button
               onClick={handlePasskeySignIn}
