@@ -10,12 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// Flip to true once Reddit approves the custom OAuth2 app under their
-// Responsible Builder Policy and it's configured on the Supabase project
-// — the button and its handler are already fully wired, just hidden
-// until sign-in would actually work.
-const REDDIT_SIGN_IN_ENABLED = false;
-
 type Step = "email" | "sent";
 
 type Props = {
@@ -34,16 +28,13 @@ function GoogleIcon() {
   );
 }
 
-function RedditIcon() {
+function GitHubIcon() {
   return (
-    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
-      <circle cx="10" cy="10" r="10" fill="#FF4500" />
-      <circle cx="10" cy="5.5" r="1.1" fill="#fff" />
-      <line x1="10" y1="6.6" x2="10" y2="9" stroke="#fff" strokeWidth="1" />
-      <ellipse cx="10" cy="12.5" rx="5.3" ry="4" fill="#fff" />
-      <circle cx="7.7" cy="12" r="1" fill="#FF4500" />
-      <circle cx="12.3" cy="12" r="1" fill="#FF4500" />
-      <path d="M7.3 14.2c.8.7 1.8 1 2.7 1s1.9-.3 2.7-1" stroke="#FF4500" strokeWidth="0.9" fill="none" strokeLinecap="round" />
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.23c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.28-5.27-5.69 0-1.26.45-2.28 1.18-3.08-.12-.29-.51-1.47.11-3.05 0 0 .96-.31 3.16 1.18a10.95 10.95 0 0 1 5.75 0c2.2-1.49 3.16-1.18 3.16-1.18.62 1.58.23 2.76.11 3.05.74.8 1.18 1.82 1.18 3.08 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.06.79 2.14v3.26c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"
+      />
     </svg>
   );
 }
@@ -55,7 +46,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [redditLoading, setRedditLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGoogleSignIn() {
@@ -73,24 +64,19 @@ export function AuthModal({ open, onOpenChange }: Props) {
     // On success the browser navigates to Google — no further state to set.
   }
 
-  async function handleRedditSignIn() {
-    setRedditLoading(true);
+  async function handleGitHubSignIn() {
+    setGithubLoading(true);
     setError(null);
     const supabase = createClient();
-    // Reddit isn't one of Supabase Auth's built-in providers (unlike
-    // google) — it's wired up as a custom OAuth2 provider on the Supabase
-    // project itself. "reddit" here is the identifier that provider must
-    // be registered under; if it's configured under a different
-    // identifier this string needs to match.
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "custom:reddit",
+      provider: "github",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
-      setRedditLoading(false);
+      setGithubLoading(false);
       setError(error.message);
     }
-    // On success the browser navigates to Reddit — no further state to set.
+    // On success the browser navigates to GitHub — no further state to set.
   }
 
   async function handlePasskeySignIn() {
@@ -180,22 +166,18 @@ export function AuthModal({ open, onOpenChange }: Props) {
               We only use your Google account to verify your identity — we never access your
               Gmail, Drive, or other Google data.
             </p>
-            {REDDIT_SIGN_IN_ENABLED && (
-              <>
-                <button
-                  onClick={handleRedditSignIn}
-                  disabled={redditLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-                >
-                  {!redditLoading && <RedditIcon />}
-                  {redditLoading ? "Redirecting..." : "Continue with Reddit"}
-                </button>
-                <p className="text-center text-xs text-slate-500">
-                  We only use your Reddit account to verify your identity — we never post or
-                  access your Reddit activity.
-                </p>
-              </>
-            )}
+            <button
+              onClick={handleGitHubSignIn}
+              disabled={githubLoading}
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+            >
+              {!githubLoading && <GitHubIcon />}
+              {githubLoading ? "Redirecting..." : "Continue with GitHub"}
+            </button>
+            <p className="text-center text-xs text-slate-500">
+              We only use basic GitHub profile details to verify your identity — we never
+              request access to your repositories.
+            </p>
             <button
               onClick={handlePasskeySignIn}
               disabled={passkeyLoading}
@@ -205,8 +187,8 @@ export function AuthModal({ open, onOpenChange }: Props) {
               {passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey"}
             </button>
             <p className="text-center text-xs text-slate-500">
-              Passkeys can be added once you have an account — sign in with Google or email
-              first, then register one from your account page.
+              Passkeys can be added once you have an account — sign in with Google, GitHub, or
+              email first, then register one from your account page.
             </p>
 
             <div className="flex items-center gap-3 text-xs text-slate-500">
