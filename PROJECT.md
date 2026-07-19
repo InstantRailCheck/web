@@ -921,6 +921,16 @@ This release starts with a full security pass of every API route and RLS policy 
 - Verified `/changelog` is still purely a live community-activity feed with no hardcoded software release notes, and audited the rest of the tracked repo for other stale current-state claims (average-based leaderboard wording, EDD-only-on-`/rails`, the old confidence tiers, the old methodology date, TradeNames-as-safe-alias claims) — found nothing else stale; every other case (bank-profile/route-level `avgTime`, the v6-breaking-change historical note, PROJECT.md's own dated history) was already accurate for what it actually describes
 - Full gate run under real Node 24.18.0 (`npm ci`, tsc, lint, 742 tests, build, `test:db` against real local Postgres — 12/12 suites — `audit-rls-manifest.mjs` against production, `git diff --check`), plus manual desktop/mobile inspection of `/methodology`, `/developers`, `/early-direct-deposit`, `/timing`, and `/rails`
 
+## Version 8.14.0 (v8.14.0 — shipped July 19 2026)
+
+**Bookkeeping release for the EDD sentinel-averaging correction — implementation already shipped in commit `1a2e9dd`**
+- This release is a version/changelog boundary only. No code changed beyond `package.json`/`package-lock.json`'s version and this entry — the fix itself, `EddCard`/`EddCell` rendering, and the `/developers` documentation were already committed and pushed as `1a2e9dd`, ahead of this entry. Minted retroactively so the historical record doesn't imply `API_VERSION` 8 arrived bundled into an unrelated feature release
+- The fix: `lib/bankProfile.ts`'s bank-level and provider-level `avgDaysEarly` no longer treat EDD's censored "more than 5 days" sentinel (`EDD_DAYS_SENTINEL = 6`) as a literal six-day observation — it's excluded from the average's own arithmetic entirely, the same way the ranked `/early-direct-deposit` leaderboard (`lib/eddLeaderboard.ts`) already handled it
+- `avgDaysEarly` is now typed `number | null` on both `EddEvidence` and `EddProviderEvidence` — `null` means every attributable reporter chose the open-ended option, so no numeric average exists, rather than a fabricated or misleading number
+- Bank profile pages, `/compare`, and the public API's `eddEvidence` are all aligned to the corrected behavior
+- Breaking API correction: `API_VERSION` bumped `"7"` → `"8"`; `/developers` documents the nullable field, the sentinel-exclusion behavior, and the breaking change explicitly (verified accurate against the shipped code, not just the intent)
+- v9.0's Community Contribution Hub begins from this clean release boundary
+
 ## Data Principles
 
 - Real-world reports only
