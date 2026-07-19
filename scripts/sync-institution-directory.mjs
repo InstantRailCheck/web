@@ -30,6 +30,7 @@ import {
   checkInactivationCap,
 } from "../lib/institutionSync.ts";
 import { normalizeWebsite, extractFdicAkaNames, deriveDomainInitialsAka, mergeAkaNames, computeAkaNamesFromSearchNames } from "./lib/bankAkaNames.mjs";
+import { smartTitleCase, isAllCapsName } from "../lib/institutionNameCase.ts";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -143,7 +144,12 @@ function ncuaRecordToSourceInstitution(row) {
   return {
     sourceAuthority: "ncua",
     identifier: row.charter_number,
-    name: row.name,
+    // NCUA's own CU_NAME field is submitted in ALL CAPS as a data
+    // convention, not a stylistic choice (see lib/institutionNameCase.ts)
+    // — title-cased here, at the point this becomes banks.name, rather
+    // than in sync-ncua-directory.mjs, so ncua_credit_unions stays a
+    // faithful raw mirror of NCUA's own file.
+    name: isAllCapsName(row.name) ? smartTitleCase(row.name) : row.name,
     city: row.city,
     state: row.state,
     website: row.website,
