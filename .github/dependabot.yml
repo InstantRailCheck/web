@@ -27,6 +27,16 @@ updates:
         dependency-type: "development"
         update-types:
           - "patch"
+    ignore:
+      # @types/node is intentionally capped to the ^24 range to match the
+      # Node 24.x runtime this project targets (package.json's engines
+      # field, Vercel's project setting) — a semver-major bump here (e.g.
+      # to 26.x) would pull in types for a Node version we're not actually
+      # running on yet. Remove this rule only when intentionally upgrading
+      # the runtime itself to Node 26 LTS.
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
 
   # Actions are pinned to commit SHAs (see .github/workflows/*.yml) as
   # defense in depth against a compromised/republished version tag —
