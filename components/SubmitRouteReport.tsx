@@ -336,7 +336,7 @@ export function SubmitRouteReport(props: Props) {
                   <SelectItem value="FedNow" className="text-white focus:bg-slate-800 focus:text-white">FedNow</SelectItem>
                   <SelectItem value="ACH" className="text-white focus:bg-slate-800 focus:text-white">ACH</SelectItem>
                   <SelectItem value="Wire" className="text-white focus:bg-slate-800 focus:text-white">Wire</SelectItem>
-                  <SelectItem value="Zelle" className="text-white focus:bg-slate-800 focus:text-white">P2P Payments</SelectItem>
+                  <SelectItem value="Zelle" className="text-white focus:bg-slate-800 focus:text-white">P2P - Zelle</SelectItem>
                   <SelectItem value="Visa Direct" className="text-white focus:bg-slate-800 focus:text-white">Visa Direct</SelectItem>
                   <SelectItem value="Mastercard Send" className="text-white focus:bg-slate-800 focus:text-white">Mastercard Send</SelectItem>
                   <SelectItem value="Other" className="text-white focus:bg-slate-800 focus:text-white">Other</SelectItem>

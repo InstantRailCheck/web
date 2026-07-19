@@ -195,12 +195,12 @@ export default async function RailsExplorerPage() {
           />
           <RailColumn
             icon={<Users className="h-[18px] w-[18px]" />}
-            label="P2P Payments"
+            label="P2P - Zelle"
             color="text-white"
             banks={zelle ?? []}
             total={zelleCount ?? 0}
             viewAllHref="/banks?zelle=true"
-            footnote="Checked against Zelle's own directory (the only P2P app tracked so far), which is known to be incomplete — a missing badge doesn't confirm a bank lacks support, only that it isn't listed there."
+            footnote="Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks support, only that it isn't listed there."
           />
         </div>
 

@@ -214,7 +214,7 @@ export async function generateMetadata({
 
   return {
     title,
-    description: `Check which payment rails (RTP, FedNow, ACH, Wire, P2P Payments) ${profile.bank.name} supports, backed by official sources and real-world reports.${akaClause}${locationClause}`,
+    description: `Check which payment rails (RTP, FedNow, ACH, Wire, P2P - Zelle) ${profile.bank.name} supports, backed by official sources and real-world reports.${akaClause}${locationClause}`,
     alternates: { canonical },
     ...(indexable ? {} : { robots: { index: false, follow: true } }),
   };
@@ -402,12 +402,12 @@ export default async function BankProfilePage({
             {profile.bank.zelle_participant && (
               <RailEvidenceCard
                 icon={<Users className="h-4 w-4" />}
-                label="P2P Payments"
+                label="P2P - Zelle"
                 border="border-white/30"
                 bg="bg-white/10"
                 text="text-white"
                 evidence={profile.railEvidence.zelle}
-                footnote="Checked against Zelle's own directory (the only P2P app tracked so far), which is known to be incomplete, so a missing badge doesn't necessarily mean a bank lacks support."
+                footnote="Zelle's own directory is known to be incomplete, so a missing badge doesn't necessarily mean a bank lacks support."
               />
             )}
           </div>

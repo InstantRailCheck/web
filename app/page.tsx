@@ -138,7 +138,7 @@ export default async function Home({
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h3 className="font-semibold text-white">2. We analyze routes</h3>
               <p className="mt-2 text-sm text-slate-400">
-                We check available transfer rails like ACH, RTP, FedNow, and P2P Payments.
+                We check available transfer rails like ACH, RTP, FedNow, and P2P - Zelle.
               </p>
             </div>
 

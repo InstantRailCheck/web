@@ -191,7 +191,7 @@ export default async function ComparePage({
                   <td className="px-5 py-3">{b.bank.rtp_participant ? "✅" : "—"}</td>
                 </tr>
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">P2P Payments</td>
+                  <td className="px-5 py-3 text-slate-500">P2P - Zelle</td>
                   <td className="px-5 py-3">{a.bank.zelle_participant ? "✅" : "—"}</td>
                   <td className="px-5 py-3">{b.bank.zelle_participant ? "✅" : "—"}</td>
                 </tr>

@@ -104,7 +104,7 @@ export default async function BanksDirectoryPage({
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" name="zelle" value="true" defaultChecked={zelle === "true"} className="h-4 w-4" />
-            P2P Payments only
+            P2P - Zelle only
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" name="edd" value="true" defaultChecked={edd === "true"} className="h-4 w-4" />
