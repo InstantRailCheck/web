@@ -1,7 +1,7 @@
 import "server-only";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Banknote, Landmark, Zap } from "lucide-react";
+import { Banknote, CircleArrowRight, Zap } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EDD_MIN_REPORTERS, dedupeEddReportsByReporterAndBank } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
@@ -142,7 +142,7 @@ export default async function BanksDirectoryPage({
                   )}
                 </span>
                 <span className="flex gap-1 text-xs">
-                  {bank.fednow_participant && <Landmark className="h-4 w-4 text-white" />}
+                  {bank.fednow_participant && <CircleArrowRight className="h-4 w-4 text-purple-400" />}
                   {bank.rtp_participant && <Zap className="h-4 w-4 text-green-400" />}
                   {bank.zelle_participant && <Banknote className="h-4 w-4 text-violet-400" />}
                 </span>

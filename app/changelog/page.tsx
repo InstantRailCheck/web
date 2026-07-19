@@ -14,7 +14,7 @@ const STATUS_STYLES: Record<string, string> = {
 // bank profile pages, /banks, /rails) so a rail is recognizable by color site-wide.
 const RAIL_COLORS: Record<string, string> = {
   RTP: "text-green-300",
-  FedNow: "text-white",
+  FedNow: "text-purple-300",
   ACH: "text-blue-300",
   Wire: "text-slate-300",
   Zelle: "text-violet-300",

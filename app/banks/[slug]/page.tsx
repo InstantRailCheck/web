@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
-import { Banknote, CalendarCheck, Clock, Landmark, Zap } from "lucide-react";
+import { Banknote, CalendarCheck, CircleArrowRight, Clock, Zap } from "lucide-react";
 import {
   getBankProfileBySlug,
   getBankSlugById,
@@ -26,7 +26,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 const RAIL_STYLES: Record<string, { border: string; bg: string; text: string }> = {
   RTP: { border: "border-green-500/30", bg: "bg-green-500/10", text: "text-green-300" },
-  FedNow: { border: "border-white/30", bg: "bg-white/10", text: "text-white" },
+  FedNow: { border: "border-purple-500/30", bg: "bg-purple-500/10", text: "text-purple-300" },
   ACH: { border: "border-blue-500/30", bg: "bg-blue-500/10", text: "text-blue-300" },
   Wire: { border: "border-slate-800", bg: "bg-slate-900", text: "text-slate-300" },
   Zelle: { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300" },
@@ -380,11 +380,11 @@ export default async function BankProfilePage({
           <div className="mt-3 flex flex-wrap justify-center gap-3">
             {profile.bank.fednow_participant && (
               <RailEvidenceCard
-                icon={<Landmark className="h-4 w-4" />}
+                icon={<CircleArrowRight className="h-4 w-4" />}
                 label="FedNow"
-                border="border-white/30"
-                bg="bg-white/10"
-                text="text-white"
+                border="border-purple-500/30"
+                bg="bg-purple-500/10"
+                text="text-purple-300"
                 evidence={profile.railEvidence.fednow}
               />
             )}

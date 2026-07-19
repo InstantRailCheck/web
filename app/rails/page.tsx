@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote, Clock, Landmark, Zap } from "lucide-react";
+import { Banknote, Clock, CircleArrowRight, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCommunityReportedBanks, getEddRankedBanks, type CommunityRailEntry, type EddRankedEntry } from "@/lib/communityRails";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
@@ -178,9 +178,9 @@ export default async function RailsExplorerPage() {
 
         <div className="mt-8 grid gap-8 sm:grid-cols-3">
           <RailColumn
-            icon={<Landmark className="h-[18px] w-[18px]" />}
+            icon={<CircleArrowRight className="h-[18px] w-[18px]" />}
             label="FedNow"
-            color="text-white"
+            color="text-purple-300"
             banks={fednow ?? []}
             total={fednowCount ?? 0}
             viewAllHref="/banks?fednow=true"
