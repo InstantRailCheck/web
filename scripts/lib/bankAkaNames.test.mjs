@@ -10,6 +10,7 @@ import {
   isSafePublicAlias,
   isValidWebsiteDomain,
   repairDoubledProtocol,
+  repairFdicWebsite,
 } from "./bankAkaNames.mjs";
 
 describe("normalizeWebsite", () => {
@@ -83,6 +84,46 @@ describe("repairDoubledProtocol", () => {
   it("returns the input unchanged for null/empty", () => {
     expect(repairDoubledProtocol(null)).toBeNull();
     expect(repairDoubledProtocol("")).toBe("");
+  });
+});
+
+describe("repairFdicWebsite", () => {
+  it("takes the first website when two are crammed into one field separated by ';' (Fidelity Bank & Trust, cert 14382)", () => {
+    expect(repairFdicWebsite("bankfidelity.com; www.bankfidelity.bank")).toBe("bankfidelity.com");
+  });
+
+  it("takes the first website for the same pattern (Owingsville Banking Company, cert 9672)", () => {
+    expect(repairFdicWebsite("bankobc.com; www.bankobc.net")).toBe("bankobc.com");
+  });
+
+  it("strips a stray trailing period (Great Plains National Bank, cert 34207)", () => {
+    expect(repairFdicWebsite("gpbankok.com.")).toBe("gpbankok.com");
+  });
+
+  it("strips a stray leading period (Premier Bank, cert 21714)", () => {
+    expect(repairFdicWebsite(".premierbanks.com")).toBe("premierbanks.com");
+  });
+
+  it("collapses a doubled period (First Bank, cert 16473)", () => {
+    expect(repairFdicWebsite("first-bank..net")).toBe("first-bank.net");
+  });
+
+  it("does NOT guess at a colon/comma typo standing in for a period - suppresses instead", () => {
+    expect(repairFdicWebsite("www:zcbank.com")).toBeNull();
+    expect(repairFdicWebsite("www,fieldpointprivate.com")).toBeNull();
+  });
+
+  it("returns null for a literal placeholder value", () => {
+    expect(repairFdicWebsite("n/a")).toBeNull();
+  });
+
+  it("returns null for null/empty input", () => {
+    expect(repairFdicWebsite(null)).toBeNull();
+    expect(repairFdicWebsite("")).toBeNull();
+  });
+
+  it("leaves an already-valid website unchanged", () => {
+    expect(repairFdicWebsite("ozk.com")).toBe("ozk.com");
   });
 });
 

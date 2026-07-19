@@ -51,6 +51,28 @@ export function repairDoubledProtocol(raw) {
   return raw.replace(/^(https?:\/\/)https?:\/\//i, "$1");
 }
 
+// FDIC's own WEBADDR field has its own, unrelated data-entry mistakes
+// (confirmed live against FDIC's public API - these are FDIC's own
+// current data, not something a past sync mangled). Two classes are
+// mechanically, non-speculatively recoverable without guessing at intent:
+//  - two websites crammed into one field, separated by "; " (e.g. "bankfidelity.com; www.bankfidelity.bank")
+//    - the first is a genuine, individually well-formed website; take it.
+//  - a stray leading/trailing/doubled period around an otherwise-correct
+//    domain (e.g. "gpbankok.com.", ".premierbanks.com", "first-bank..net")
+//    - a copy-paste artifact, not an ambiguity about what the domain is.
+// A third class - a colon or comma substituted for the period ("www:zcbank.com",
+// "www,fieldpointprivate.com") - is deliberately NOT corrected here: unlike
+// the two above, "fixing" a single wrong character is a guess about what
+// the entry-taker meant, not a mechanical cleanup of already-unambiguous
+// data - isValidWebsiteDomain suppresses it instead, per this project's
+// "blank over wrong" rule.
+export function repairFdicWebsite(raw) {
+  if (!raw) return null;
+  const firstSegment = raw.split(";")[0].trim();
+  const cleaned = firstSegment.replace(/^\.+/, "").replace(/\.+$/, "").replace(/\.{2,}/g, ".");
+  return isValidWebsiteDomain(cleaned) ? cleaned : null;
+}
+
 // NCUA's own TradeNames.txt is submitted by each credit union's own staff
 // with no independent verification of what an entry represents (NCUA's own
 // guidance treats a trade name as a self-registered marketing alias, not an

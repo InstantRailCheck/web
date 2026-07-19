@@ -37,6 +37,7 @@ import {
   computeAkaNamesFromSearchNames,
   isValidWebsiteDomain,
   repairDoubledProtocol,
+  repairFdicWebsite,
 } from "./lib/bankAkaNames.mjs";
 import { smartTitleCase, isAllCapsName } from "../lib/institutionNameCase.ts";
 
@@ -101,13 +102,14 @@ async function fetchAllFdicInstitutions() {
 }
 
 function fdicRecordToSourceInstitution(row) {
-  // FDIC's own WEBADDR field has occasional data-entry typos (a colon or
-  // comma where a period belongs, "n/a" placeholders, two websites crammed
-  // into one field) - isValidWebsiteDomain suppresses those rather than
-  // publishing a dead link; there's nothing to algorithmically repair here
-  // the way there is for NCUA's fixed-width truncation/double-protocol bug.
+  // FDIC's own WEBADDR field has occasional data-entry mistakes -
+  // repairFdicWebsite mechanically recovers what it safely can (two
+  // websites crammed into one field, a stray leading/trailing/doubled
+  // period) without guessing; isValidWebsiteDomain (inside repairFdicWebsite)
+  // suppresses what's left (a colon/comma typo, "n/a") rather than
+  // publishing a dead link.
   const rawWebsite = row.WEBADDR ? normalizeWebsite(row.WEBADDR.startsWith("http") ? row.WEBADDR : `https://${row.WEBADDR}`) : null;
-  const website = isValidWebsiteDomain(rawWebsite) ? rawWebsite : null;
+  const website = repairFdicWebsite(rawWebsite);
   const officialAka = extractFdicAkaNames(row, row.NAME);
   const domainAka = deriveDomainInitialsAka(row.NAME, website);
   const akaNames = mergeAkaNames(officialAka, domainAka);
