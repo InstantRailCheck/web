@@ -33,6 +33,15 @@ export async function submitCorrection(
     return { status: "error", message: "Invalid correction field." };
   }
 
+  // Same reasoning for `value` — a non-string would throw inside
+  // `.trim()` below (uncaught, since nothing here wraps that in a
+  // try/catch), and bank_corrections.submitted_value's own length check
+  // (500 chars) shouldn't be the first line of defense against an
+  // oversized payload.
+  if (typeof value !== "string" || value.length > 500) {
+    return { status: "error", message: "Invalid correction value." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

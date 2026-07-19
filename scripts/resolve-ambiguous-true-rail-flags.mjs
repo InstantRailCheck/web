@@ -119,6 +119,11 @@ async function main() {
       ? `\nDone. ${appliedCount}/${plannedCount} field correction(s) applied${failedCount ? `, ${failedCount} FAILED` : ""}.`
       : `\nDry run complete. ${plannedCount} field correction(s) would be applied. Re-run with --apply to write.`
   );
+
+  // A partial failure must not look like a clean run to anything scripting
+  // this (CI, a caller checking $?) — code review finding (post-v8.5.0):
+  // failedCount was tallied and printed but never affected the exit code.
+  if (failedCount > 0) process.exitCode = 1;
 }
 
 main().catch((err) => {

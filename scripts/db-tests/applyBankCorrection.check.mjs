@@ -1,10 +1,12 @@
-// Code review finding (post-v8.3.4): exercises apply_bank_correction
-// against real Postgres — runtime field allowlist, inactive-bank
-// rejection, atomic insert+update on a match, insert-only on a non-match,
-// and whole-transaction rollback when the correction insert fails (a
-// nonexistent user_id violates bank_corrections.user_id's FK — the same
+// Code review finding (post-v8.3.4, extended post-v8.5.0): exercises
+// apply_bank_correction against real Postgres — runtime field allowlist,
+// inactive-bank rejection, atomic insert+update on a match, insert-only on
+// a non-match, whole-transaction rollback when the correction insert fails
+// (a nonexistent user_id violates bank_corrections.user_id's FK — the same
 // technique addBankAttribution.check.mjs uses to force a real rollback
-// without touching the constraint itself).
+// without touching the constraint itself), and rejection of a stale
+// previous_value (a concurrent write landed between submitCorrection.ts's
+// read and this RPC call).
 import crypto from "node:crypto";
 import { createAssert } from "./lib/assert.mjs";
 import { createLocalAdminClient } from "./lib/env.mjs";
@@ -162,6 +164,37 @@ async function main() {
       const refreshed = await getBank(bank.id);
       assert(refreshed.website === "https://old.example.com", "the bank update was rolled back along with the failed insert");
       assert((await correctionsFor(bank.id)).length === 0, "no orphaned correction row was left behind");
+    }
+
+    console.log("\nRejects a stale previous_value — a concurrent write is never clobbered or misrecorded");
+    {
+      const bank = await insertBank({});
+      const staleWebsite = bank.website;
+
+      // Simulates a concurrent write landing between submitCorrection.ts's
+      // read of the bank row and its later call into this RPC.
+      const { error: concurrentUpdateError } = await admin
+        .from("banks")
+        .update({ website: "https://concurrent-write.example.com" })
+        .eq("id", bank.id);
+      if (concurrentUpdateError) throw concurrentUpdateError;
+
+      const { error } = await admin
+        .rpc("apply_bank_correction", {
+          p_bank_id: bank.id,
+          p_user_id: userId,
+          p_field: "website",
+          p_submitted_value: "https://real-charter.example.com",
+          p_previous_value: staleWebsite,
+          p_matched: true,
+          p_official_value: "https://real-charter.example.com",
+        })
+        .single();
+      assert(error?.code === "P0001", `rejected as stale (got ${error?.code}: ${error?.message})`);
+
+      const refreshed = await getBank(bank.id);
+      assert(refreshed.website === "https://concurrent-write.example.com", "the concurrent write was never clobbered");
+      assert((await correctionsFor(bank.id)).length === 0, "no correction row was recorded against the stale previous_value");
     }
   } finally {
     console.log("\nCleaning up...");

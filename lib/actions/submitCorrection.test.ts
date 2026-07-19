@@ -131,6 +131,24 @@ describe("submitCorrection", () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
+  it("rejects a non-string value before any lookup or write, instead of throwing inside .trim()", async () => {
+    // Same reasoning as the field cast above — a Server Action can be
+    // called with any JSON payload regardless of the TS signature.
+    const result = await submitCorrection("bank-1", "website", { toString: () => "hi" } as unknown as string);
+
+    expect(result).toEqual({ status: "error", message: "Invalid correction value." });
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a value longer than bank_corrections.submitted_value's own 500-char limit", async () => {
+    const result = await submitCorrection("bank-1", "website", "a".repeat(501));
+
+    expect(result).toEqual({ status: "error", message: "Invalid correction value." });
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
   it("returns an error and never calls the apply RPC when the bank lookup itself errors", async () => {
     bankResult = { data: null, error: { message: "connection reset" } };
 
