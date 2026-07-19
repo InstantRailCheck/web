@@ -26,7 +26,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 const RAIL_STYLES: Record<string, { border: string; bg: string; text: string }> = {
   RTP: { border: "border-green-500/30", bg: "bg-green-500/10", text: "text-green-300" },
-  FedNow: { border: "border-purple-500/30", bg: "bg-purple-500/10", text: "text-purple-300" },
+  FedNow: { border: "border-white/30", bg: "bg-white/10", text: "text-white" },
   ACH: { border: "border-blue-500/30", bg: "bg-blue-500/10", text: "text-blue-300" },
   Wire: { border: "border-slate-800", bg: "bg-slate-900", text: "text-slate-300" },
   Zelle: { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300" },
@@ -382,9 +382,9 @@ export default async function BankProfilePage({
               <RailEvidenceCard
                 icon={<Landmark className="h-4 w-4" />}
                 label="FedNow"
-                border="border-purple-500/30"
-                bg="bg-purple-500/10"
-                text="text-purple-300"
+                border="border-white/30"
+                bg="bg-white/10"
+                text="text-white"
                 evidence={profile.railEvidence.fednow}
               />
             )}

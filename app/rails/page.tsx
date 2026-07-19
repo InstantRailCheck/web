@@ -180,7 +180,7 @@ export default async function RailsExplorerPage() {
           <RailColumn
             icon={<Landmark className="h-[18px] w-[18px]" />}
             label="FedNow"
-            color="text-purple-300"
+            color="text-white"
             banks={fednow ?? []}
             total={fednowCount ?? 0}
             viewAllHref="/banks?fednow=true"

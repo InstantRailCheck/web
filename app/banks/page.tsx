@@ -142,7 +142,7 @@ export default async function BanksDirectoryPage({
                   )}
                 </span>
                 <span className="flex gap-1 text-xs">
-                  {bank.fednow_participant && <Landmark className="h-4 w-4 text-purple-400" />}
+                  {bank.fednow_participant && <Landmark className="h-4 w-4 text-white" />}
                   {bank.rtp_participant && <Zap className="h-4 w-4 text-green-400" />}
                   {bank.zelle_participant && <Banknote className="h-4 w-4 text-violet-400" />}
                 </span>

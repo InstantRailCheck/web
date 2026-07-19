@@ -35,7 +35,7 @@ const INSTANT_RAILS = new Set(["RTP", "FedNow", "Visa Direct", "Mastercard Send"
 // up the badge's violet/etc. text color via currentColor.
 const RAIL_STYLES: Record<string, { border: string; bg: string; text: string; icon: ReactNode }> = {
   RTP:              { border: "border-green-500/30",  bg: "bg-green-500/10",  text: "text-green-300",  icon: "⚡" },
-  FedNow:           { border: "border-purple-500/30", bg: "bg-purple-500/10", text: "text-purple-300", icon: "🏦" },
+  FedNow:           { border: "border-white/30",       bg: "bg-white/10",      text: "text-white",      icon: "🏦" },
   ACH:              { border: "border-blue-500/30",   bg: "bg-blue-500/10",   text: "text-blue-300",   icon: "" },
   Wire:             { border: "border-slate-800",     bg: "bg-slate-900",     text: "text-slate-300",  icon: "" },
   Zelle:            { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300", icon: <Banknote className="inline-block h-[14px] w-[14px]" /> },
