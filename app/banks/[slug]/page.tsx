@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
-import { Banknote, CalendarCheck, CircleArrowRight, Clock, Zap } from "lucide-react";
+import { CalendarCheck, CircleArrowRight, Clock, Users, Zap } from "lucide-react";
 import {
   getBankProfileBySlug,
   getBankSlugById,
@@ -21,6 +21,7 @@ import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { BankBreadcrumb } from "@/components/BankBreadcrumb";
 import { SITE_URL } from "@/lib/siteConfig";
 import { safeJsonLdString, buildBankBreadcrumbJsonLd } from "@/lib/jsonLd";
+import { railDisplayName } from "@/lib/railDisplayName";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -29,7 +30,7 @@ const RAIL_STYLES: Record<string, { border: string; bg: string; text: string }> 
   FedNow: { border: "border-purple-500/30", bg: "bg-purple-500/10", text: "text-purple-300" },
   ACH: { border: "border-blue-500/30", bg: "bg-blue-500/10", text: "text-blue-300" },
   Wire: { border: "border-slate-800", bg: "bg-slate-900", text: "text-slate-300" },
-  Zelle: { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300" },
+  Zelle: { border: "border-white/30", bg: "bg-white/10", text: "text-white" },
   "Visa Direct": { border: "border-sky-500/30", bg: "bg-sky-500/10", text: "text-sky-300" },
   "Mastercard Send": { border: "border-orange-500/30", bg: "bg-orange-500/10", text: "text-orange-300" },
 };
@@ -63,7 +64,7 @@ function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBy
             className={`w-full rounded-lg border ${s.border} ${s.bg} p-3 text-sm ${s.text} sm:w-[calc(50%-0.375rem)]`}
           >
             <div>
-              {rail.rail}
+              {railDisplayName(rail.rail)}
               {rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}
             </div>
             <div className="mt-1">{describeRailEvidence(rail)}</div>
@@ -213,7 +214,7 @@ export async function generateMetadata({
 
   return {
     title,
-    description: `Check which payment rails (RTP, FedNow, ACH, Wire, Zelle) ${profile.bank.name} supports, backed by official sources and real-world reports.${akaClause}${locationClause}`,
+    description: `Check which payment rails (RTP, FedNow, ACH, Wire, P2P Payments) ${profile.bank.name} supports, backed by official sources and real-world reports.${akaClause}${locationClause}`,
     alternates: { canonical },
     ...(indexable ? {} : { robots: { index: false, follow: true } }),
   };
@@ -400,13 +401,13 @@ export default async function BankProfilePage({
             )}
             {profile.bank.zelle_participant && (
               <RailEvidenceCard
-                icon={<Banknote className="h-4 w-4" />}
-                label="Zelle"
-                border="border-violet-500/30"
-                bg="bg-violet-500/10"
-                text="text-violet-300"
+                icon={<Users className="h-4 w-4" />}
+                label="P2P Payments"
+                border="border-white/30"
+                bg="bg-white/10"
+                text="text-white"
                 evidence={profile.railEvidence.zelle}
-                footnote="Zelle's own directory is known to be incomplete, so a missing badge on other banks doesn't necessarily mean they lack Zelle support."
+                footnote="Checked against Zelle's own directory (the only P2P app tracked so far), which is known to be incomplete, so a missing badge doesn't necessarily mean a bank lacks support."
               />
             )}
           </div>

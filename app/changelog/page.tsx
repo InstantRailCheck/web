@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getActivityFeed } from "@/lib/activityFeed";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { railDisplayName } from "@/lib/railDisplayName";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ const RAIL_COLORS: Record<string, string> = {
   FedNow: "text-purple-300",
   ACH: "text-blue-300",
   Wire: "text-slate-300",
-  Zelle: "text-violet-300",
+  Zelle: "text-white",
   "Visa Direct": "text-sky-300",
   "Mastercard Send": "text-orange-300",
 };
@@ -67,7 +68,7 @@ export default async function ChangelogPage() {
                       {item.fromBankName}
                     </Link>
                     <span className="text-slate-500"> → {item.toBankName} via </span>
-                    <span className={RAIL_COLORS[item.rail] ?? "text-slate-200"}>{item.rail}</span>
+                    <span className={RAIL_COLORS[item.rail] ?? "text-slate-200"}>{railDisplayName(item.rail)}</span>
                     <span className={`ml-2 ${STATUS_STYLES[item.status] ?? "text-slate-400"}`}>
                       {item.status}
                     </span>

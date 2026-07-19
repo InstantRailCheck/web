@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTimingLeaderboard } from "@/lib/timingLeaderboard";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { railDisplayName } from "@/lib/railDisplayName";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function TimingLeaderboardPage() {
           <div className="mt-8 space-y-8">
             {rails.map((rail) => (
               <section key={rail}>
-                <h2 className="text-lg font-semibold">{rail}</h2>
+                <h2 className="text-lg font-semibold">{railDisplayName(rail)}</h2>
                 <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
                   {leaderboard[rail].map((entry, i) => (
                     <Link

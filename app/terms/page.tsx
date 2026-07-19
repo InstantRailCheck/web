@@ -16,7 +16,7 @@ export default function TermsPage() {
               <h2 className="text-lg font-semibold text-white">What this is</h2>
               <p className="mt-2">
                 InstantRailCheck is a free, crowdsourced database of real-world bank transfer
-                compatibility — which payment rails (RTP, FedNow, ACH, Wire, Zelle, and others)
+                compatibility — which payment rails (RTP, FedNow, ACH, Wire, P2P Payments, and others)
                 actually work between which banks. It&apos;s provided as-is, free of charge.
               </p>
             </section>

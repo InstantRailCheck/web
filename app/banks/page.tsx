@@ -1,7 +1,7 @@
 import "server-only";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Banknote, CircleArrowRight, Zap } from "lucide-react";
+import { CircleArrowRight, Users, Zap } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EDD_MIN_REPORTERS, dedupeEddReportsByReporterAndBank } from "@/lib/bankProfile";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
@@ -104,7 +104,7 @@ export default async function BanksDirectoryPage({
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" name="zelle" value="true" defaultChecked={zelle === "true"} className="h-4 w-4" />
-            Zelle only
+            P2P Payments only
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" name="edd" value="true" defaultChecked={edd === "true"} className="h-4 w-4" />
@@ -144,7 +144,7 @@ export default async function BanksDirectoryPage({
                 <span className="flex gap-1 text-xs">
                   {bank.fednow_participant && <CircleArrowRight className="h-4 w-4 text-purple-400" />}
                   {bank.rtp_participant && <Zap className="h-4 w-4 text-green-400" />}
-                  {bank.zelle_participant && <Banknote className="h-4 w-4 text-violet-400" />}
+                  {bank.zelle_participant && <Users className="h-4 w-4 text-white" />}
                 </span>
               </Link>
             ))

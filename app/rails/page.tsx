@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote, Clock, CircleArrowRight, Zap } from "lucide-react";
+import { Clock, CircleArrowRight, Users, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCommunityReportedBanks, getEddRankedBanks, type CommunityRailEntry, type EddRankedEntry } from "@/lib/communityRails";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
@@ -194,13 +194,13 @@ export default async function RailsExplorerPage() {
             viewAllHref="/banks?rtp=true"
           />
           <RailColumn
-            icon={<Banknote className="h-[18px] w-[18px]" />}
-            label="Zelle"
-            color="text-violet-300"
+            icon={<Users className="h-[18px] w-[18px]" />}
+            label="P2P Payments"
+            color="text-white"
             banks={zelle ?? []}
             total={zelleCount ?? 0}
             viewAllHref="/banks?zelle=true"
-            footnote="Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks Zelle support, only that it isn't listed there."
+            footnote="Checked against Zelle's own directory (the only P2P app tracked so far), which is known to be incomplete — a missing badge doesn't confirm a bank lacks support, only that it isn't listed there."
           />
         </div>
 

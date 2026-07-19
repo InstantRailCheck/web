@@ -2,10 +2,11 @@
 
 import { type ReactNode, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, Banknote, Check, CircleArrowRight, Copy } from "lucide-react";
+import { ArrowLeftRight, Check, CircleArrowRight, Copy, Users } from "lucide-react";
 import { BankSelect, type Bank } from "@/components/BankSelect";
 import { RouteIntelligence } from "@/lib/routingEngine";
 import { EVIDENCE_LABELS, type EvidenceState } from "@/lib/routeConfidence";
+import { railDisplayName } from "@/lib/railDisplayName";
 
 // Controlled — fromBank/toBank/result/loading are all owned by a parent
 // (HomeRouteChecker) so a submitted "Report this route" form can share the
@@ -38,7 +39,7 @@ const RAIL_STYLES: Record<string, { border: string; bg: string; text: string; ic
   FedNow:           { border: "border-purple-500/30",  bg: "bg-purple-500/10", text: "text-purple-300", icon: <CircleArrowRight className="inline-block h-[14px] w-[14px]" /> },
   ACH:              { border: "border-blue-500/30",   bg: "bg-blue-500/10",   text: "text-blue-300",   icon: "" },
   Wire:             { border: "border-slate-800",     bg: "bg-slate-900",     text: "text-slate-300",  icon: "" },
-  Zelle:            { border: "border-violet-500/30", bg: "bg-violet-500/10", text: "text-violet-300", icon: <Banknote className="inline-block h-[14px] w-[14px]" /> },
+  Zelle:            { border: "border-white/30",       bg: "bg-white/10",      text: "text-white",      icon: <Users className="inline-block h-[14px] w-[14px]" /> },
   "Visa Direct":     { border: "border-sky-500/30",    bg: "bg-sky-500/10",    text: "text-sky-300",    icon: "" },
   "Mastercard Send": { border: "border-orange-500/30", bg: "bg-orange-500/10", text: "text-orange-300", icon: "" },
 };
@@ -297,7 +298,7 @@ export function RouteSearch({
                       const s = getRailStyle(rail.rail);
                       return (
                         <div key={rail.rail} className={`rounded-lg border ${s.border} ${s.bg} p-3 ${s.text}`}>
-                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{rail.rail}{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{railDisplayName(rail.rail)}{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
                           <EvidenceLine evidence={rail.evidence} />
                           <RailMeta rail={rail} />
                         </div>
@@ -317,7 +318,7 @@ export function RouteSearch({
                       const s = getRailStyle(rail.rail);
                       return (
                         <div key={rail.rail} className={`rounded-lg border ${s.border} ${s.bg} p-3 ${s.text}`}>
-                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{rail.rail}{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
+                          <div>{s.icon && <span className="mr-1 inline-flex align-middle">{s.icon}</span>}{railDisplayName(rail.rail)}{rail.avgTime !== null && ` · ~${rail.avgTime}m avg`}</div>
                           <EvidenceLine evidence={rail.evidence} />
                           <RailMeta rail={rail} />
                         </div>

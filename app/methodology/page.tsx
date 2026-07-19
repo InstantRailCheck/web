@@ -55,10 +55,10 @@ export default function MethodologyPage() {
               <li><strong className="text-slate-100">FedNow</strong> — checked against the Federal Reserve&apos;s official participant list</li>
               <li><strong className="text-slate-100">RTP</strong> — checked against The Clearing House&apos;s official participant list</li>
               <li>
-                <strong className="text-slate-100">Zelle</strong> — checked against Zelle&apos;s own partner
-                directory, which is confirmed to be incomplete (a genuine Zelle-supporting bank
-                can be absent from it). A missing Zelle badge means &quot;not listed,&quot; not &quot;confirmed
-                unsupported.&quot;
+                <strong className="text-slate-100">P2P Payments</strong> — checked against Zelle&apos;s own
+                partner directory (the only P2P app tracked so far), which is confirmed to be
+                incomplete (a genuine Zelle-supporting bank can be absent from it). A missing
+                P2P Payments badge means &quot;not listed,&quot; not &quot;confirmed unsupported.&quot;
               </li>
               <li><strong className="text-slate-100">ACH, Wire, Visa Direct, Mastercard Send</strong> — no accessible official directory exists for any of these, so they&apos;re tracked entirely from user-submitted route reports</li>
             </ul>
