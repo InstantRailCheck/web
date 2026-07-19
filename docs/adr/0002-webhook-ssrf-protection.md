@@ -2,11 +2,13 @@
 
 - Status: Accepted
 - Decision date: 2026-07-07
-- Last validated against repository: 2026-07-09
-- Grounding: implementation + PROJECT.md
+- Amended: 2026-07-19 (moderation enforcement, DNS-pinned delivery, bounded fanout — see Amendment below)
+- Last validated against repository: 2026-07-19
+- Grounding: implementation + commit history
 - Freshness policy: changes not yet independently verified against the latest commits require review before acceptance
 - Scope: public webhooks, currently the `bank_added` event
 - Primary implementations: `lib/actions/webhooks.ts`, `lib/actions/triggerWebhooks.ts`, `lib/webhookSafety.ts`
+- Related ADRs: [ADR-0008](0008-moderation-enforcement.md) (webhook registration enforces `user_moderation_status`, the same durable moderation-intent record ADR-0008 describes)
 
 ## Context
 
@@ -164,6 +166,18 @@ The implementation validates webhook URLs both when a webhook is registered and 
 Delivery uses `redirect: "manual"`, a 5-second timeout, and records the result in `webhook_deliveries`.
 
 The user-facing UI states that webhooks fire a signed POST, are limited to 5 per account, are not retried, and should return a 2xx quickly.
+
+## Amendment (2026-07-19): moderation enforcement, DNS-pinned delivery, bounded fanout
+
+Three things strengthened since the original decision, none of which change its direction:
+
+**Moderation enforcement at registration.** `lib/actions/webhooks.ts` now checks `getUserModerationStatus` before allowing registration (see [ADR-0008](0008-moderation-enforcement.md)) — a restricted or banned account cannot register a new webhook. Registration also has its own attempt-rate throttle (`isActionRateLimited`, 10/user and 20/IP per 600 seconds), which is a distinct control from the 5-active-webhook cap: the cap limits how many webhooks an account can have at once, the throttle limits how fast registration can be *attempted*, including failed/rejected attempts.
+
+**Delivery is pinned to the exact validated address, not re-resolved.** The original decision already called for delivery-time re-validation to defend against DNS rebinding, but a naive implementation of that (validate the hostname, then call `fetch(url)`) still has a gap: the second `fetch()` call performs its own independent DNS lookup, milliseconds after validation, which is exactly the window a hostile nameserver can exploit — return a safe address to the validation check, then a private one to the real request. `lib/actions/triggerWebhooks.ts` closes this: it re-validates via `isUrlSafeForWebhook` and then constructs a `undici` `Agent` with a custom `connect.lookup` that pins the actual TCP connection to that exact validated address. The Host header and TLS SNI still come from the webhook's real URL/hostname (the custom `lookup` only overrides the raw connect target), so certificate validation and virtual-hosting behave normally — only the DNS resolution step is pinned.
+
+**Bounded concurrency.** Delivery fanout now uses `mapWithConcurrency` with a cap of 10 concurrent deliveries, rather than an unbounded `Promise.all` over every registered webhook for an event. At today's scale (effectively zero registered webhooks) this has no observable effect, but it was fixed ahead of it mattering rather than after — an unbounded fanout would otherwise scale directly with subscriber count.
+
+None of this changes the original decision's shape: authentication, the 5-webhook cap, HMAC-SHA256 over the raw body, no-redirects, the 5-second timeout, fire-once delivery, and `webhook_deliveries` logging are all unchanged.
 
 ## Future considerations
 

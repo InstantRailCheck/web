@@ -2,11 +2,13 @@
 
 - Status: Accepted
 - Decision date: 2026-07-08
-- Last validated against repository: 2026-07-09
+- Amended: 2026-07-19 (`withApiProtection` centralization, v7 API scope — see Amendment below)
+- Last validated against repository: 2026-07-19
 - Grounding: implementation + commit history
 - Freshness policy: changes not yet independently verified against the latest commits require review before acceptance
 - Scope: public read-only API routing, SEO exclusion, and CORS behavior
 - Primary implementations: `next.config.ts`, `lib/apiResponse.ts`, `lib/siteConfig.ts`
+- Related ADRs: [ADR-0007](0007-public-evidence-integrity-and-privacy.md) (this API surface is one of the places ADR-0007's aggregate-only rule applies)
 
 ## Context
 
@@ -89,7 +91,7 @@ API JSON/CSV responses are not SEO pages. `X-Robots-Tag: noindex` protects again
 
 - Host-based routing makes local/preview behavior more nuanced.
 - Redirect logic must avoid loops on the API subdomain, localhost, and Vercel previews.
-- Rate limiting (`lib/rateLimit.ts`) is applied per-route rather than centrally in the rewrite/redirect layer — a new API route must remember to call it, or it ships without protection.
+- ~~Rate limiting (`lib/rateLimit.ts`) is applied per-route rather than centrally in the rewrite/redirect layer — a new API route must remember to call it, or it ships without protection.~~ Resolved — see Amendment below.
 - Documentation must consistently use the API subdomain to avoid mixed examples.
 
 ## Related implementation
@@ -106,8 +108,9 @@ CORS, noindex, preflight handling, and legacy redirects live in:
 
 - `lib/apiResponse.ts`
 
-Rate limiting, applied per-route ahead of each handler, lives in:
+Rate limiting and legacy-redirect centralization for the documented public API:
 
+- `lib/apiResponse.ts` — `withApiProtection()`, wrapping all four documented routes
 - `lib/rateLimit.ts`
 
 Subdomain-specific robots handling lives in:
@@ -146,6 +149,14 @@ Rejected because API responses should carry `X-Robots-Tag: noindex` directly reg
 
 `app/api/robots.txt/route.ts` returns `User-Agent: *` and `Disallow: /`, which the API subdomain rewrite serves as `api.instantrailcheck.com/robots.txt` (commit `11bfbfe`, 2026-07-08).
 
+## Amendment (2026-07-19): `withApiProtection` and v7 scope
+
+**Rate limiting and legacy redirects are now centralized for the documented public API.** `lib/apiResponse.ts`'s `withApiProtection()` wraps a route handler with the legacy-redirect check and rate-limit check together, so a new documented public route gets both by default rather than having to remember to call each separately. All four documented public routes (`/api/banks`, `/api/banks/:id`, `/api/changelog`, `/api/routes`) use it.
+
+This does **not** cover every route under `app/api/` — `app/api/bank-search/route.ts` deliberately does not use `withApiProtection`. It backs the on-page `BankSelect` live-search dropdown, is not part of the documented public API contract, and is kept on its own rate-limit budget precisely so a burst of on-page typing never contends with the public API's own limit. This is a scoped, intentional exception, not a gap in the centralization — the amendment to the "Future considerations" item below refers to the documented public surface specifically.
+
+**API scope grew with the v8.0 institution directory (versioned, not silently changed).** `API_VERSION` is `"7"` — bumped when `/api/banks` gained active-by-default filtering (`?include_inactive=true` opts back in), `city`/`state` fields, and JSON/CSV pagination-parity metadata (`truncated`/`next_offset` in the JSON body; `X-Total-Count`/`X-Truncated`/`X-Next-Offset` headers for CSV — deliberately different transport, equivalent meaning, since CSV has no body structure to add fields to). This is the same version already documented on `/developers`; nothing about it has silently drifted since.
+
 ## Future considerations
 
 - Version API paths if breaking API changes are introduced.
@@ -153,4 +164,4 @@ Rejected because API responses should carry `X-Robots-Tag: noindex` directly reg
 - Monitor whether the API eventually needs separate infrastructure.
 - Consider more explicit API cache headers per endpoint.
 - Keep developer documentation aligned with the canonical API subdomain.
-- Consider moving rate limiting into a shared wrapper so new API routes get it by default instead of opting in per-route.
+- ~~Consider moving rate limiting into a shared wrapper so new API routes get it by default instead of opting in per-route.~~ Done for the documented public API (`withApiProtection`) — see Amendment above. `/api/bank-search` remains a deliberate, documented exception, not an oversight to fix.

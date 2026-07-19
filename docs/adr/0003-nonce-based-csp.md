@@ -2,8 +2,9 @@
 
 - Status: Accepted
 - Decision date: 2026-07-07
-- Last validated against repository: 2026-07-09
-- Grounding: implementation + PROJECT.md
+- Amended: 2026-07-19 (current-implementation revalidation — see Amendment below)
+- Last validated against repository: 2026-07-19
+- Grounding: implementation + commit history + installed Next.js documentation (`node_modules/next/dist/docs/`)
 - Freshness policy: changes not yet independently verified against the latest commits require review before acceptance
 - Scope: application-wide security headers and CSP
 - Primary implementations: `proxy.ts`, `next.config.ts`
@@ -122,9 +123,23 @@ Rejected for now because framework-managed and dynamic script content makes nonc
 
 Bank profile JSON-LD reads `x-nonce` from request headers and applies it to the JSON-LD script tag.
 
+## Amendment (2026-07-19): current-implementation revalidation
+
+Revalidated against the installed Next.js version (16.2.10) and current application surfaces, per this project's AGENTS.md instruction to check `node_modules/next/dist/docs/` rather than assume prior-version framework behavior.
+
+**Framework naming, not architecture, changed.** Next.js's middleware convention is now named `proxy` (the installed version's own docs carry a deprecation note pointing at this rename); this project's `proxy.ts` already reflects that — the original ADR text's file reference was already correct, no drift here.
+
+**Directives are current, with one intentional addition.** `connect-src` now also includes `https://api.instantrailcheck.com` (`lib/siteConfig.ts`'s `API_URL`), added when [ADR-0004](0004-public-api-subdomain.md)'s API subdomain shipped so client-side code can call it directly. Every other directive (`default-src`, `script-src` with `'strict-dynamic'` and dev-only `'unsafe-eval'`, `style-src`, `img-src`, `font-src`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`, `upgrade-insecure-requests`) is unchanged from the original decision. There has never been a `frame-src` directive — nothing in the app embeds third-party frames.
+
+**No undocumented exceptions were needed for current integrations.** Supabase auth is already covered by `connect-src`. Google/GitHub OAuth sign-in uses full top-level browser navigation (`components/AuthModal.tsx`), not a CSP-governed fetch or embedded frame, so it needs no directive at all. Vercel Analytics serves and reports from the same origin (`/_vercel/insights/*`) in production, already covered by `'self'` — it does not depend on any relaxed or undocumented CSP allowance.
+
+**Tests exist.** `proxy.test.ts` checks nonce freshness per request, presence of every directive, dev-only `'unsafe-eval'`, and the API-subdomain `connect-src` entry.
+
+**Framework behavior is still current.** The installed Next.js version's own CSP guide continues to state that nonce-based CSP requires dynamic rendering — the original ADR's "Negative consequence" about this is not stale.
+
 ## Future considerations
 
-- Add tests or smoke checks that verify CSP is present in production responses.
+- ~~Add tests or smoke checks that verify CSP is present in production responses~~ — done (`proxy.test.ts`).
 - Document how new pages/components should access and apply the nonce.
 - Review whether `style-src` nonce handling remains sufficient as UI dependencies evolve.
-- Periodically audit CSP directives as new third-party integrations are added.
+- Periodically audit CSP directives as new third-party integrations are added — this amendment is one such audit; the next one should re-check `connect-src` if any new external API or embed is introduced.

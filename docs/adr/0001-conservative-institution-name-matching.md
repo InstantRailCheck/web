@@ -2,11 +2,13 @@
 
 - Status: Accepted
 - Decision date: 2026-07-07
-- Last validated against repository: 2026-07-09
+- Amended: 2026-07-19 (v8.0/v8.1 duplicate-charter expansion — see Amendment below)
+- Last validated against repository: 2026-07-19
 - Grounding: implementation + commit history
 - Freshness policy: changes not yet independently verified against the latest commits require review before acceptance
 - Scope: FedNow, RTP, and Zelle participant matching
-- Primary implementation: `lib/railParticipation.ts`
+- Primary implementation: `lib/railParticipationMatch.ts` (shared matcher), called from `lib/railParticipation.ts` (request-time) and `scripts/backfill-rail-participation.mjs` (bulk backfill)
+- Related ADRs: [ADR-0006](0006-institution-synchronization.md) (the duplicate-name institutions this amendment reacts to are created by the sync described there)
 
 ## Context
 
@@ -92,21 +94,30 @@ A missing participation badge can later be corrected through improved source dat
 
 ## Related implementation
 
-The request-time implementation lives in:
+The shared, duplicate-safe matcher lives in:
 
-- `lib/railParticipation.ts`
+- `lib/railParticipationMatch.ts` — `matchInstitution()` (name+location matching) and `resolveRailFlag()` (turns a match result into the flag value that should actually be written)
 
-The bulk backfill implementation lives in:
+Called from:
 
-- `scripts/backfill-rail-participation.mjs`
+- `lib/railParticipation.ts` (request-time, per-bank)
+- `scripts/backfill-rail-participation.mjs` (bulk, preloads participant data into memory rather than per-bank database round trips — a full run takes under 2 minutes)
 
-The bulk script has already been optimized to preload participant data into memory rather than performing per-bank database round trips, reducing a full run from more than 35 minutes to under 2 minutes.
+Identifier-based enrichment for already-linked banks (FDIC/NCUA official data, not rail participation — see Amendment below) lives in:
+
+- `lib/officialInstitutionMatch.ts` — `resolveOfficialMatch()`
 
 The related asset-enrichment logic in:
 
 - `scripts/backfill-bank-assets.mjs`
 
 uses the same broader principles of whole-word matching, ambiguity detection, and refusing multi-hit results.
+
+Read-only audit, run against production both before and after an institution-directory sync apply, never auto-correcting:
+
+- `scripts/audit-duplicate-name-rail-flags.mjs`
+
+Tests: `lib/railParticipationMatch.test.ts`.
 
 ## Rejected alternatives
 
@@ -136,21 +147,23 @@ The revised strategy corrected previously stored participation flags that could 
 
 A confirmed example was US Bank's RTP participation flag, which had only been set because the previous substring logic matched `US Bank` inside `Pegasus Bank`.
 
-## Future considerations
+## Amendment (2026-07-19): duplicate-charter expansion
 
-Any future enhancement must preserve the conservative acceptance rule.
+**Context.** v8.0's complete FDIC/NCUA directory sync (see [ADR-0006](0006-institution-synchronization.md)) made duplicate legal names routine — 82 duplicate-name groups / 86 banks / 143 bank-rail flag pairs were found needing review the first time this was audited (v8.4.1, commit `2060050`). A name match alone was always ambiguous the moment two banks share a name: this ADR's original rules assumed a name match uniquely identified a bank, which stopped being true once duplicate legal names became a supported, expected state rather than a data-quality defect.
 
-Possible improvements include:
+**What changed** (v8.1.0, commit `c0735b6`, 2026-07-16): `matchInstitution()` in `lib/railParticipationMatch.ts` extends the original strategy rather than replacing it:
 
-- Curated aliases tied to stable institution identifiers.
-- Direct matching on source-provided identifiers instead of names.
-- Explicit manual overrides with provenance.
-- Automated tests covering:
-  - punctuation,
-  - whitespace normalization,
-  - ambiguous names,
-  - embedded substrings,
-  - progressive truncation,
-  - single-word institutions,
-  - aliases,
-  - Unicode and non-ASCII names.
+- For a bank whose normalized name (`banks.name_normalized`) is unique (no siblings), behavior is unchanged from the original decision: an unambiguous name match is accepted outright.
+- For a bank in a duplicate-name group, a name match alone is no longer sufficient. The candidate's location must also be present, match this bank's own city/state, **and** this bank's location must itself be unique within its duplicate-name group — a location match that doesn't distinguish this bank from a same-city/state sibling is `ambiguous`, not accepted, even with a clean name hit.
+- FedNow's participant data carries city+state; RTP carries state only (so same-state duplicate siblings remain permanently ambiguous on RTP, by design — there is no available evidence to resolve them); Zelle carries no location data at all, so **any** duplicate-name-group bank is always `ambiguous` on Zelle, never auto-matched.
+- `ambiguous` never sets or clears an existing flag (`resolveRailFlag`): `null` stays `null`, an existing `true` or `false` is preserved exactly. This is the same "blank over wrong" principle applied to the new ambiguity case, not a new exception to it.
+
+**One-time historical exception, not an ongoing rule change.** The v8.4.1 audit surfaced 143 bank-rail pairs where an existing `true` flag could no longer be justified under the new duplicate-aware rules — these predated duplicate-safe matching entirely and had never been evaluated against it. A one-time correction (v8.4.2) reset all 143 pairs to `null` (unconfirmed — not "not participating"), deliberately overriding the normal never-downgrade-`true` rule for this single historical cleanup: a production backup was taken first, a dry run matched the audit's findings exactly (zero drift), and the applied result was verified by re-running the audit, which reported zero remaining flagged pairs. Current code never does this — `resolveRailFlag()` unconditionally preserves an existing `true`. Any *future* discovery of an unjustified `true` value requires the same kind of explicit, reviewed, backed-up one-time correction; it is not something the matcher or the sync will ever do automatically.
+
+**Future considerations, revisited:**
+
+- ~~Direct matching on source-provided identifiers instead of names~~ — implemented, but only for **official FDIC/NCUA enrichment** (`lib/officialInstitutionMatch.ts`'s `resolveOfficialMatch()`, used once a bank is linked to a real charter). This does **not** extend to rail-participation matching, which remains this ADR's actual scope: FedNow/RTP/Zelle participant lists carry no FDIC certificate or NCUA charter number to match against, so rail matching is still necessarily name+location based and will remain so unless those source lists ever gain a stable identifier of their own.
+- Curated aliases tied to stable institution identifiers, explicit manual overrides with provenance, and Unicode/non-ASCII name handling remain open — nothing in the v8.1 expansion addressed these.
+- Automated test coverage for the original word-boundary/truncation/ambiguity rules remains in place; new coverage for the duplicate-group cases (unique-location match, same-state RTP ambiguity, Zelle-always-ambiguous, non-duplicate banks unaffected) was added in `lib/railParticipationMatch.test.ts`.
+
+Any future enhancement must preserve the conservative acceptance rule — including its extension to duplicate-name groups.

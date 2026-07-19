@@ -2,11 +2,13 @@
 
 - Status: Accepted
 - Decision date: 2026-07-07
-- Last validated against repository: 2026-07-09
+- Amended: 2026-07-19 (v8 collision/lifecycle — see Amendment below)
+- Last validated against repository: 2026-07-19
 - Grounding: implementation + commit history
 - Freshness policy: changes not yet independently verified against the latest commits require review before acceptance
 - Scope: bank profile URLs and public API identity
 - Primary implementations: `app/banks/[slug]/page.tsx`, `lib/bankProfile.ts`
+- Related ADRs: [ADR-0006](0006-institution-synchronization.md) (duplicate legal names, which this ADR's collision handling exists to disambiguate, are created by the sync described there)
 
 ## Context
 
@@ -81,8 +83,8 @@ Readable URLs make the product feel more intentional and trustworthy, especially
 
 ### Negative
 
-- Slug generation and collision handling become part of data integrity, duplicated across three call sites (`lib/utils.ts`, `scripts/backfill-bank-slugs.mjs`, `components/SubmitRouteReport.tsx`) rather than a single shared implementation.
-- Bank renames can create slug-change questions (no rename-safe slug strategy exists yet).
+- ~~Slug generation and collision handling become part of data integrity, duplicated across three call sites (`lib/utils.ts`, `scripts/backfill-bank-slugs.mjs`, `components/SubmitRouteReport.tsx`) rather than a single shared implementation.~~ Resolved — see Amendment below.
+- Bank renames can create slug-change questions (no rename-safe slug strategy exists yet — the sync preserves an existing slug through a source rename, but there is still no general redirect-history mechanism for a slug that changes any other way).
 - Redirect lookup adds a small amount of route complexity.
 - Slugs are not globally meaningful outside the website context.
 - API and website identity now intentionally differ.
@@ -99,10 +101,10 @@ Bank profile lookup and slug/UUID resolution:
 
 - `lib/bankProfile.ts`
 
-Slug generation:
+Slug generation (see Amendment below for the current, consolidated shape):
 
-- `lib/utils.ts` (`slugify`)
-- `components/SubmitRouteReport.tsx` (client-side generation + collision check for user-added banks)
+- `lib/slugify.ts` (`slugify`, `uniqueSlug` — the shared base implementation)
+- `lib/institutionSlug.ts` (`institutionSlug` — deterministic state/regulator-identifier disambiguation for the FDIC/NCUA sync, built on top of `lib/slugify.ts`)
 
 Slug backfill for existing banks:
 
@@ -151,9 +153,25 @@ Commit `f554ba4` ("Switch bank URLs from UUIDs to SEO-friendly slugs", 2026-07-0
 
 The unique index and `NOT NULL` constraint on `banks.slug` are confirmed present in `supabase/migrations/20260708033539_add_bank_slugs.sql` and `20260708033648_require_bank_slug.sql`, both landing in the same commit/date as the rest of the feature.
 
+## Amendment (2026-07-19): v8 collision handling and lifecycle
+
+**Consolidated slug generation.** The three duplicated call sites this ADR originally flagged no longer exist independently. `lib/slugify.ts` is now the one shared base implementation (`slugify()`, `uniqueSlug()`) — `lib/utils.ts` re-exports `slugify` from it rather than defining its own copy, `scripts/backfill-bank-slugs.mjs` imports from it directly, and `components/SubmitRouteReport.tsx` no longer contains any slug logic at all (it delegates bank creation to the `addBank()` Server Action). `lib/institutionSlug.ts`'s `institutionSlug()` is a newer layer built on top of `lib/slugify.ts` specifically for the FDIC/NCUA sync's collision needs (below) — it is not itself a fourth duplicated implementation, since it calls `slugify`/`uniqueSlug` rather than reimplementing them.
+
+**Deterministic collision disambiguation for duplicate legal names.** Once duplicate legal names became a supported, expected state (see [ADR-0006](0006-institution-synchronization.md) — e.g. six separate Pinnacle Bank charters), a bare `slugify(name)` collision used to fall straight through to `uniqueSlug()`'s numeric suffix (`pinnacle-bank-2`, `pinnacle-bank-3`, ...) — correct, but meaningless to a reader and unstable if institutions are processed in a different order across runs. `institutionSlug()` now tries the bare name first, then `{name}-{state}-{identifier}` (e.g. `pinnacle-bank-tn-12345`, using the institution's own stable FDIC cert/NCUA charter number) on collision, falling through to `uniqueSlug()`'s numeric suffix only as the final safety net if even that collides.
+
+**Staged validation.** The sync's staging table computes and validates each candidate's `proposed_slug` before `finalize_sync_run` applies anything — a genuine collision at staging time is a hard reject for that row, not a silently substituted slug. The database's unique index on `banks.slug` remains the final transaction-level guarantee regardless.
+
+**Renames preserve the existing slug.** `finalize_sync_run`'s update path never writes `slug` for an existing bank — a source-reported name change updates `name` but leaves the bank's slug exactly as it was.
+
+**Duplicate legal names are now structurally supported, not just tolerated.** There is no unique constraint on `banks.name` (the v8.0 schema migration actively drops any that existed) — only `banks.slug` is unique. This ADR's separation of "slug as website identity" from "database identity" is exactly what makes that possible.
+
+**Canonical metadata now shipped.** `app/banks/[slug]/page.tsx`'s `generateMetadata` now sets `alternates: { canonical }` pointing at the bank's own canonical slug URL — the original "not currently present" future consideration is resolved.
+
+**Still open:** there is no general slug-history/redirect table for a slug that changes for reasons other than the sync (which never changes an existing slug). If a slug ever needs to change outside the sync's preserve-on-rename behavior, that link would break today — this is unchanged from the original decision and remains a real gap, not resolved by anything above.
+
 ## Future considerations
 
-- Consolidate the three separate slug-generation call sites into one shared implementation.
-- Add canonical URL metadata on bank pages — not currently present (`app/banks/[slug]/page.tsx` has no `alternates.canonical`).
-- Track old slugs if future bank renames require redirect chains.
+- ~~Consolidate the three separate slug-generation call sites into one shared implementation.~~ Done — see Amendment above.
+- ~~Add canonical URL metadata on bank pages~~ — done — see Amendment above.
+- Track old slugs if future bank renames require redirect chains (still open — no such table exists).
 - Add tests for UUID redirects, missing UUIDs, and slug collisions.
