@@ -58,7 +58,12 @@ async function main() {
   for (const bank of banks) {
     const liveRaw = await fetchLiveWebaddr(bank.fdic_cert);
     const normalized = liveRaw ? normalizeWebsite(liveRaw.startsWith("http") ? liveRaw : `https://${liveRaw}`) : null;
-    const newWebsite = repairFdicWebsite(normalized);
+    const bareWebsite = repairFdicWebsite(normalized);
+    // repairFdicWebsite returns a bare domain - a bare domain in
+    // banks.website renders as a relative link, not an absolute one (see
+    // sync-institution-directory.mjs's fdicRecordToSourceInstitution,
+    // fixed alongside this for the same reason).
+    const newWebsite = bareWebsite ? `https://${bareWebsite}` : null;
 
     if (newWebsite === bank.website) continue; // no change (still invalid, or already matches)
 

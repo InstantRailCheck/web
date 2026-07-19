@@ -30,6 +30,20 @@ export function telHref(phone: string | null): string | null {
   return tenDigits ? `tel:+1${tenDigits}` : null;
 }
 
+// FDIC-sourced banks.website values are stored as a bare domain with no
+// protocol (e.g. "ozk.com") - a browser resolves that as a RELATIVE link
+// against the current page, not an external site, so every FDIC bank's
+// website link silently 404'd back onto this site's own domain
+// (confirmed live: /banks/bank-ozk's website link pointed at
+// instantrailcheck.com/banks/ozk.com). NCUA-sourced values already
+// include a protocol. This is the belt to the sync pipeline's
+// suspenders - guarantees a working absolute link regardless of which
+// shape is actually stored, present data included.
+export function websiteHref(website: string | null): string | null {
+  if (!website) return null;
+  return /^https?:\/\//i.test(website) ? website : `https://${website}`;
+}
+
 // Strips everything but letters/digits so punctuation differences don't
 // break substring search — "US Bank" needs to find "U.S. Bank National
 // Association", which a plain ILIKE '%US Bank%' never will since the

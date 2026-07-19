@@ -11,7 +11,7 @@ import {
   type RailEvidence,
   type EddEvidence,
 } from "@/lib/bankProfile";
-import { formatPhone, telHref } from "@/lib/utils";
+import { formatPhone, telHref, websiteHref } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bankIsIndexable, hasAttributableReportForBank } from "@/lib/institutionIndexability";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
@@ -288,7 +288,7 @@ export default async function BankProfilePage({
     ...(profile.bank.aka_names && profile.bank.aka_names.length > 0
       ? { alternateName: profile.bank.aka_names }
       : {}),
-    ...(profile.bank.website ? { url: profile.bank.website } : {}),
+    ...(profile.bank.website ? { url: websiteHref(profile.bank.website) } : {}),
     ...(profile.bank.address ? { address: profile.bank.address } : {}),
     ...(profile.bank.phone ? { telephone: profile.bank.phone } : {}),
     ...(regulatorId ? { identifier: { "@type": "PropertyValue", ...regulatorId } } : {}),
@@ -350,7 +350,7 @@ export default async function BankProfilePage({
           )}
           {profile.bank.website && (
             <a
-              href={profile.bank.website}
+              href={websiteHref(profile.bank.website) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-1 inline-block text-sm text-blue-400 hover:text-blue-300"

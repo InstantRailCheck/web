@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getBankProfileBySlug, getBankBySlug, describeRailEvidence } from "@/lib/bankProfile";
 import { ComparePicker } from "@/components/ComparePicker";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
-import { formatPhone, telHref } from "@/lib/utils";
+import { formatPhone, telHref, websiteHref } from "@/lib/utils";
 import { compareMetadata, type CompareSearchParams } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,7 @@ function WebsiteCell({ website }: { website: string | null }) {
   if (!website) return <span className="text-slate-600">—</span>;
   return (
     <a
-      href={website}
+      href={websiteHref(website) ?? undefined}
       target="_blank"
       rel="noopener noreferrer"
       className="text-blue-400 hover:text-blue-300 transition"

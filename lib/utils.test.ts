@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPhone, slugify, telHref } from "./utils";
+import { formatPhone, slugify, telHref, websiteHref } from "./utils";
 
 describe("slugify", () => {
   it("lowercases and joins words with dashes", () => {
@@ -90,5 +90,25 @@ describe("telHref", () => {
 
   it("returns null for null input", () => {
     expect(telHref(null)).toBeNull();
+  });
+});
+
+describe("websiteHref", () => {
+  it("adds https:// to a bare domain (the real FDIC bug: Bank OZK's website was stored as 'ozk.com')", () => {
+    expect(websiteHref("ozk.com")).toBe("https://ozk.com");
+  });
+
+  it("leaves an already-absolute http:// or https:// value unchanged", () => {
+    expect(websiteHref("https://www.aneca.org")).toBe("https://www.aneca.org");
+    expect(websiteHref("http://www.aneca.org")).toBe("http://www.aneca.org");
+  });
+
+  it("is case-insensitive about an existing protocol", () => {
+    expect(websiteHref("HTTPS://example.com")).toBe("HTTPS://example.com");
+  });
+
+  it("returns null for null/empty input", () => {
+    expect(websiteHref(null)).toBeNull();
+    expect(websiteHref("")).toBeNull();
   });
 });

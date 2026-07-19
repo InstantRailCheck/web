@@ -109,9 +109,9 @@ function fdicRecordToSourceInstitution(row) {
   // suppresses what's left (a colon/comma typo, "n/a") rather than
   // publishing a dead link.
   const rawWebsite = row.WEBADDR ? normalizeWebsite(row.WEBADDR.startsWith("http") ? row.WEBADDR : `https://${row.WEBADDR}`) : null;
-  const website = repairFdicWebsite(rawWebsite);
+  const bareWebsite = repairFdicWebsite(rawWebsite);
   const officialAka = extractFdicAkaNames(row, row.NAME);
-  const domainAka = deriveDomainInitialsAka(row.NAME, website);
+  const domainAka = deriveDomainInitialsAka(row.NAME, bareWebsite);
   const akaNames = mergeAkaNames(officialAka, domainAka);
   return {
     sourceAuthority: "fdic",
@@ -119,7 +119,13 @@ function fdicRecordToSourceInstitution(row) {
     name: row.NAME,
     city: row.CITY || null,
     state: row.STALP || null,
-    website,
+    // normalizeWebsite/repairFdicWebsite both return a bare domain (no
+    // protocol) - a bare domain in banks.website renders as a RELATIVE
+    // link (confirmed live: every FDIC bank's website link resolved back
+    // onto this site's own domain instead of the real institution's site).
+    // NCUA-sourced website values already include a protocol; this keeps
+    // both sources consistent.
+    website: bareWebsite ? `https://${bareWebsite}` : null,
     phone: null, // FDIC's institutions endpoint doesn't carry phone
     address: [row.ADDRESS, row.CITY, row.STALP, row.ZIP].filter(Boolean).join(", ") || null,
     // FDIC's ASSET field is reported in thousands of dollars.
