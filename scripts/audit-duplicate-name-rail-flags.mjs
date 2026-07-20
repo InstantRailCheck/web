@@ -78,7 +78,7 @@ async function main() {
   const [banks, fednowRows, rtpRows, zelleRows] = await Promise.all([
     fetchAllRows(
       "banks",
-      "id, slug, name, name_normalized, city, state, fednow_participant, rtp_participant, zelle_participant",
+      "id, slug, name, name_normalized, city, state, is_active, fednow_participant, rtp_participant, zelle_participant",
       "id"
     ),
     fetchAllRows("fednow_participants", "search_name, city, state", "id"),
@@ -92,8 +92,13 @@ async function main() {
     zelle_participant: zelleRows.map((r) => ({ searchName: r.search_name })),
   };
 
+  // Inactive/merged banks are excluded from every group: a merged legacy
+  // row must never manufacture false ambiguity for an active sibling's
+  // uniqueness-within-group check, and its own (redirect-only) flags don't
+  // need review either way.
   const groups = new Map();
   for (const bank of banks) {
+    if (!bank.is_active) continue;
     const key = bank.name_normalized ?? normalizeForSearch(bank.name);
     const list = groups.get(key) ?? [];
     list.push(bank);

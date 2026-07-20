@@ -20,6 +20,15 @@
 // treated as confirmed; anything else is flagged for manual review
 // instead, per this project's "blank over wrong" rule — never guessed,
 // never auto-merged.
+//
+// A second pass also catches same-normalized-name collisions the
+// reconciliation step itself missed: it requires phone-or-website
+// corroboration to leave "unresolved", so a legacy row with neither
+// populated (confirmed against production: Wells Fargo, City Bank, Bank
+// Hapoalim, Bank of India, First Bank & Trust, East West Bank, and others)
+// never resolves and never merges. Same confirmed/flagged rules apply — a
+// name shared by two or more authoritative charters is always flagged,
+// never guessed.
 import { createClient } from "@supabase/supabase-js";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";

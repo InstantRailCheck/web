@@ -40,7 +40,7 @@ async function main() {
     fetchAllRows("zelle_participants", "search_name", "id"),
     fetchAllRows(
       "banks",
-      "id, name, city, state, name_normalized, fednow_participant, rtp_participant, zelle_participant",
+      "id, name, city, state, name_normalized, is_active, fednow_participant, rtp_participant, zelle_participant",
       "id"
     ),
   ]);
@@ -49,11 +49,14 @@ async function main() {
   const rtpCandidates = rtpRows.map((r) => ({ searchName: r.search_name, state: r.state }));
   const zelleCandidates = zelleRows.map((r) => ({ searchName: r.search_name }));
 
-  // Every bank sharing a normalized name is a duplicate-name group of its
-  // own siblings, including itself — computed once for the whole batch
-  // rather than once per bank per rail.
+  // Every ACTIVE bank sharing a normalized name is a duplicate-name group
+  // of its own siblings, including itself — computed once for the whole
+  // batch rather than once per bank per rail. An inactive/merged bank is
+  // excluded here so it can never manufacture false ambiguity for an
+  // active sibling's uniqueness-within-group check.
   const siblingsByNormalizedName = new Map();
   for (const bank of banks) {
+    if (!bank.is_active) continue;
     const key = bank.name_normalized ?? normalizeForSearch(bank.name);
     const list = siblingsByNormalizedName.get(key) ?? [];
     list.push({ city: bank.city, state: bank.state });

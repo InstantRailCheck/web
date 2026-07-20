@@ -53,7 +53,7 @@ vi.mock("@/lib/rateLimit", () => ({
   isActionRateLimited: (...args: unknown[]) => isActionRateLimitedMock(...args),
 }));
 
-const submitUrlsToIndexNowMock = vi.fn(() => Promise.resolve());
+const submitUrlsToIndexNowMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/indexNow", () => ({
   submitUrlsToIndexNow: (...args: unknown[]) => submitUrlsToIndexNowMock(...args),
 }));
