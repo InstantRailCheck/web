@@ -950,6 +950,15 @@ This release starts with a full security pass of every API route and RLS policy 
 - `audit-duplicate-name-rail-flags.mjs` re-run after the backfill: 2 pre-existing, unrelated ambiguous groups remain ("Great Lakes", "State Employees" — both multi-charter credit unions with a true-but-no-longer-attributable flag), left for manual review, untouched by this release
 - New `scripts/lib/duplicateInstitutions.test.mjs` covers both matching passes and the `is_active` exclusion
 
+## Version 8.14.3 (v8.14.3 — shipped July 20 2026)
+
+**Follow-up correction to v8.14.2's same-name pass: Bank of America and TD Bank had gone undetected**
+- Root cause: `banks.name_normalized` is a generated column defined as `normalize(name + ' ' + aka_names joined)` — built for fuzzy `ILIKE` search, not identity matching. v8.14.2's same-name matching pass compared `name_normalized` values directly, so a linked bank with aliases attached (Bank of America's authoritative row carries `aka_names` including "BofA", "Merrill Lynch", "BofAML") gets a `name_normalized` value that no longer equals a plain unlinked row sharing its literal `name` — the exact same conflicting-flags pattern as Wells Fargo (identical $2.672T assets, `fednow_participant` disagreeing between the two rows), just invisible to the previous version of the matcher
+- `findDuplicatePairs()`'s same-name pass now computes identity from each bank's own `name` (lowercased, non-alphanumeric stripped — the same normalization the SQL side applies before folding in aliases), never from the stored `name_normalized` column. Also corrected the phone-based pass's same-name exclusion check to use the same own-name comparison, for consistency
+- Checked for other instances of this same blind spot across the full `banks` table before treating it as isolated: found two false negatives that only added a candidate to name collisions *already* correctly flagged as ambiguous (no behavior change), and confirmed Bank of America and TD Bank were the only two genuinely missed, unambiguous, single-candidate matches
+- Production cleanup: `bank-of-america` merged into `bank-of-america-national-association`, and `td-bank-national-association` merged into `td-bank-national-association-de-18409` (same non-destructive mechanism as v8.14.2). Rail backfill re-run afterward — 0 flag changes needed, since neither authoritative row was actually grouped with its legacy duplicate under the old (pre-fix) sibling-matching logic; the correction here is removing the redundant duplicate page, not adjusting the authoritative row's own already-correct flags
+- `audit-duplicate-name-rail-flags.mjs` re-confirmed clean: same 2 pre-existing, unrelated ambiguous groups as v8.14.2, nothing new
+
 ## Data Principles
 
 - Real-world reports only

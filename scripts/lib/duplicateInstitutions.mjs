@@ -8,6 +8,20 @@ export function isLinked(bank) {
   return !!(bank.fdic_cert || bank.ncua_charter_number);
 }
 
+// banks.name_normalized is generated as normalize(name + ' ' + aka_names
+// joined) — built for fuzzy ILIKE search, not identity matching. A linked
+// bank with aliases attached (e.g. "Bank of America, National Association"
+// carrying aka_names ["BofA", "Merrill Lynch", ...]) gets a name_normalized
+// value that no longer matches a plain unlinked row sharing its literal
+// name — confirmed in production: Bank of America and TD Bank both went
+// undetected by an earlier version of this same-name pass that compared
+// name_normalized directly. Same-name identity must always be computed
+// from `name` alone, matching the SQL side's own normalization
+// (lower + strip non-alphanumeric) without the aka_names blob.
+function normalizeName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function conflictsWith(u, c) {
   const addressConflict = u.address && c.address && u.address !== c.address;
   const assetsConflict = u.total_assets != null && c.total_assets != null && u.total_assets !== c.total_assets;
@@ -72,7 +86,7 @@ export function findDuplicatePairs(banks) {
   }
 
   for (const u of unlinkedWithPhone) {
-    const candidates = (linkedByPhone.get(u.phone) ?? []).filter((c) => c.name_normalized !== u.name_normalized);
+    const candidates = (linkedByPhone.get(u.phone) ?? []).filter((c) => normalizeName(c.name) !== normalizeName(u.name));
     if (candidates.length === 0) continue;
     handledUnlinkedIds.add(u.id);
     resolveCandidates(
@@ -92,13 +106,14 @@ export function findDuplicatePairs(banks) {
   // there's no way to tell which charter (if any) the old row belongs to.
   const linkedByName = new Map();
   for (const b of linked) {
-    if (!linkedByName.has(b.name_normalized)) linkedByName.set(b.name_normalized, []);
-    linkedByName.get(b.name_normalized).push(b);
+    const key = normalizeName(b.name);
+    if (!linkedByName.has(key)) linkedByName.set(key, []);
+    linkedByName.get(key).push(b);
   }
 
   const unlinkedRemaining = activeBanks.filter((b) => !isLinked(b) && !handledUnlinkedIds.has(b.id));
   for (const u of unlinkedRemaining) {
-    const candidates = linkedByName.get(u.name_normalized) ?? [];
+    const candidates = linkedByName.get(normalizeName(u.name)) ?? [];
     if (candidates.length === 0) continue;
     resolveCandidates(
       u,
