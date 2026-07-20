@@ -968,6 +968,15 @@ This release starts with a full security pass of every API route and RLS policy 
 - This only adds detection — merging is still `apply-duplicate-merge.mjs --apply`, run by a human, exactly as before. `docs/adr/0006-institution-synchronization.md` amended to document the new job
 - Known immediately after shipping: the first scheduled run of this job will show red — not a bug, but 16 already-known, legitimately-still-open groups (14 multi-charter name collisions like the six Pinnacle Bank charters, plus 2 unrelated ambiguous rail flags) correctly awaiting manual review
 
+## Version 8.14.5 (v8.14.5 — shipped July 20 2026)
+
+**Baseline-diff so the new scheduled audit only alerts on genuinely new findings**
+- Same-day follow-up to v8.14.4: most flagged groups are genuinely ambiguous (six distinct Pinnacle Bank charters sharing a name, etc.) and may never resolve, so failing the CI job on every single run would just train whoever's watching to ignore the red X entirely
+- New `scripts/lib/auditBaseline.mjs`: confirmed pairs (cheaply actionable — just run `apply-duplicate-merge.mjs --apply`) always exit non-zero; flagged/ambiguous pairs only exit non-zero when new since a committed baseline file (`scripts/duplicate-institutions-baseline.json`, `scripts/duplicate-name-rail-flags-baseline.json`) — both files hold only bare slugs/rail keys, never names, addresses, or assets, staying within ADR-0006 §12's real-institution-data-never-committed rule
+- Both audit scripts gained `--update-baseline`: after a human reviews the current flagged list and accepts it as known, running with this flag commits that acceptance to the baseline file — a deliberate, reviewed action, never automatic
+- Seeded both baseline files from today's actual reviewed state (the same 14 name-collision groups and 2 rail-flag pairs already known from v8.14.2 forward) — confirmed both scripts now exit 0 against current production, so this ships without immediately showing a false red X on the next scheduled run
+- Console output now marks each flagged item `[NEW]` or `[known]` so a human skimming CI logs doesn't have to diff the report by hand
+
 ## Data Principles
 
 - Real-world reports only

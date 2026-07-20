@@ -22,11 +22,20 @@
 //
 // Run before any v8.0 import, again immediately after the first real
 // import (rollout step 9), and again here after v8.4.0's review fix.
+//
+// Run on a schedule via sync-data.yml. Every flag here is genuinely
+// ambiguous and may never resolve, so re-signaling the same known backlog
+// every run trains whoever's watching CI to ignore it — only a (bank, rail)
+// pair new since duplicate-name-rail-flags-baseline.json (scripts/lib/
+// auditBaseline.mjs) exits non-zero. Pass --update-baseline after reviewing
+// the current list to mark it as known/accepted; that's a manual, reviewed
+// action (a committed file change), never automatic.
 import { createClient } from "@supabase/supabase-js";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { matchInstitution, findNameMatches } from "../lib/railParticipationMatch.ts";
+import { loadBaselineKeys, saveBaselineKeys, partitionByBaseline } from "./lib/auditBaseline.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -34,6 +43,8 @@ const supabase = createClient(
 );
 
 const REPORT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "reports");
+const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "duplicate-name-rail-flags-baseline.json");
+const UPDATE_BASELINE = process.argv.includes("--update-baseline");
 
 const RAILS = [
   { key: "fednow_participant", historyRail: "fednow", table: "fednow_participants", locationFields: "city_state" },
@@ -73,7 +84,13 @@ async function recentHistory(bankId, historyRail) {
   return data;
 }
 
+function baselineKey(flag) {
+  return `${flag.bankSlug}:${flag.rail}`;
+}
+
 async function main() {
+  const baselineKeys = await loadBaselineKeys(BASELINE_PATH);
+
   console.log("Loading banks and participant lists...");
   const [banks, fednowRows, rtpRows, zelleRows] = await Promise.all([
     fetchAllRows(
@@ -159,12 +176,16 @@ async function main() {
 
     console.log(`"${group[0].name}" (${group.length} charters) — needs review:`);
     for (const flag of groupFlags) {
+      const isNew = !baselineKeys.has(baselineKey(flag));
       console.log(
-        `  ${flag.rail}: ${flag.bankSlug} (${flag.bankCity ?? "?"}, ${flag.bankState ?? "?"}) is TRUE but no longer unambiguously attributable`
+        `  ${flag.rail}: ${flag.bankSlug} (${flag.bankCity ?? "?"}, ${flag.bankState ?? "?"}) is TRUE but no longer unambiguously attributable${isNew ? " [NEW]" : " [known]"}`
       );
     }
     console.log("");
   }
+
+  const allFlags = flaggedGroups.flatMap((g) => g.flags);
+  const { news: newFlags, known: knownFlags } = partitionByBaseline(allFlags, baselineKey, baselineKeys);
 
   const auditedAt = new Date().toISOString();
   await mkdir(REPORT_DIR, { recursive: true });
@@ -178,6 +199,7 @@ async function main() {
         duplicateGroupCount: duplicateGroups.length,
         flaggedGroupCount: flaggedGroups.length,
         flaggedBankRailCount,
+        newFlaggedKeys: newFlags.map(baselineKey),
         groups: flaggedGroups,
       },
       null,
@@ -187,15 +209,21 @@ async function main() {
 
   console.log(
     `Done. ${flaggedGroups.length}/${duplicateGroups.length} duplicate-name group(s) contain a true-but-ambiguous rail flag ` +
-      `(${flaggedBankRailCount} bank/rail pair(s) total).`
+      `(${flaggedBankRailCount} bank/rail pair(s) total, ${newFlags.length} new since baseline, ${knownFlags.length} already known).`
   );
   console.log(`Report written to ${reportPath}`);
   console.log("No changes were made — this script is read-only. Review the report before resolving any flag.");
 
+  if (UPDATE_BASELINE) {
+    await saveBaselineKeys(BASELINE_PATH, allFlags.map(baselineKey));
+    console.log(`\nBaseline updated: ${allFlags.length} bank/rail pair(s) now marked as known/reviewed at ${BASELINE_PATH}.`);
+  }
+
   // Non-fatal signal, not a script failure — same idiom as
   // audit-duplicate-institutions.mjs, so a scheduled CI run surfaces
-  // "there's something to review" as a visible red X.
-  if (flaggedGroups.length > 0) process.exitCode = 1;
+  // "there's something to review" as a visible red X, but only for pairs
+  // new since the last reviewed baseline.
+  if (newFlags.length > 0) process.exitCode = 1;
 }
 
 main().catch((err) => {

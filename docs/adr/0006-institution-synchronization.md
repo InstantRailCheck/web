@@ -177,15 +177,25 @@ hand.
 `sync-data.yml` gained a new `audit-duplicate-institutions` job running
 both audits, unconditionally, on every trigger (both cron schedules and any
 `workflow_dispatch`) — collisions aren't scope-specific the way FDIC/NCUA
-sync is. Both scripts now set a non-zero exit code when they find any
-confirmed or flagged pair, turning "there's something to review" into a
-visible CI failure plus GitHub's default scheduled-workflow-failure email,
-instead of a report nobody opens. This job is read-only end to end — it
-never merges anything; `apply-duplicate-merge.mjs --apply` remains a
-separate, human-run step, unchanged from how staged sync runs already
-require an explicit `--apply` (§13). Reports upload as a private,
-short-retention artifact (real institution data, same handling as the
-institution-sync reports per §12), never logged or committed in full.
+sync is. This job is read-only end to end — it never merges anything;
+`apply-duplicate-merge.mjs --apply` remains a separate, human-run step,
+unchanged from how staged sync runs already require an explicit `--apply`
+(§13). Reports upload as a private, short-retention artifact (real
+institution data, same handling as the institution-sync reports per §12),
+never logged or committed in full.
+
+Same-day follow-up: most flagged groups are genuinely ambiguous (e.g. six
+distinct Pinnacle Bank charters sharing a name) and may never resolve, so a
+non-zero exit on *every* run would just train whoever's watching CI to
+ignore it. `scripts/lib/auditBaseline.mjs` adds a baseline-diff: confirmed
+pairs (cheaply actionable — just run `apply-duplicate-merge.mjs --apply`)
+always exit non-zero, but flagged/ambiguous pairs only do when new since
+`scripts/duplicate-institutions-baseline.json` /
+`scripts/duplicate-name-rail-flags-baseline.json` — committed files
+holding only bare slugs/rail keys (never names, addresses, or assets, to
+stay within §12's real-data-never-committed rule). A human runs either
+script with `--update-baseline` after reviewing the current list to mark it
+known/accepted; that's a deliberate, committed action, never automatic.
 
 This does not close every gap noted above — `sync_staging_institutions`
 pruning and pre-`--apply` backup enforcement remain open — but it does mean

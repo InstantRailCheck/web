@@ -29,11 +29,22 @@
 // never resolves and never merges. Same confirmed/flagged rules apply — a
 // name shared by two or more authoritative charters is always flagged,
 // never guessed.
+//
+// Run on a schedule via sync-data.yml. Confirmed pairs always exit non-zero
+// (cheaply actionable — just run apply-duplicate-merge.mjs --apply).
+// Flagged pairs only exit non-zero when new since duplicate-institutions-
+// baseline.json (scripts/lib/auditBaseline.mjs) — most flagged groups are
+// genuinely ambiguous and may never resolve, so re-signaling the same known
+// backlog every run trains whoever's watching CI to ignore it. Pass
+// --update-baseline after reviewing the current flagged list to mark it as
+// known/accepted; that's a manual, reviewed action (a committed file
+// change), never automatic.
 import { createClient } from "@supabase/supabase-js";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findDuplicatePairs } from "./lib/duplicateInstitutions.mjs";
+import { loadBaselineKeys, saveBaselineKeys, partitionByBaseline } from "./lib/auditBaseline.mjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -41,6 +52,8 @@ const supabase = createClient(
 );
 
 const REPORT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "reports");
+const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "duplicate-institutions-baseline.json");
+const UPDATE_BASELINE = process.argv.includes("--update-baseline");
 
 async function fetchAllBanks() {
   const pageSize = 1000;
@@ -65,11 +78,24 @@ async function main() {
 
   const { confirmed, flagged } = findDuplicatePairs(banks);
 
+  // Confirmed pairs are cheaply actionable (a human just needs to run
+  // apply-duplicate-merge.mjs --apply), so they always signal — baselining
+  // them away would hide something safe to fix right now. Flagged pairs are
+  // genuinely ambiguous and may never resolve (e.g. six distinct Pinnacle
+  // Bank charters sharing a name); those are only worth re-signaling when a
+  // *new* one shows up, not every single run forever.
+  const baselineKeys = await loadBaselineKeys(BASELINE_PATH);
+  const { news: newFlagged, known: knownFlagged } = partitionByBaseline(flagged, (f) => f.unlinked.slug, baselineKeys);
+
   console.log(`Confirmed duplicate pairs (address + assets corroborated): ${confirmed.length}`);
-  console.log(`Flagged for manual review (conflicting or ambiguous): ${flagged.length}\n`);
+  console.log(
+    `Flagged for manual review (conflicting or ambiguous): ${flagged.length} ` +
+      `(${newFlagged.length} new since baseline, ${knownFlagged.length} already known)\n`
+  );
 
   for (const f of flagged) {
-    console.log(`FLAGGED: ${f.reason}`);
+    const isNew = newFlagged.includes(f);
+    console.log(`FLAGGED${isNew ? " [NEW]" : " [known]"}: ${f.reason}`);
     console.log(`  unlinked: ${f.unlinked.name} (${f.unlinked.slug})`);
     if (f.candidates) {
       for (const c of f.candidates) console.log(`  candidate: ${c.name} (${c.slug})`);
@@ -82,16 +108,21 @@ async function main() {
   const auditedAt = new Date().toISOString();
   await mkdir(REPORT_DIR, { recursive: true });
   const reportPath = path.join(REPORT_DIR, `duplicate-institutions-audit-${auditedAt.replace(/[:.]/g, "-")}.json`);
-  await writeFile(reportPath, JSON.stringify({ auditedAt, totalBanks: banks.length, confirmed, flagged }, null, 2));
+  await writeFile(reportPath, JSON.stringify({ auditedAt, totalBanks: banks.length, confirmed, flagged, newFlaggedSlugs: newFlagged.map((f) => f.unlinked.slug) }, null, 2));
 
   console.log(`Report written to ${reportPath}`);
   console.log("No changes were made — this script is read-only. Review flagged pairs manually; confirmed pairs can be applied with apply-duplicate-merge.mjs.");
+
+  if (UPDATE_BASELINE) {
+    await saveBaselineKeys(BASELINE_PATH, flagged.map((f) => f.unlinked.slug));
+    console.log(`\nBaseline updated: ${flagged.length} flagged pair(s) now marked as known/reviewed at ${BASELINE_PATH}.`);
+  }
 
   // Non-fatal signal, not a script failure — lets a scheduled CI run turn
   // "there's something to review" into a visible red X instead of a log
   // nobody reads, the same idiom apply-duplicate-merge.mjs already uses
   // for its own failedCount check.
-  if (confirmed.length > 0 || flagged.length > 0) process.exitCode = 1;
+  if (confirmed.length > 0 || newFlagged.length > 0) process.exitCode = 1;
 }
 
 main().catch((err) => {
