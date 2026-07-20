@@ -153,3 +153,47 @@ jobs:
           name: institution-sync-report-full-${{ github.run_id }}
           path: scripts/reports/institution-sync-*.json
           retention-days: 90
+
+  # Re-detects same-name duplicate institutions and the rail-flag drift
+  # they cause (a legacy community-added row silently disagreeing with a
+  # later-linked authoritative charter — the Wells Fargo/Bank of America/TD
+  # Bank pattern fixed in v8.14.2/v8.14.3) without relying on a human
+  # remembering to run these audits by hand. Runs on every trigger,
+  # unconditionally — unlike the FDIC/NCUA-specific jobs above, a name
+  # collision isn't scope-specific. Both scripts are read-only (they never
+  # write to `banks`), so unlike every other job here there's no
+  # interleaved-write risk and no concurrency group is needed. A non-zero
+  # exit means "there's a confirmed or flagged pair to review," not a
+  # script failure — surfaced as a red X plus GitHub's own default
+  # scheduled-workflow-failure email, same alerting the rest of this
+  # workflow already gets for free. Merging is still a separate, human-run
+  # `apply-duplicate-merge.mjs --apply` — this job only detects.
+  audit-duplicate-institutions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: node scripts/audit-duplicate-institutions.mjs
+        if: always()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - run: node scripts/audit-duplicate-name-rail-flags.mjs
+        if: always()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Real institution data — private artifact only, per ADR-0006 §12,
+      # never logged/committed in full. `if: always()` so the reports still
+      # upload even though a non-empty result makes the step above "fail".
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: duplicate-institutions-audit-${{ github.run_id }}
+          path: |
+            scripts/reports/duplicate-institutions-audit-*.json
+            scripts/reports/duplicate-name-rail-flags-audit-*.json
+          retention-days: 90

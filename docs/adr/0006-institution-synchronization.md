@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Decision date: 2026-07-16 (v8.0.0, commit `8ffb92b` — schema + `finalize_sync_run`; the architecture continued through v8.11.4, commit `a241767`, `sync_protected_fields`)
-- Last validated against repository: 2026-07-19
+- Last validated against repository: 2026-07-20
 - Grounding: implementation + commit history
 - Freshness policy: changes not yet independently verified against the latest commits require review before acceptance
 - Scope: FDIC/NCUA directory synchronization into `banks`, reconciliation of existing unlinked institutions, source ownership and identifiers, the staging/apply state machine, inactivation/reactivation, protected manual fields, production safety and rollback
@@ -105,7 +105,7 @@ Schema and the finalize transaction:
 
 Automation:
 
-- `.github/workflows/sync-data.yml` (stages only; never invokes `--apply`)
+- `.github/workflows/sync-data.yml` (stages only; never invokes `--apply`; also runs `audit-duplicate-institutions.mjs`/`audit-duplicate-name-rail-flags.mjs` unconditionally on every trigger — see 2026-07-20 amendment)
 
 Tests:
 
@@ -155,3 +155,39 @@ Rejected in favor of one atomic transaction — a partially applied sync (some i
 - Deciding whether to wire an unattended `--apply` into the schedule remains a deliberate, separate future decision, contingent on a longer real-world track record of manual applies.
 - Nothing currently enforces that a backup was taken before a manual `--apply` — this is operator discipline, not a system guarantee.
 - `'closed'`/`'merged'` inactivation reasons are schema-supported but not yet set by any implemented admin action — a manual-closure workflow is still future work.
+
+## Amendment (2026-07-20): scheduled re-detection of same-name duplicate institutions
+
+v8.14.2/v8.14.3 fixed a detection gap where a legacy, pre-sync community row
+(no `fdic_cert`/`ncua_charter_number`, no phone or website to corroborate
+against) could share its exact name with a later-linked authoritative
+charter and never resolve through either `audit-unlinked-banks.mjs`'s
+one-time reconciliation or `duplicateInstitutions.mjs`'s phone-based
+matching — the two rows then silently disagree on rail participation
+(confirmed live: Wells Fargo, Bank of America, TD Bank each had this
+happen). That release cleaned up the existing backlog and fixed the
+matching logic itself, but fixed only the code, not the process: nothing
+prevented the same pattern from recurring, since a fresh instance (a user
+manually adds a bank; the sync later links the real charter for that same
+institution under a name that either matches exactly or only diverges via
+`aka_names`) is only ever caught by a human remembering to re-run
+`audit-duplicate-institutions.mjs`/`audit-duplicate-name-rail-flags.mjs` by
+hand.
+
+`sync-data.yml` gained a new `audit-duplicate-institutions` job running
+both audits, unconditionally, on every trigger (both cron schedules and any
+`workflow_dispatch`) — collisions aren't scope-specific the way FDIC/NCUA
+sync is. Both scripts now set a non-zero exit code when they find any
+confirmed or flagged pair, turning "there's something to review" into a
+visible CI failure plus GitHub's default scheduled-workflow-failure email,
+instead of a report nobody opens. This job is read-only end to end — it
+never merges anything; `apply-duplicate-merge.mjs --apply` remains a
+separate, human-run step, unchanged from how staged sync runs already
+require an explicit `--apply` (§13). Reports upload as a private,
+short-retention artifact (real institution data, same handling as the
+institution-sync reports per §12), never logged or committed in full.
+
+This does not close every gap noted above — `sync_staging_institutions`
+pruning and pre-`--apply` backup enforcement remain open — but it does mean
+future same-name drift gets surfaced automatically rather than depending on
+someone happening to look.

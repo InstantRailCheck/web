@@ -191,6 +191,11 @@ async function main() {
   );
   console.log(`Report written to ${reportPath}`);
   console.log("No changes were made — this script is read-only. Review the report before resolving any flag.");
+
+  // Non-fatal signal, not a script failure — same idiom as
+  // audit-duplicate-institutions.mjs, so a scheduled CI run surfaces
+  // "there's something to review" as a visible red X.
+  if (flaggedGroups.length > 0) process.exitCode = 1;
 }
 
 main().catch((err) => {

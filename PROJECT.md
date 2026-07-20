@@ -959,6 +959,15 @@ This release starts with a full security pass of every API route and RLS policy 
 - Production cleanup: `bank-of-america` merged into `bank-of-america-national-association`, and `td-bank-national-association` merged into `td-bank-national-association-de-18409` (same non-destructive mechanism as v8.14.2). Rail backfill re-run afterward — 0 flag changes needed, since neither authoritative row was actually grouped with its legacy duplicate under the old (pre-fix) sibling-matching logic; the correction here is removing the redundant duplicate page, not adjusting the authoritative row's own already-correct flags
 - `audit-duplicate-name-rail-flags.mjs` re-confirmed clean: same 2 pre-existing, unrelated ambiguous groups as v8.14.2, nothing new
 
+## Version 8.14.4 (v8.14.4 — shipped July 20 2026)
+
+**Scheduled re-detection of same-name duplicate institutions**
+- v8.14.2/v8.14.3 fixed the detection code and cleaned up the existing backlog, but nothing prevented the same pattern from recurring — a new instance (user manually adds a bank; the sync later links the real charter for that same institution) was only ever caught by a human remembering to re-run the audit scripts by hand
+- `.github/workflows/sync-data.yml` gained a new `audit-duplicate-institutions` job, running both `audit-duplicate-institutions.mjs` and `audit-duplicate-name-rail-flags.mjs` unconditionally on every trigger (both cron schedules and any `workflow_dispatch`) — collisions aren't scope-specific the way the FDIC/NCUA sync is, so unlike the other jobs in this file it isn't gated to a particular schedule or scope input. Read-only end to end; no concurrency group needed since there's no write to guard against
+- Both scripts now set a non-zero exit code when they find any confirmed or flagged pair, turning "something needs review" into a visible CI failure plus GitHub's default scheduled-workflow-failure email, rather than a report nobody opens. Reports still upload as a private, 90-day-retention artifact either way (real institution data, same handling as the institution-sync reports)
+- This only adds detection — merging is still `apply-duplicate-merge.mjs --apply`, run by a human, exactly as before. `docs/adr/0006-institution-synchronization.md` amended to document the new job
+- Known immediately after shipping: the first scheduled run of this job will show red — not a bug, but 16 already-known, legitimately-still-open groups (14 multi-charter name collisions like the six Pinnacle Bank charters, plus 2 unrelated ambiguous rail flags) correctly awaiting manual review
+
 ## Data Principles
 
 - Real-world reports only

@@ -86,6 +86,12 @@ async function main() {
 
   console.log(`Report written to ${reportPath}`);
   console.log("No changes were made — this script is read-only. Review flagged pairs manually; confirmed pairs can be applied with apply-duplicate-merge.mjs.");
+
+  // Non-fatal signal, not a script failure — lets a scheduled CI run turn
+  // "there's something to review" into a visible red X instead of a log
+  // nobody reads, the same idiom apply-duplicate-merge.mjs already uses
+  // for its own failedCount check.
+  if (confirmed.length > 0 || flagged.length > 0) process.exitCode = 1;
 }
 
 main().catch((err) => {
