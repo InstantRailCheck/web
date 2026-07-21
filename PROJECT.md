@@ -996,6 +996,12 @@ This release starts with a full security pass of every API route and RLS policy 
 - Fix verified locally before touching production: reproduced the failure by pulling the fix migration out and resetting the local DB, confirmed it fails identically to CI; restored it and confirmed it passes; full `test:db` suite, `tsc`, `vitest`, and `lint` all clean
 - New migration applied to production: `20260721020000_fix_updated_at_guard_for_name_only_normalized.sql`
 
+## Version 8.14.8 (v8.14.8 — shipped July 21 2026)
+
+**Code-review follow-up: `backfill-rail-participation.mjs` still processed inactive banks**
+- The grouping pass (fixed in v8.14.6) correctly excludes inactive/merged banks when building duplicate-name sibling groups, but the main processing loop had no such guard and iterated every bank regardless of `is_active` — an inactive/merged bank could still have its own rail flags rewritten based on sibling matching. `resolve-ambiguous-true-rail-flags.mjs` and `audit-duplicate-name-rail-flags.mjs` already guard this in their loops; this script was the one outlier. Added `if (!bank.is_active) continue;` to match
+- Checked production impact: the last actual `--apply` run of this script reported 0/9033 updates (every candidate change was already a no-op under `resolveRailFlag`'s never-downgrade rule), so this gap hasn't corrupted any live data — it was a latent bug for the next run, not an active one
+
 ## Data Principles
 
 - Real-world reports only

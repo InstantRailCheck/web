@@ -76,6 +76,8 @@ async function main() {
   let updated = 0;
   let ambiguous = 0;
   for (const bank of banks) {
+    if (!bank.is_active) continue;
+
     const siblingLocations = siblingsByNormalizedName.get(normalizeForSearch(bank.name)) ?? [bank];
 
     const fednowResult = matchInstitution(bank, siblingLocations, fednowCandidates, "city_state");
