@@ -14,6 +14,13 @@
 // either way. The old name is folded into the surviving bank's aka_names
 // so it stays findable under the name it used to go by. Dry-run by
 // default; --apply to write.
+//
+// Code review finding (post-v8.14.5): the old-row deactivation and the
+// surviving row's aka_names update used to be two independent requests
+// (Promise.all) — one succeeding while the other failed left an
+// inconsistent state. Both now happen inside merge_duplicate_bank
+// (20260721013900), one transaction, same fix shape already used for
+// apply_bank_correction.
 import { createClient } from "@supabase/supabase-js";
 import { findDuplicatePairs } from "./lib/duplicateInstitutions.mjs";
 
@@ -30,7 +37,7 @@ async function fetchAllBanks() {
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("banks")
-      .select("id, slug, name, name_normalized, address, phone, city, state, fdic_cert, ncua_charter_number, total_assets, is_active, aka_names")
+      .select("id, slug, name, name_normalized, address, phone, website, city, state, fdic_cert, ncua_charter_number, total_assets, is_active, aka_names")
       .order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
@@ -45,7 +52,6 @@ async function main() {
 
   console.log("Loading banks and recomputing matches fresh...");
   const banks = await fetchAllBanks();
-  const byId = new Map(banks.map((b) => [b.id, b]));
   const { confirmed, flagged } = findDuplicatePairs(banks);
   console.log(`${confirmed.length} confirmed pair(s), ${flagged.length} flagged pair(s) (flagged are never auto-applied).\n`);
 
@@ -57,21 +63,15 @@ async function main() {
 
     if (!APPLY) continue;
 
-    const linkedBank = byId.get(pair.linked.id);
-    const currentAka = linkedBank?.aka_names ?? [];
-    const newAka = currentAka.includes(pair.unlinked.name) ? currentAka : [...currentAka, pair.unlinked.name];
+    const { error } = await supabase.rpc("merge_duplicate_bank", {
+      p_old_bank_id: pair.unlinked.id,
+      p_new_bank_id: pair.linked.id,
+      p_old_bank_name: pair.unlinked.name,
+    });
 
-    const [oldUpdate, newUpdate] = await Promise.all([
-      supabase
-        .from("banks")
-        .update({ is_active: false, inactive_reason: "merged", merged_into_bank_id: pair.linked.id })
-        .eq("id", pair.unlinked.id),
-      supabase.from("banks").update({ aka_names: newAka }).eq("id", pair.linked.id),
-    ]);
-
-    if (oldUpdate.error || newUpdate.error) {
+    if (error) {
       failedCount++;
-      console.log(`    FAILED: ${oldUpdate.error?.message ?? ""} ${newUpdate.error?.message ?? ""}`.trim());
+      console.log(`    FAILED: ${error.message}`);
     } else {
       appliedCount++;
     }

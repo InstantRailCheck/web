@@ -6,11 +6,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Matches lib/utils.ts's normalizeForSearch and the banks.name_normalized
-// generated column exactly — not imported directly because lib/utils.ts
-// pulls in other modules via the "@/" path alias, which plain Node (no
-// bundler) can't resolve the way lib/railParticipationMatch.ts (zero
-// dependencies) can.
+// Matches lib/utils.ts's normalizeForSearch exactly — not imported directly
+// because lib/utils.ts pulls in other modules via the "@/" path alias,
+// which plain Node (no bundler) can't resolve the way
+// lib/railParticipationMatch.ts (zero dependencies) can. Deliberately
+// recomputed from `name` here rather than read from banks.name_normalized —
+// that generated column bakes in aka_names for fuzzy search, which would
+// silently split one real duplicate-name group into two whenever only one
+// sibling has aliases attached.
 function normalizeForSearch(s) {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -40,7 +43,7 @@ async function main() {
     fetchAllRows("zelle_participants", "search_name", "id"),
     fetchAllRows(
       "banks",
-      "id, name, city, state, name_normalized, is_active, fednow_participant, rtp_participant, zelle_participant",
+      "id, name, city, state, is_active, fednow_participant, rtp_participant, zelle_participant",
       "id"
     ),
   ]);
@@ -54,10 +57,15 @@ async function main() {
   // batch rather than once per bank per rail. An inactive/merged bank is
   // excluded here so it can never manufacture false ambiguity for an
   // active sibling's uniqueness-within-group check.
+  // Always computed from `name` alone, never bank.name_normalized — that
+  // column bakes in aka_names for fuzzy search, so a bank carrying aliases
+  // would group under a different key than a same-named sibling without
+  // aliases, silently splitting one real duplicate-name group into two
+  // (discovered while fixing the same root cause elsewhere post-v8.14.5).
   const siblingsByNormalizedName = new Map();
   for (const bank of banks) {
     if (!bank.is_active) continue;
-    const key = bank.name_normalized ?? normalizeForSearch(bank.name);
+    const key = normalizeForSearch(bank.name);
     const list = siblingsByNormalizedName.get(key) ?? [];
     list.push({ city: bank.city, state: bank.state });
     siblingsByNormalizedName.set(key, list);
@@ -68,7 +76,7 @@ async function main() {
   let updated = 0;
   let ambiguous = 0;
   for (const bank of banks) {
-    const siblingLocations = siblingsByNormalizedName.get(bank.name_normalized ?? normalizeForSearch(bank.name)) ?? [bank];
+    const siblingLocations = siblingsByNormalizedName.get(normalizeForSearch(bank.name)) ?? [bank];
 
     const fednowResult = matchInstitution(bank, siblingLocations, fednowCandidates, "city_state");
     const rtpResult = matchInstitution(bank, siblingLocations, rtpCandidates, "state");

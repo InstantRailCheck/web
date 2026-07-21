@@ -13,6 +13,7 @@ function bank(overrides) {
     // (see the "aka_names divergence" describe block below for why).
     name_normalized: "unused-placeholder",
     address: null,
+    website: null,
     phone: null,
     fdic_cert: null,
     ncua_charter_number: null,
@@ -52,8 +53,10 @@ describe("findDuplicatePairs — phone-based pass (unchanged)", () => {
   it("never treats a same-name phone match as a phone-pass candidate", () => {
     // Same name AND same phone — the phone pass explicitly excludes
     // same-name candidates, but the name pass (below) picks it up instead.
-    const unlinked = bank({ id: "u1", name: "Same Name Bank", phone: "555-1000" });
-    const linked = bank({ id: "l1", name: "Same Name Bank", phone: "555-1000", fdic_cert: 1 });
+    // Matching assets given here so this actually confirms and can prove
+    // routing, not corroboration (covered separately above).
+    const unlinked = bank({ id: "u1", name: "Same Name Bank", phone: "555-1000", total_assets: 100 });
+    const linked = bank({ id: "l1", name: "Same Name Bank", phone: "555-1000", fdic_cert: 1, total_assets: 100 });
 
     const { confirmed } = findDuplicatePairs([unlinked, linked]);
 
@@ -76,14 +79,40 @@ describe("findDuplicatePairs — same-name pass", () => {
     expect(confirmed[0].linked.id).toBe("l1");
   });
 
-  it("still confirms when one side's total_assets is null (no conflict asserted)", () => {
+  it("flags a same-name match with no positive corroborator, even though nothing conflicts", () => {
+    // A name match alone (both sides' address/website/assets absent or
+    // simply not both present) is "nothing disagrees," not "something
+    // agrees" — ADR-0006 explicitly rejects name-alone as identity, so this
+    // must never silently confirm.
     const unlinked = bank({ id: "u1", name: "Same Name Bank", total_assets: null });
     const linked = bank({ id: "l1", name: "Same Name Bank", fdic_cert: 1, total_assets: 500 });
 
     const { confirmed, flagged } = findDuplicatePairs([unlinked, linked]);
 
+    expect(confirmed).toEqual([]);
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0].reason).toMatch(/no corroborating signal/);
+  });
+
+  it("confirms when total_assets is null on both sides but website corroborates", () => {
+    const unlinked = bank({ id: "u1", name: "Same Name Bank", website: "https://www.samenamebank.com", total_assets: null });
+    const linked = bank({ id: "l1", name: "Same Name Bank", fdic_cert: 1, website: "https://samenamebank.com/", total_assets: null });
+
+    const { confirmed, flagged } = findDuplicatePairs([unlinked, linked]);
+
     expect(flagged).toEqual([]);
     expect(confirmed).toHaveLength(1);
+  });
+
+  it("flags when websites conflict even though assets happen to match", () => {
+    const unlinked = bank({ id: "u1", name: "Same Name Bank", website: "https://a.example.com", total_assets: 100 });
+    const linked = bank({ id: "l1", name: "Same Name Bank", fdic_cert: 1, website: "https://b.example.com", total_assets: 100 });
+
+    const { confirmed, flagged } = findDuplicatePairs([unlinked, linked]);
+
+    expect(confirmed).toEqual([]);
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0].reason).toMatch(/website does not match/);
   });
 
   it("flags a same-name match whose assets conflict", () => {

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+// after() requires a real Next.js request-scope context that doesn't exist
+// under vitest — tests only care that the wrapped call happens, not its
+// real deferred-until-response-sent timing, so this just invokes it
+// immediately.
+vi.mock("next/server", () => ({ after: (fn: () => void) => fn() }));
 
 let currentUser: { id: string } | null = { id: "user-1" };
 const getUserMock = vi.fn(() => Promise.resolve({ data: { user: currentUser } }));
