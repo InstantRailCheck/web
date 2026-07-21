@@ -16,6 +16,13 @@
 // true -> false, never touches a field that isn't currently true, and
 // never touches a bank outside a duplicate-name group. Dry-run by
 // default; --apply to write.
+//
+// Code review finding (post-v8.14.5): grouping previously included
+// inactive/merged banks and keyed on the raw name_normalized column
+// (aka_names-inflated), the same two bugs already fixed in
+// backfill-rail-participation.mjs/audit-duplicate-name-rail-flags.mjs.
+// Fixed here too — otherwise a rerun of this "one-time" correction could
+// miss a real duplicate-name group or manufacture a false one.
 import { createClient } from "@supabase/supabase-js";
 import { matchInstitution } from "../lib/railParticipationMatch.ts";
 
@@ -59,7 +66,7 @@ async function main() {
   const [banks, fednowRows, rtpRows, zelleRows] = await Promise.all([
     fetchAllRows(
       "banks",
-      "id, slug, name, name_normalized, city, state, fednow_participant, rtp_participant, zelle_participant",
+      "id, slug, name, city, state, is_active, fednow_participant, rtp_participant, zelle_participant",
       "id"
     ),
     fetchAllRows("fednow_participants", "search_name, city, state", "id"),
@@ -73,9 +80,16 @@ async function main() {
     zelle_participant: zelleRows.map((r) => ({ searchName: r.search_name })),
   };
 
+  // Inactive/merged banks excluded, and key always computed from `name`
+  // alone rather than bank.name_normalized — same fixes already applied to
+  // backfill-rail-participation.mjs/audit-duplicate-name-rail-flags.mjs
+  // (an inactive sibling manufactures false ambiguity; name_normalized
+  // bakes in aka_names for fuzzy search, splitting one real duplicate-name
+  // group into two whenever only one sibling has aliases attached).
   const groups = new Map();
   for (const bank of banks) {
-    const key = bank.name_normalized ?? normalizeForSearch(bank.name);
+    if (!bank.is_active) continue;
+    const key = normalizeForSearch(bank.name);
     const list = groups.get(key) ?? [];
     list.push(bank);
     groups.set(key, list);

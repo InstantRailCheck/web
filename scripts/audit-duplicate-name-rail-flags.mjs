@@ -84,8 +84,13 @@ async function recentHistory(bankId, historyRail) {
   return data;
 }
 
+// Includes the full group-membership set, not just bankSlug:rail (code
+// review finding, post-v8.14.5): keying on those two alone would let a
+// baseline entry silently keep suppressing this flag even after the
+// group's actual candidate membership changes — e.g. a new charter joining
+// an already-flagged duplicate-name group.
 function baselineKey(flag) {
-  return `${flag.bankSlug}:${flag.rail}`;
+  return `${flag.bankSlug}:${flag.rail}:${flag.groupMemberSlugs.join(",")}`;
 }
 
 async function main() {
@@ -95,7 +100,7 @@ async function main() {
   const [banks, fednowRows, rtpRows, zelleRows] = await Promise.all([
     fetchAllRows(
       "banks",
-      "id, slug, name, name_normalized, city, state, is_active, fednow_participant, rtp_participant, zelle_participant",
+      "id, slug, name, city, state, is_active, fednow_participant, rtp_participant, zelle_participant",
       "id"
     ),
     fetchAllRows("fednow_participants", "search_name, city, state", "id"),
@@ -112,11 +117,14 @@ async function main() {
   // Inactive/merged banks are excluded from every group: a merged legacy
   // row must never manufacture false ambiguity for an active sibling's
   // uniqueness-within-group check, and its own (redirect-only) flags don't
-  // need review either way.
+  // need review either way. Key is always computed from `name` alone, never
+  // bank.name_normalized — that column bakes in aka_names for fuzzy search,
+  // which would silently split one real duplicate-name group into two
+  // whenever only one sibling has aliases attached.
   const groups = new Map();
   for (const bank of banks) {
     if (!bank.is_active) continue;
-    const key = bank.name_normalized ?? normalizeForSearch(bank.name);
+    const key = normalizeForSearch(bank.name);
     const list = groups.get(key) ?? [];
     list.push(bank);
     groups.set(key, list);
@@ -129,6 +137,7 @@ async function main() {
 
   for (const group of duplicateGroups) {
     const siblingLocations = group.map((b) => ({ city: b.city, state: b.state }));
+    const groupMemberSlugs = group.map((b) => b.slug).slice().sort();
 
     // Supplementary context only, not the driving signal — a rail set on
     // multiple members can be entirely correct once each is independently
@@ -160,6 +169,7 @@ async function main() {
           freshMatchResult: result,
           sourceEvidence: { nameMatchedCandidates },
           recentHistory: history,
+          groupMemberSlugs,
         });
       }
     }
