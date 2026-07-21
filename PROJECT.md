@@ -988,6 +988,14 @@ This release starts with a full security pass of every API route and RLS policy 
 - **IndexNow calls in Server Actions wrapped in `after()`** (`next/server`, stable since v15.1.0): an un-awaited fire-and-forget promise risked Vercel freezing the serverless invocation before the IndexNow `fetch()` actually completed
 - Two new migrations applied to production: `20260721013400_add_name_only_normalized.sql`, `20260721013900_add_merge_duplicate_bank.sql`
 
+## Version 8.14.7 (v8.14.7 — shipped July 21 2026)
+
+**Fixed a self-inflicted regression from v8.14.6: `banks` no-op update guard was broken since the moment `name_only_normalized` shipped**
+- `banks_set_updated_at()`'s no-op guard strips generated columns out of its OLD/NEW comparison before checking for a genuine change — required because Postgres hasn't recomputed a stored generated column for NEW yet at BEFORE-ROW-trigger time, so NEW's slot never matches OLD's real value regardless of whether anything changed (this exact bug was hit and fixed once already, in `20260713011500`, for `name_normalized`). Added `name_only_normalized` (new in v8.14.6) without adding the same exclusion for it — so every write to `banks` in production since v8.14.6 shipped was unconditionally bumping `updated_at`, silently eroding the sitemap freshness signal exactly the way the original guard was built to prevent
+- Caught by `institutionSync.check.mjs`'s no-op assertion failing in CI on `main` itself (surfaced via an unrelated Dependabot PR's test run, not caused by it)
+- Fix verified locally before touching production: reproduced the failure by pulling the fix migration out and resetting the local DB, confirmed it fails identically to CI; restored it and confirmed it passes; full `test:db` suite, `tsc`, `vitest`, and `lint` all clean
+- New migration applied to production: `20260721020000_fix_updated_at_guard_for_name_only_normalized.sql`
+
 ## Data Principles
 
 - Real-world reports only
