@@ -22,16 +22,43 @@ function normalizeName(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function conflictsWith(u, c) {
+function normalizeWebsite(url) {
+  if (!url) return null;
+  return url.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "") || null;
+}
+
+// Code review finding (post-v8.14.5): this used to only check for
+// CONTRADICTION (a mismatched address/assets) and treated its absence as
+// proof of a match — two banks sharing a name with both sides' address and
+// assets null were confirmed on "nothing disagrees," never on "something
+// agrees." ADR-0006 explicitly rejects name/website alone as identity
+// ("Rejected alternatives: Name or website as identity"), so a bare name or
+// phone match (this function's only two callers) needs a genuine positive
+// corroborator — a matching address, website, or total_assets — before
+// being confirmed; absent that, it's flagged for a human instead, same
+// "blank over wrong" rule already governing every other case here.
+function evaluate(u, c) {
+  const uWebsite = normalizeWebsite(u.website);
+  const cWebsite = normalizeWebsite(c.website);
+
   const addressConflict = u.address && c.address && u.address !== c.address;
   const assetsConflict = u.total_assets != null && c.total_assets != null && u.total_assets !== c.total_assets;
-  return { addressConflict, assetsConflict };
+  const websiteConflict = uWebsite && cWebsite && uWebsite !== cWebsite;
+
+  const addressMatch = u.address && c.address && u.address === c.address;
+  const assetsMatch = u.total_assets != null && c.total_assets != null && u.total_assets === c.total_assets;
+  const websiteMatch = uWebsite && cWebsite && uWebsite === cWebsite;
+
+  return {
+    conflictReasons: [addressConflict && "address does not match", assetsConflict && "total_assets does not match", websiteConflict && "website does not match"].filter(Boolean),
+    hasPositiveMatch: addressMatch || assetsMatch || websiteMatch,
+  };
 }
 
 function toPair(u, c) {
   return {
-    unlinked: { id: u.id, slug: u.slug, name: u.name, phone: u.phone, address: u.address, total_assets: u.total_assets, created_at: u.created_at },
-    linked: { id: c.id, slug: c.slug, name: c.name, address: c.address, total_assets: c.total_assets, ncua_charter_number: c.ncua_charter_number, fdic_cert: c.fdic_cert, created_at: c.created_at },
+    unlinked: { id: u.id, slug: u.slug, name: u.name, phone: u.phone, address: u.address, website: u.website, total_assets: u.total_assets, created_at: u.created_at },
+    linked: { id: c.id, slug: c.slug, name: c.name, address: c.address, website: c.website, total_assets: c.total_assets, ncua_charter_number: c.ncua_charter_number, fdic_cert: c.fdic_cert, created_at: c.created_at },
   };
 }
 
@@ -44,21 +71,20 @@ function resolveCandidates(u, candidates, reasonForMultiple, confirmed, flagged)
   if (candidates.length > 1) {
     flagged.push({
       reason: reasonForMultiple,
-      unlinked: { id: u.id, slug: u.slug, name: u.name, phone: u.phone, address: u.address },
-      candidates: candidates.map((c) => ({ id: c.id, slug: c.slug, name: c.name, address: c.address, ncua_charter_number: c.ncua_charter_number, fdic_cert: c.fdic_cert })),
+      unlinked: { id: u.id, slug: u.slug, name: u.name, phone: u.phone, address: u.address, website: u.website },
+      candidates: candidates.map((c) => ({ id: c.id, slug: c.slug, name: c.name, address: c.address, website: c.website, ncua_charter_number: c.ncua_charter_number, fdic_cert: c.fdic_cert })),
     });
     return;
   }
 
   const c = candidates[0];
-  const { addressConflict, assetsConflict } = conflictsWith(u, c);
+  const { conflictReasons, hasPositiveMatch } = evaluate(u, c);
   const pair = toPair(u, c);
 
-  if (addressConflict || assetsConflict) {
-    flagged.push({
-      reason: [addressConflict && "address does not match", assetsConflict && "total_assets does not match"].filter(Boolean).join("; "),
-      ...pair,
-    });
+  if (conflictReasons.length > 0) {
+    flagged.push({ reason: conflictReasons.join("; "), ...pair });
+  } else if (!hasPositiveMatch) {
+    flagged.push({ reason: "no corroborating signal — address, website, and total_assets are all absent or unmatched", ...pair });
   } else {
     confirmed.push(pair);
   }

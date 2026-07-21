@@ -17,14 +17,21 @@ export type BankForRailMatch = {
 export async function checkRailParticipation(bank: BankForRailMatch): Promise<RailParticipation> {
   const supabase = createAdminClient();
 
-  // Every bank sharing this bank's normalized name, including itself — a
-  // group of exactly one means this isn't a duplicate-name situation at
-  // all, and matchInstitution falls back to the original name-only
-  // matching (location irrelevant).
+  // Every ACTIVE bank sharing this bank's normalized name, including
+  // itself — a group of exactly one means this isn't a duplicate-name
+  // situation at all, and matchInstitution falls back to the original
+  // name-only matching (location irrelevant). Queries name_only_normalized
+  // (bare name), not name_normalized — that column bakes in aka_names for
+  // fuzzy search, so a sibling carrying aliases would silently never match
+  // this .eq() and get excluded from its own duplicate-name group. An
+  // inactive/merged bank is excluded so it can't manufacture false
+  // ambiguity for an active sibling (same fix already applied to
+  // backfill-rail-participation.mjs/audit-duplicate-name-rail-flags.mjs).
   const { data: siblingRows } = await supabase
     .from("banks")
     .select("city, state")
-    .eq("name_normalized", normalizeForSearch(bank.name));
+    .eq("name_only_normalized", normalizeForSearch(bank.name))
+    .eq("is_active", true);
   const siblingLocations = (siblingRows ?? []).map((r) => ({ city: r.city, state: r.state }));
 
   const [fednow, rtp, zelle] = await Promise.all([

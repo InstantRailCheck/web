@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveOfficialMatch } from "@/lib/officialInstitutionMatch";
@@ -122,7 +123,11 @@ export async function submitCorrection(
   }
 
   if (matches) {
-    submitUrlsToIndexNow([`${SITE_URL}/banks/${bank.slug}`]).catch(() => {});
+    // after() extends the serverless invocation until this settles — an
+    // un-awaited promise alone risks Vercel freezing the invocation (once
+    // the response is sent) before the fetch() to IndexNow actually
+    // completes.
+    after(() => submitUrlsToIndexNow([`${SITE_URL}/banks/${bank.slug}`]).catch(() => {}));
     return {
       status: "auto_applied",
       message: "Thanks — this matched our official source and has been updated.",

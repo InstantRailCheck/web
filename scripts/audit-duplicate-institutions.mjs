@@ -15,11 +15,13 @@
 // sharing a number) or a shared back-office/service-center address used
 // by several distinct small credit unions, and in one pair the two
 // institutions' phone numbers were actually swapped relative to each
-// other's true counterpart. So every phone match also requires a
-// corroborating address AND non-conflicting total_assets before being
-// treated as confirmed; anything else is flagged for manual review
-// instead, per this project's "blank over wrong" rule — never guessed,
-// never auto-merged.
+// other's true counterpart. So every phone (or name) match also requires
+// at least one genuinely matching address, website, or total_assets before
+// being treated as confirmed — not just the *absence* of a contradiction,
+// which two banks with both fields blank would trivially satisfy without
+// actually corroborating anything (code review finding, post-v8.14.5).
+// Anything short of that is flagged for manual review instead, per this
+// project's "blank over wrong" rule — never guessed, never auto-merged.
 //
 // A second pass also catches same-normalized-name collisions the
 // reconciliation step itself missed: it requires phone-or-website
@@ -55,13 +57,18 @@ const REPORT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "repo
 const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "duplicate-institutions-baseline.json");
 const UPDATE_BASELINE = process.argv.includes("--update-baseline");
 
+function flaggedKey(f) {
+  const candidateSlugs = (f.candidates ? f.candidates.map((c) => c.slug) : [f.linked.slug]).slice().sort();
+  return `${f.unlinked.slug}:${candidateSlugs.join(",")}`;
+}
+
 async function fetchAllBanks() {
   const pageSize = 1000;
   const rows = [];
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("banks")
-      .select("id, slug, name, name_normalized, address, phone, city, state, fdic_cert, ncua_charter_number, source_authority, total_assets, is_active, created_at")
+      .select("id, slug, name, name_normalized, address, phone, website, city, state, fdic_cert, ncua_charter_number, source_authority, total_assets, is_active, created_at")
       .order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw error;
@@ -84,8 +91,14 @@ async function main() {
   // genuinely ambiguous and may never resolve (e.g. six distinct Pinnacle
   // Bank charters sharing a name); those are only worth re-signaling when a
   // *new* one shows up, not every single run forever.
+  //
+  // Key includes the full candidate-slug set, not just the unlinked bank's
+  // own slug (code review finding, post-v8.14.5): keying on slug alone
+  // would let a baseline entry silently keep suppressing the group even
+  // after its candidate membership actually changes — e.g. a seventh
+  // charter joining an already-flagged six-way name collision.
   const baselineKeys = await loadBaselineKeys(BASELINE_PATH);
-  const { news: newFlagged, known: knownFlagged } = partitionByBaseline(flagged, (f) => f.unlinked.slug, baselineKeys);
+  const { news: newFlagged, known: knownFlagged } = partitionByBaseline(flagged, flaggedKey, baselineKeys);
 
   console.log(`Confirmed duplicate pairs (address + assets corroborated): ${confirmed.length}`);
   console.log(
@@ -108,13 +121,13 @@ async function main() {
   const auditedAt = new Date().toISOString();
   await mkdir(REPORT_DIR, { recursive: true });
   const reportPath = path.join(REPORT_DIR, `duplicate-institutions-audit-${auditedAt.replace(/[:.]/g, "-")}.json`);
-  await writeFile(reportPath, JSON.stringify({ auditedAt, totalBanks: banks.length, confirmed, flagged, newFlaggedSlugs: newFlagged.map((f) => f.unlinked.slug) }, null, 2));
+  await writeFile(reportPath, JSON.stringify({ auditedAt, totalBanks: banks.length, confirmed, flagged, newFlaggedKeys: newFlagged.map(flaggedKey) }, null, 2));
 
   console.log(`Report written to ${reportPath}`);
   console.log("No changes were made — this script is read-only. Review flagged pairs manually; confirmed pairs can be applied with apply-duplicate-merge.mjs.");
 
   if (UPDATE_BASELINE) {
-    await saveBaselineKeys(BASELINE_PATH, flagged.map((f) => f.unlinked.slug));
+    await saveBaselineKeys(BASELINE_PATH, flagged.map(flaggedKey));
     console.log(`\nBaseline updated: ${flagged.length} flagged pair(s) now marked as known/reviewed at ${BASELINE_PATH}.`);
   }
 
