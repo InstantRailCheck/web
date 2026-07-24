@@ -39,6 +39,15 @@ function GitHubIcon() {
   );
 }
 
+// Carries the page the user opened this modal from through the OAuth round
+// trip, so e.g. signing in from /contribute lands back on /contribute
+// instead of / — app/auth/callback/route.ts already sanitizes `next`
+// against open-redirect abuse, it just wasn't being sent before.
+function oauthRedirectTo(): string {
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  return `${window.location.origin}/auth/callback?next=${next}`;
+}
+
 export function AuthModal({ open, onOpenChange }: Props) {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -55,7 +64,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: oauthRedirectTo() },
     });
     if (error) {
       setGoogleLoading(false);
@@ -70,7 +79,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: oauthRedirectTo() },
     });
     if (error) {
       setGithubLoading(false);

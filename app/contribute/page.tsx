@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCachedRoutesNeedingFreshReports } from "@/lib/needsFreshReports";
 import { getEddOpportunities } from "@/lib/communityRails";
+import { distributionBucketLabel } from "@/lib/eddLeaderboard";
 import {
   fetchUserSubmissionPage,
   fetchUserOpenRouteRequestCount,
@@ -133,10 +134,7 @@ export function PrivateSummaryPanel({ summary }: { summary: PrivateSummary }) {
           ))}
           {summary.eddReports.recent.map((r) => (
             <p key={`edd-${r.id}`} className="text-sm text-slate-300">
-              {r.bankName}{" "}
-              <span className="text-slate-500">
-                · {r.daysEarly} day{r.daysEarly !== 1 ? "s" : ""} early
-              </span>
+              {r.bankName} <span className="text-slate-500">· {distributionBucketLabel(r.daysEarly)}</span>
             </p>
           ))}
           {summary.openRequests.recent.map((r) => (
@@ -178,7 +176,7 @@ export default async function ContributePage() {
 
         {topRoutes.length > 0 && (
           <section className="mt-10">
-            <h2 className="text-lg font-semibold">Highest-impact routes</h2>
+            <h2 className="text-lg font-semibold">Routes needing reports</h2>
             <p className="mt-1 text-sm text-slate-400">
               No evidence, limited evidence, or evidence older than 180 days. Pick one and report what you see.
             </p>
@@ -205,13 +203,13 @@ export default async function ContributePage() {
               {topEddOpportunities.map((o) => (
                 <div key={o.bankId} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
                   <p className="text-sm text-slate-200">
-                    <span className="font-semibold">{o.bankName}</span> — {o.reportCount} report
+                    <span className="font-semibold">{o.bankName}</span> — {o.reportCount} distinct contributor
                     {o.reportCount !== 1 ? "s" : ""} so far
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
                     {o.nextThresholdKind === "visibility"
-                      ? "One more report makes this bank's EDD timing visible on its profile page."
-                      : `${o.reportsUntilNextThreshold} more report${o.reportsUntilNextThreshold !== 1 ? "s" : ""} needed before this bank appears in the EDD leaderboard.`}
+                      ? "One more report from a new contributor makes this bank's EDD timing visible on its profile page."
+                      : `${o.reportsUntilNextThreshold} more report${o.reportsUntilNextThreshold !== 1 ? "s" : ""} from new contributors needed before this bank appears in the EDD leaderboard.`}
                   </p>
                   <SubmitEddReport bankId={o.bankId} bankName={o.bankName} />
                 </div>

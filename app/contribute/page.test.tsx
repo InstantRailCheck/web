@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { EDD_DAYS_SENTINEL } from "@/lib/bankProfile";
 
 vi.mock("server-only", () => ({}));
 
@@ -115,6 +116,36 @@ describe("PrivateSummaryPanel", () => {
     expect(screen.getByText(/Bank A → Bank B/)).toBeInTheDocument();
     expect(screen.getByText("Bank C")).toBeInTheDocument();
     expect(screen.getByText(/Bank D → Bank E/)).toBeInTheDocument();
+  });
+
+  it("renders the open-ended EDD_DAYS_SENTINEL as 'More than 5 days early', never '6 days early'", () => {
+    render(
+      <PrivateSummaryPanel
+        summary={{
+          routeReports: { total: 0, recent: [] },
+          eddReports: {
+            total: 1,
+            recent: [
+              {
+                type: "edd_reports",
+                id: "e1",
+                createdAt: "2026-01-01T00:00:00Z",
+                attributable: true,
+                userId: "u1",
+                bankName: "Bank C",
+                daysEarly: EDD_DAYS_SENTINEL,
+                depositType: null,
+                payrollProvider: null,
+              },
+            ],
+          },
+          openRequests: { total: 0, recent: [] },
+        }}
+      />
+    );
+
+    expect(screen.getByText(/More than 5 days early/)).toBeInTheDocument();
+    expect(screen.queryByText(/6 days early/)).toBeNull();
   });
 
   it("does not render an empty recent-items section when there's nothing to show", () => {
