@@ -1005,12 +1005,20 @@ This release starts with a full security pass of every API route and RLS policy 
 ## Version 9.0.0 (v9.0 — shipped July 24 2026)
 
 **Community Contribution Hub (`/contribute`)** — turns "here's what we know" into "here's exactly what you can do to improve it," reusing existing evidence machinery and submission components end to end rather than inventing new ones
-- **Highest-impact routes**: top 8 routes from the existing severity-ranked `lib/needsFreshReports.ts` list (no evidence / stale / limited evidence / requested-only), with a link to the full list at `/routes/needs-fresh-reports`. One-click prefill reuses the existing `/?from=<slug>&to=<slug>#search` mechanism unchanged — `RouteRow` is imported directly from that page rather than duplicated
+- **Routes needing reports**: top 8 routes from the existing severity-ranked `lib/needsFreshReports.ts` list (no evidence / stale / limited evidence / requested-only), with a link to the full list at `/routes/needs-fresh-reports`. One-click prefill reuses the existing `/?from=<slug>&to=<slug>#search` mechanism unchanged — `RouteRow` is imported directly from that page rather than duplicated
 - **EDD opportunities**: new sibling aggregation `lib/eddOpportunities.ts` (`computeEddOpportunities`) surfaces banks with 1-4 attributable EDD reports — invisible to every existing EDD surface, since `computeEddLeaderboard` excludes anything below `EDD_MIN_REPORTERS` entirely. Explains whether the next report crosses `EDD_MIN_REPORTERS` (first visible evidence on the bank's own profile) or `EDD_LEADERBOARD_MIN_REPORTERS` (public leaderboard ranking), with an inline `SubmitEddReport` form per card — genuinely one-click, no navigation
 - **Private contribution summary**: signed-in user's own route reports, EDD reports, and open route requests, fetched server-side via `lib/moderation.ts`'s existing `fetchUserSubmissionPage` (previously only called from an admin page with an admin-supplied target id — same function, called with the caller's own id, no admin gate). Added `fetchUserOpenRouteRequestCount` since that function's `route_requests` results mix fulfilled and unfulfilled rows, and the private summary needed an exact open-request count. No usernames, no leaderboard — counts and items scoped strictly to the signed-in viewer
 - **General fallback forms** (always rendered, regardless of whether any suggestion applies): `SubmitRouteReport` with zero props — an "old standalone behavior" its own code comment documented as supported but that no live page had ever actually used — plus `RequestRouteForm` and `SubmitEddReport banks`, all reused unchanged
 - Nav: "Submit report" → "Contribute" (`components/SiteNavLinks.tsx`); added to `app/sitemap.ts` (indexed normally, unlike the still-unproven `/routes/needs-fresh-reports`)
 - No schema migration — every read is against existing tables/columns; no new RLS policy (private summary goes entirely through the existing admin-client-backed fetchers, scoped by `user_id` server-side)
+
+## Version 9.0.1 (v9.0.1 — shipped July 24 2026)
+
+**Code-review follow-ups on the v9.0 Community Contribution Hub**
+- Renamed the "Highest-impact routes" section to "Routes needing reports" — the underlying list is severity-ordered (no evidence / stale / limited evidence), not ranked by how close a route is to crossing an evidence threshold, so the heading shouldn't imply otherwise
+- EDD opportunity copy now says "distinct contributors" instead of "reports," matching what `computeEddOpportunities` actually counts after per-reporter dedup
+- Fixed `PrivateSummaryPanel` rendering the `EDD_DAYS_SENTINEL` (6) as "6 days early" instead of "More than 5 days early" — reuses `distributionBucketLabel` from `lib/eddLeaderboard.ts` instead of hand-formatting the count; added a regression test for the sentinel
+- `AuthModal`'s Google/GitHub sign-in now passes `?next=<path+query+hash>` to `/auth/callback` (which already sanitized and supported `next`, it just wasn't being sent) — fixes every caller, not just `/contribute`, including preserving the homepage's `#search` anchor through the OAuth round trip; added `AuthModal.test.tsx` covering the redirect construction and the Google sign-in wiring
 
 ## Data Principles
 

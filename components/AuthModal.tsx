@@ -40,12 +40,14 @@ function GitHubIcon() {
 }
 
 // Carries the page the user opened this modal from through the OAuth round
-// trip, so e.g. signing in from /contribute lands back on /contribute
-// instead of / — app/auth/callback/route.ts already sanitizes `next`
-// against open-redirect abuse, it just wasn't being sent before.
-function oauthRedirectTo(): string {
-  const next = encodeURIComponent(window.location.pathname + window.location.search);
-  return `${window.location.origin}/auth/callback?next=${next}`;
+// trip, so e.g. signing in from /contribute lands back on /contribute (and
+// signing in from the homepage's #search anchor lands back on #search)
+// instead of always bouncing to / — app/auth/callback/route.ts already
+// sanitizes `next` against open-redirect abuse, it just wasn't being sent
+// before.
+export function oauthRedirectTo(location: Pick<Location, "origin" | "pathname" | "search" | "hash">): string {
+  const next = encodeURIComponent(location.pathname + location.search + location.hash);
+  return `${location.origin}/auth/callback?next=${next}`;
 }
 
 export function AuthModal({ open, onOpenChange }: Props) {
@@ -64,7 +66,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: oauthRedirectTo() },
+      options: { redirectTo: oauthRedirectTo(window.location) },
     });
     if (error) {
       setGoogleLoading(false);
@@ -79,7 +81,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
-      options: { redirectTo: oauthRedirectTo() },
+      options: { redirectTo: oauthRedirectTo(window.location) },
     });
     if (error) {
       setGithubLoading(false);
