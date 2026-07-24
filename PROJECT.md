@@ -1020,6 +1020,16 @@ This release starts with a full security pass of every API route and RLS policy 
 - Fixed `PrivateSummaryPanel` rendering the `EDD_DAYS_SENTINEL` (6) as "6 days early" instead of "More than 5 days early" — reuses `distributionBucketLabel` from `lib/eddLeaderboard.ts` instead of hand-formatting the count; added a regression test for the sentinel
 - `AuthModal`'s Google/GitHub sign-in now passes `?next=<path+query+hash>` to `/auth/callback` (which already sanitized and supported `next`, it just wasn't being sent) — fixes every caller, not just `/contribute`, including preserving the homepage's `#search` anchor through the OAuth round trip; added `AuthModal.test.tsx` covering the redirect construction and the Google sign-in wiring
 
+## Version 9.1.0 (v9.1 — shipped July 24 2026)
+
+**Contribution Impact Receipts** — every route/EDD report submission now tells the reporter, immediately and specifically, what it accomplished, using authoritative before/after data rather than any invented scoring
+- New pure module `lib/receipts.ts` (`buildRouteReportReceipt`, `buildEddReportReceipt`) builds the receipt copy from a pre-write snapshot plus the literal new row — never a post-write re-query — so a concurrent submitter's report can't bias what "your report" is credited with. Reuses `lib/routeConfidence.ts`'s `computeRouteEvidence`/`EVIDENCE_LABELS` and `lib/bankProfile.ts`/`lib/eddLeaderboard.ts`'s dedup/thresholds unchanged
+- `lib/actions/submitRouteReport.ts`: now also reports fulfilled-request count and the route's evidence-state transition (e.g. "advanced from Limited evidence to Observed working"). The one place a naive "count what was open before" could overclaim under a race — two people submitting for the same route pair — is handled by matching fulfilled `route_requests` against the new report's own `created_at`, which is bit-for-bit identical (same transaction `now()`) to whatever `fulfilled_at` the DB's own fulfillment trigger set for that transaction, and differs from any other transaction's
+- `lib/actions/submitEddReport.ts` (new): EDD submission moved off its long-standing direct client-side RLS insert (`edd_reports` has no SELECT policy at all, so there was no way to read back before/after state from the client) — the one remaining holdout of the pre-v6.x pattern `submitRouteReport.ts` already left behind. Reports distinct-contributor-count crossings of `EDD_MIN_REPORTERS` (profile visibility) and `EDD_LEADERBOARD_MIN_REPORTERS` (leaderboard eligibility), or progress toward the latter
+- Repeat submissions by the same reporter are always framed as "your evidence was updated," never as a new distinct contributor — for EDD this falls directly out of `dedupeEddReportsByReporterAndBank` (a resubmission can never move the deduped count), not a special-cased guard
+- `components/SubmitRouteReport.tsx`/`components/SubmitEddReport.tsx`: the static "Report submitted — thank you!" line is replaced by the receipt's own lines
+- No schema migration, no points/badges/public usernames, no leaderboard-visibility behavior changes (the new leaderboard-crossing copy is text only)
+
 ## Data Principles
 
 - Real-world reports only

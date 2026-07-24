@@ -22,6 +22,10 @@ vi.mock("@/lib/actions/submitRouteReport", () => ({
   submitRouteReport: vi.fn(),
 }));
 
+vi.mock("@/lib/actions/submitEddReport", () => ({
+  submitEddReport: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     auth: {

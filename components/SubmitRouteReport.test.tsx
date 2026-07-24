@@ -4,7 +4,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SubmitRouteReport } from "./SubmitRouteReport";
 
-const submitRouteReportMock = vi.fn().mockResolvedValue({ success: true });
+const DEFAULT_RECEIPT = {
+  isRepeatReporter: false,
+  fulfilledRequestCount: 0,
+  evidenceBeforeState: null,
+  evidenceAfterState: "limited_evidence",
+  lines: ["This route now has evidence: Limited evidence."],
+};
+
+const submitRouteReportMock = vi.fn().mockResolvedValue({ success: true, receipt: DEFAULT_RECEIPT });
 const routerRefreshMock = vi.fn();
 
 vi.mock("@/lib/actions/addBank", () => ({
@@ -60,7 +68,7 @@ async function fillCommonFields(user: ReturnType<typeof userEvent.setup>) {
 
 beforeEach(() => {
   submitRouteReportMock.mockClear();
-  submitRouteReportMock.mockResolvedValue({ success: true });
+  submitRouteReportMock.mockResolvedValue({ success: true, receipt: DEFAULT_RECEIPT });
   routerRefreshMock.mockClear();
 });
 
@@ -111,7 +119,7 @@ describe("SubmitRouteReport — submit behavior (bank-scoped page)", () => {
       })
     );
 
-    await waitFor(() => screen.getByText("Report submitted — thank you!"));
+    await waitFor(() => screen.getByText("This route now has evidence: Limited evidence."));
 
     // Fixed side ("From bank") still shows the pinned bank as static text.
     expect(screen.getAllByText(FIXED_BANK.name).length).toBeGreaterThan(0);
@@ -171,7 +179,7 @@ describe("SubmitRouteReport — coordinated/prefilled mode (homepage route check
     expect(submitRouteReportMock).toHaveBeenCalledWith(
       expect.objectContaining({ fromBankId: PREFILLED_FROM.id, toBankId: PREFILLED_TO.id })
     );
-    await waitFor(() => screen.getByText("Report submitted — thank you!"));
+    await waitFor(() => screen.getByText("This route now has evidence: Limited evidence."));
 
     // Both sides still show the same banks — neither was cleared/remounted.
     expect(screen.getByText(PREFILLED_FROM.name)).toBeInTheDocument();
@@ -212,8 +220,33 @@ describe("SubmitRouteReport — coordinated/prefilled mode (homepage route check
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
     // The insert genuinely succeeded — that must stay reported as success,
     // regardless of the parent's own follow-up failing.
-    expect(screen.getByText("Report submitted — thank you!")).toBeInTheDocument();
+    expect(screen.getByText("This route now has evidence: Limited evidence.")).toBeInTheDocument();
     expect(screen.queryByText(/Submit failed/)).not.toBeInTheDocument();
     expect(screen.queryByText("refetch boom")).not.toBeInTheDocument();
+  });
+
+  it("renders every line of a multi-line receipt (fulfilled request + evidence transition)", async () => {
+    const user = userEvent.setup();
+    submitRouteReportMock.mockResolvedValue({
+      success: true,
+      receipt: {
+        isRepeatReporter: false,
+        fulfilledRequestCount: 2,
+        evidenceBeforeState: "limited_evidence",
+        evidenceAfterState: "observed_working",
+        lines: [
+          "Your report fulfilled 2 open route requests.",
+          "This route advanced from Limited evidence to Observed working.",
+        ],
+      },
+    });
+    render(<SubmitRouteReport initialFromBank={PREFILLED_FROM} initialToBank={PREFILLED_TO} />);
+    await waitFor(() => screen.getByText("Add real transfer outcomes to improve routing intelligence."));
+
+    await fillCommonFields(user);
+    await user.click(screen.getByRole("button", { name: "Submit Report" }));
+
+    await waitFor(() => screen.getByText("Your report fulfilled 2 open route requests."));
+    expect(screen.getByText("This route advanced from Limited evidence to Observed working.")).toBeInTheDocument();
   });
 });

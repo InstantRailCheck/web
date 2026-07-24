@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/lib/supabase/client";
 import { addBank } from "@/lib/actions/addBank";
 import { submitRouteReport } from "@/lib/actions/submitRouteReport";
+import type { RouteReportReceipt } from "@/lib/receipts";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
@@ -74,7 +75,7 @@ export function SubmitRouteReport(props: Props) {
   const [sameDay, setSameDay] = useState(false);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [receipt, setReceipt] = useState<RouteReportReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
   // BankSelect manages its own selected-bank state internally, so clearing
   // fromBank/toBank here doesn't by itself clear what it visually shows —
@@ -126,7 +127,7 @@ export function SubmitRouteReport(props: Props) {
     }
 
     setLoading(true);
-    setSuccess(false);
+    setReceipt(null);
     setError(null);
 
     try {
@@ -181,7 +182,7 @@ export function SubmitRouteReport(props: Props) {
       setSettlementTime("");
       setSameDay(false);
       setNotes("");
-      setSuccess(true);
+      setReceipt(result.receipt);
 
       if (onSuccessCallback) {
         try {
@@ -418,10 +419,12 @@ export function SubmitRouteReport(props: Props) {
               {loading ? "Submitting..." : "Submit Report"}
             </button>
 
-            {success && (
-              <p className="text-sm text-green-400 md:col-span-2">
-                Report submitted — thank you!
-              </p>
+            {receipt && (
+              <div className="text-sm text-green-400 md:col-span-2 space-y-1">
+                {receipt.lines.map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              </div>
             )}
 
             {error && (

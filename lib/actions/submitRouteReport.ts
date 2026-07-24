@@ -7,6 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { getUserModerationStatus } from "@/lib/moderationStatus";
 import { logError } from "@/lib/logger";
+import { buildRouteReportReceipt, type RouteReportReceipt } from "@/lib/receipts";
+import type { RouteReportInput } from "@/lib/routeConfidence";
 
 export type SubmitRouteReportInput = {
   fromBankId: string;
@@ -22,7 +24,7 @@ export type SubmitRouteReportInput = {
   notes: string;
 };
 
-export type SubmitRouteReportResult = { success: true } | { error: string };
+export type SubmitRouteReportResult = { success: true; receipt: RouteReportReceipt } | { error: string };
 
 // Moved off a direct client-side RLS insert (v6.x) so route_reports
 // insertion and cache invalidation can happen together, authenticated and
@@ -66,22 +68,81 @@ export async function submitRouteReport(input: SubmitRouteReportInput): Promise<
     return { error: "One of the selected institutions is no longer listed and can't receive new reports." };
   }
 
-  const { error } = await admin.from("route_reports").insert({
-    from_bank_id: input.fromBankId,
-    to_bank_id: input.toBankId,
-    from_bank_name: input.fromBankName,
-    to_bank_name: input.toBankName,
-    rail_used: input.railUsed,
-    direction: input.direction,
-    status: input.status,
-    tested_at: input.testedAt,
-    settlement_time_minutes: input.settlementTimeMinutes,
-    same_day: input.sameDay,
-    notes: input.notes,
-    user_id: user.id,
-  });
+  // Snapshotted just before the write so the receipt can report exactly
+  // what THIS submission changed, holding everything else fixed — a
+  // concurrent submitter's report landing around the same time doesn't
+  // bias this, since it simply isn't part of either snapshot. See
+  // lib/receipts.ts for why this is the honest, non-overclaiming framing.
+  const [{ data: beforeRows }, { data: openRequests }] = await Promise.all([
+    admin
+      .from("route_reports")
+      .select("user_id, status, tested_at")
+      .eq("from_bank_id", input.fromBankId)
+      .eq("to_bank_id", input.toBankId)
+      .eq("rail_used", input.railUsed),
+    admin
+      .from("route_requests")
+      .select("id")
+      .eq("from_bank_id", input.fromBankId)
+      .eq("to_bank_id", input.toBankId)
+      .is("fulfilled_at", null),
+  ]);
+  const beforeReports: RouteReportInput[] = (beforeRows ?? []).map((r) => ({
+    userId: r.user_id,
+    status: r.status as RouteReportInput["status"],
+    testedAt: r.tested_at,
+  }));
+  const openRequestIds = (openRequests ?? []).map((r) => r.id);
 
-  if (error) return { error: "Failed to submit report." };
+  const { data: newRow, error } = await admin
+    .from("route_reports")
+    .insert({
+      from_bank_id: input.fromBankId,
+      to_bank_id: input.toBankId,
+      from_bank_name: input.fromBankName,
+      to_bank_name: input.toBankName,
+      rail_used: input.railUsed,
+      direction: input.direction,
+      status: input.status,
+      tested_at: input.testedAt,
+      settlement_time_minutes: input.settlementTimeMinutes,
+      same_day: input.sameDay,
+      notes: input.notes,
+      user_id: user.id,
+    })
+    .select("id, created_at")
+    .single();
+
+  if (error || !newRow) return { error: "Failed to submit report." };
+
+  // check_route_report_quota (a BEFORE INSERT trigger) forces
+  // new.created_at := now() unconditionally, in the same transaction that
+  // route_requests_fulfill_on_report_trigger (AFTER INSERT) later sets
+  // fulfilled_at = now() for every request this report just fulfilled —
+  // both values come from the same transaction's now(), so they're
+  // bit-for-bit identical here and differ from any other transaction's.
+  // Matching on that exact timestamp is what lets a "losing" concurrent
+  // submitter's receipt correctly show 0 fulfilled requests instead of
+  // double-claiming credit for ones a different report actually fulfilled.
+  let fulfilledRequestCount = 0;
+  if (openRequestIds.length > 0) {
+    const { count } = await admin
+      .from("route_requests")
+      .select("id", { count: "exact", head: true })
+      .in("id", openRequestIds)
+      .eq("fulfilled_at", newRow.created_at);
+    fulfilledRequestCount = count ?? 0;
+  }
+
+  const receipt = buildRouteReportReceipt({
+    beforeReports,
+    newReport: {
+      userId: user.id,
+      status: input.status as RouteReportInput["status"],
+      testedAt: input.testedAt,
+    },
+    fulfilledRequestCount,
+  });
 
   // Same never-fail-the-write guarantee as requestRoute: the report is
   // already committed by this point, so a cache-layer failure here must
@@ -94,5 +155,5 @@ export async function submitRouteReport(input: SubmitRouteReportInput): Promise<
     });
   }
 
-  return { success: true };
+  return { success: true, receipt };
 }

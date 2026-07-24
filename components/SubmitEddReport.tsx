@@ -6,8 +6,10 @@ import { BankSelect } from "@/components/BankSelect";
 import { AuthModal } from "@/components/AuthModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
+import { submitEddReport } from "@/lib/actions/submitEddReport";
 import { cn } from "@/lib/utils";
 import { DEPOSIT_TYPES, PAYROLL_PROVIDERS } from "@/lib/eddContext";
+import type { EddReportReceipt } from "@/lib/receipts";
 import type { User } from "@supabase/supabase-js";
 
 type Props =
@@ -34,7 +36,7 @@ export function SubmitEddReport(props: Props) {
   const [depositType, setDepositType] = useState("");
   const [payrollProvider, setPayrollProvider] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [receipt, setReceipt] = useState<EddReportReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
   // BankSelect manages its own selected-bank state internally, so clearing
   // bankId here doesn't by itself clear what it visually shows — bumping
@@ -68,7 +70,7 @@ export function SubmitEddReport(props: Props) {
     }
 
     setLoading(true);
-    setSuccess(false);
+    setReceipt(null);
     setError(null);
 
     try {
@@ -76,16 +78,14 @@ export function SubmitEddReport(props: Props) {
         throw new Error("Please select a bank and how early it was");
       }
 
-      const supabase = createClient();
-      const { error: insertError } = await supabase.from("edd_reports").insert({
-        bank_id: bankId,
-        days_early: Number(daysEarly),
-        user_id: user.id,
-        deposit_type: depositType || null,
-        payroll_provider: payrollProvider || null,
+      const result = await submitEddReport({
+        bankId,
+        daysEarly: Number(daysEarly),
+        depositType: depositType || null,
+        payrollProvider: payrollProvider || null,
       });
 
-      if (insertError) throw insertError;
+      if ("error" in result) throw new Error(result.error);
 
       if (props.banks) {
         setBankId("");
@@ -94,7 +94,7 @@ export function SubmitEddReport(props: Props) {
       setDaysEarly("");
       setDepositType("");
       setPayrollProvider("");
-      setSuccess(true);
+      setReceipt(result.receipt);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed");
     } finally {
@@ -229,10 +229,12 @@ export function SubmitEddReport(props: Props) {
             {loading ? "Submitting..." : "Submit Report"}
           </button>
 
-          {success && (
-            <p className="text-sm text-green-400 md:col-span-2">
-              Report submitted — thank you!
-            </p>
+          {receipt && (
+            <div className="text-sm text-green-400 md:col-span-2 space-y-1">
+              {receipt.lines.map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
           )}
 
           {error && (
