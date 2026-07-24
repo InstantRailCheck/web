@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllBanks } from "@/lib/allBanks";
 import { dedupeToNewestPerReporter, type ReportStatus } from "@/lib/routeConfidence";
 import { computeEddLeaderboard, type EddLeaderboardResult } from "@/lib/eddLeaderboard";
+import { computeEddOpportunities, type EddOpportunity } from "@/lib/eddOpportunities";
 
 // This is a rail-ranking claim ("banks with the most confirmed successes on
 // this rail"), a different product claim from EDD's or timing's — kept as
@@ -90,4 +91,23 @@ export async function getEddLeaderboardData(): Promise<EddLeaderboardResult> {
 
   const banks = allBanks.map((b) => ({ id: b.id, slug: b.slug, name: b.name, isActive: b.is_active }));
   return computeEddLeaderboard(eddRows ?? [], banks);
+}
+
+// Same fetch shape as getEddLeaderboardData above — deliberately no
+// unstable_cache, matching /early-direct-deposit's uncached force-dynamic
+// convention, so /contribute's curated "top few" opportunities section
+// doesn't need its own cache tag/invalidation.
+export async function getEddOpportunities(): Promise<EddOpportunity[]> {
+  const supabase = createAdminClient();
+
+  const [{ data: eddRows }, allBanks] = await Promise.all([
+    supabase.from("edd_reports").select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider"),
+    fetchAllBanks<{ id: string; slug: string; name: string; is_active: boolean }>(
+      supabase,
+      "id, slug, name, is_active"
+    ),
+  ]);
+
+  const banks = allBanks.map((b) => ({ id: b.id, slug: b.slug, name: b.name, isActive: b.is_active }));
+  return computeEddOpportunities(eddRows ?? [], banks);
 }

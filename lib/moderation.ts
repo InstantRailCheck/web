@@ -412,3 +412,19 @@ export async function fetchUserSubmissionPage(
   }));
   return { rows, total: count ?? 0 };
 }
+
+// fetchUserSubmissionPage's route_requests page/total mix fulfilled and
+// unfulfilled rows together — fine for a moderation history view, but a
+// private "open requests" count needs to be exact, not an approximation
+// from a 20-row page. Mirrors fetchAllRouteRequests's own fulfilled_at
+// IS NULL filter (lib/needsFreshReports.ts) rather than reimplementing it.
+export async function fetchUserOpenRouteRequestCount(userId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("route_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .is("fulfilled_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}

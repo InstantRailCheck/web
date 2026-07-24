@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const NAV_ITEMS = [
-  { href: "/#search", label: "Submit report" },
+  { href: "/contribute", label: "Contribute" },
   { href: "/banks", label: "Browse all" },
   { href: "/timing", label: "Timing" },
   { href: "/rails", label: "Rail explorer" },
