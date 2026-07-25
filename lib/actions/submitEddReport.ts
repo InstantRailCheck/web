@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { getUserModerationStatus } from "@/lib/moderationStatus";
+import { logError } from "@/lib/logger";
 import { buildEddReportReceipt, type EddReportReceipt } from "@/lib/receipts";
 import type { EddReportRow } from "@/lib/bankProfile";
 
@@ -53,15 +54,19 @@ export async function submitEddReport(input: SubmitEddReportInput): Promise<Subm
     return { error: "This institution is no longer listed and can't receive new reports." };
   }
 
-  // Snapshotted just before the write so the receipt can report exactly
-  // what THIS submission changed — see lib/receipts.ts for why this
-  // before-snapshot-plus-known-new-row framing can't be biased by another
-  // user's concurrent EDD submission for the same bank.
-  const { data: beforeRows } = await admin
-    .from("edd_reports")
-    .select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider")
-    .eq("bank_id", input.bankId);
-  const beforeReports: EddReportRow[] = beforeRows ?? [];
+  const eddReportsQuery = () =>
+    admin
+      .from("edd_reports")
+      .select("id, bank_id, user_id, days_early, created_at, deposit_type, payroll_provider")
+      .eq("bank_id", input.bankId);
+
+  // Read before writing so a snapshot failure aborts cleanly — nothing has
+  // been written yet, so it's safe to fail loudly here rather than risk a
+  // receipt built on a silently-empty "no prior contributors" fallback
+  // (which could falsely claim a visibility/leaderboard threshold crossing).
+  const { data: beforeRows, error: beforeError } = await eddReportsQuery();
+  if (beforeError) return { error: "Failed to submit report." };
+  const preInsertReports: EddReportRow[] = beforeRows ?? [];
 
   const { data: newRow, error } = await admin
     .from("edd_reports")
@@ -72,10 +77,29 @@ export async function submitEddReport(input: SubmitEddReportInput): Promise<Subm
       payroll_provider: input.payrollProvider,
       user_id: user.id,
     })
-    .select("bank_id, user_id, days_early, created_at, deposit_type, payroll_provider")
+    .select("id, bank_id, user_id, days_early, created_at, deposit_type, payroll_provider")
     .single();
 
   if (error || !newRow) return { error: "Failed to submit report." };
+
+  // Re-read AFTER the write (rather than reusing the pre-insert snapshot
+  // plus this one known row) so a concurrent submitter's EDD report for the
+  // same bank — landing in between our own snapshot and insert — is
+  // reflected too, instead of two simultaneous submissions each computing
+  // "before + only me" and both claiming the same threshold crossing. The
+  // write already committed by this point, so a failure here can only
+  // degrade the receipt, never the submission itself — fall back to the
+  // pre-insert snapshot (the old, still-correct-if-slightly-racier
+  // behavior) rather than failing an already-successful report.
+  const { data: afterRows, error: afterError } = await eddReportsQuery();
+  const beforeReports: EddReportRow[] = afterError
+    ? preInsertReports
+    : (afterRows ?? []).filter((r) => r.id !== newRow.id);
+  if (afterError) {
+    logError("Failed to re-fetch edd_reports after insert; receipt may be based on a stale snapshot", {
+      error: afterError.message,
+    });
+  }
 
   const receipt = buildEddReportReceipt({ beforeReports, newReport: newRow });
 

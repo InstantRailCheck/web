@@ -68,31 +68,26 @@ export async function submitRouteReport(input: SubmitRouteReportInput): Promise<
     return { error: "One of the selected institutions is no longer listed and can't receive new reports." };
   }
 
-  // Snapshotted just before the write so the receipt can report exactly
-  // what THIS submission changed, holding everything else fixed — a
-  // concurrent submitter's report landing around the same time doesn't
-  // bias this, since it simply isn't part of either snapshot. See
-  // lib/receipts.ts for why this is the honest, non-overclaiming framing.
-  const [{ data: beforeRows }, { data: openRequests }] = await Promise.all([
+  const routeReportsQuery = () =>
     admin
       .from("route_reports")
-      .select("user_id, status, tested_at")
+      .select("id, user_id, status, tested_at")
       .eq("from_bank_id", input.fromBankId)
       .eq("to_bank_id", input.toBankId)
-      .eq("rail_used", input.railUsed),
-    admin
-      .from("route_requests")
-      .select("id")
-      .eq("from_bank_id", input.fromBankId)
-      .eq("to_bank_id", input.toBankId)
-      .is("fulfilled_at", null),
-  ]);
-  const beforeReports: RouteReportInput[] = (beforeRows ?? []).map((r) => ({
+      .eq("rail_used", input.railUsed);
+  const toReportInput = (r: { user_id: string | null; status: string; tested_at: string }): RouteReportInput => ({
     userId: r.user_id,
     status: r.status as RouteReportInput["status"],
     testedAt: r.tested_at,
-  }));
-  const openRequestIds = (openRequests ?? []).map((r) => r.id);
+  });
+
+  // Read before writing so a snapshot failure aborts cleanly — nothing has
+  // been written yet, so it's safe to fail loudly here rather than risk a
+  // receipt built on a silently-empty "no prior evidence" fallback (which
+  // could falsely claim this is the route's first-ever report).
+  const { data: beforeRows, error: beforeError } = await routeReportsQuery();
+  if (beforeError) return { error: "Failed to submit report." };
+  const preInsertReports = (beforeRows ?? []).map(toReportInput);
 
   const { data: newRow, error } = await admin
     .from("route_reports")
@@ -115,32 +110,50 @@ export async function submitRouteReport(input: SubmitRouteReportInput): Promise<
 
   if (error || !newRow) return { error: "Failed to submit report." };
 
-  // check_route_report_quota (a BEFORE INSERT trigger) forces
-  // new.created_at := now() unconditionally, in the same transaction that
-  // route_requests_fulfill_on_report_trigger (AFTER INSERT) later sets
-  // fulfilled_at = now() for every request this report just fulfilled —
-  // both values come from the same transaction's now(), so they're
-  // bit-for-bit identical here and differ from any other transaction's.
-  // Matching on that exact timestamp is what lets a "losing" concurrent
-  // submitter's receipt correctly show 0 fulfilled requests instead of
-  // double-claiming credit for ones a different report actually fulfilled.
-  let fulfilledRequestCount = 0;
-  if (openRequestIds.length > 0) {
-    const { count } = await admin
-      .from("route_requests")
-      .select("id", { count: "exact", head: true })
-      .in("id", openRequestIds)
-      .eq("fulfilled_at", newRow.created_at);
-    fulfilledRequestCount = count ?? 0;
+  const newReport: RouteReportInput = {
+    userId: user.id,
+    status: input.status as RouteReportInput["status"],
+    testedAt: input.testedAt,
+  };
+
+  // Re-read AFTER the write (rather than reusing the pre-insert snapshot
+  // plus this one known row) so a concurrent submitter's report for the
+  // same route+rail — landing in between our own snapshot and insert — is
+  // reflected too, instead of two simultaneous submissions each computing
+  // "before + only me" and both claiming the same evidence-state crossing.
+  // The write already committed by this point, so a failure here can only
+  // degrade the receipt, never the submission itself — fall back to the
+  // pre-insert snapshot (the old, still-correct-if-slightly-racier
+  // behavior) rather than failing an already-successful report.
+  const { data: afterRows, error: afterError } = await routeReportsQuery();
+  const beforeReports: RouteReportInput[] = afterError
+    ? preInsertReports
+    : (afterRows ?? []).filter((r) => r.id !== newRow.id).map(toReportInput);
+  if (afterError) {
+    logError("Failed to re-fetch route_reports after insert; receipt may be based on a stale snapshot", {
+      error: afterError.message,
+    });
   }
+
+  // fulfilled_by_report_id is set directly to this report's own id by
+  // route_requests_fulfill_on_report_trigger (migration
+  // 20260713060000_add_admin_moderation.sql) — an exact identifier, not an
+  // inferred one, so this can never attribute another report's fulfillment
+  // to this one regardless of timing.
+  const { count, error: countError } = await admin
+    .from("route_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("fulfilled_by_report_id", newRow.id);
+  if (countError) {
+    logError("Failed to count fulfilled route_requests after insert; receipt will understate fulfillment", {
+      error: countError.message,
+    });
+  }
+  const fulfilledRequestCount = countError ? 0 : (count ?? 0);
 
   const receipt = buildRouteReportReceipt({
     beforeReports,
-    newReport: {
-      userId: user.id,
-      status: input.status as RouteReportInput["status"],
-      testedAt: input.testedAt,
-    },
+    newReport,
     fulfilledRequestCount,
   });
 

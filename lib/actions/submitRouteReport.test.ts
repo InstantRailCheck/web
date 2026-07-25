@@ -32,15 +32,15 @@ function chainable<T>(result: T) {
   return obj;
 }
 
-// route_reports rows existing for this (from, to, rail) BEFORE this
-// submission — defaults to "first-ever report on this route".
-let beforeRouteReportsResult: { data: Array<{ user_id: string | null; status: string; tested_at: string }> } = {
-  data: [],
-};
-// Currently-open route_requests ids for this (from, to) pair before insert.
-let openRequestsResult: { data: Array<{ id: string }> } = { data: [] };
-// How many of those ids this exact insert's transaction actually fulfilled.
-let fulfilledCountResult: { count: number } = { count: 0 };
+type MockReportRow = { id: string; user_id: string | null; status: string; tested_at: string };
+
+// route_reports rows existing for this (from, to, rail) — the action
+// queries this same shape twice (pre-insert, then again post-insert to
+// build the authoritative "after" state) — see submitRouteReport.ts.
+// Defaults to "first-ever report on this route".
+let routeReportsResult: { data: MockReportRow[]; error: { message?: string } | null } = { data: [], error: null };
+// Count of route_requests with fulfilled_by_report_id = this new report's id.
+let fulfilledCountResult: { count: number; error: { message?: string } | null } = { count: 0, error: null };
 
 let insertResult: { data: { id: string; created_at: string } | null; error: { message?: string } | null } = {
   data: { id: "report-1", created_at: "2026-07-01T00:00:00Z" },
@@ -50,11 +50,8 @@ const insertMock = vi.fn(() => ({
   select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve(insertResult)) })),
 }));
 
-const routeReportsSelectMock = vi.fn(() => chainable(beforeRouteReportsResult));
-
-const routeRequestsSelectMock = vi.fn((_cols: string, opts?: { count?: string; head?: boolean }) =>
-  opts?.count ? chainable(fulfilledCountResult) : chainable(openRequestsResult)
-);
+const routeReportsSelectMock = vi.fn(() => chainable(routeReportsResult));
+const routeRequestsSelectMock = vi.fn(() => chainable(fulfilledCountResult));
 
 const fromMock = vi.fn((table: string) => {
   if (table === "banks") return { select: banksSelectMock };
@@ -110,9 +107,8 @@ beforeEach(() => {
       { id: "bank-b", is_active: true },
     ],
   };
-  beforeRouteReportsResult = { data: [] };
-  openRequestsResult = { data: [] };
-  fulfilledCountResult = { count: 0 };
+  routeReportsResult = { data: [], error: null };
+  fulfilledCountResult = { count: 0, error: null };
   insertResult = { data: { id: "report-1", created_at: "2026-07-01T00:00:00Z" }, error: null };
   getUserMock.mockClear();
   insertMock.mockClear();
@@ -179,6 +175,15 @@ describe("submitRouteReport", () => {
     expect(insertMock).not.toHaveBeenCalled();
   });
 
+  it("aborts before writing when the pre-insert snapshot query fails, rather than building a receipt on a silently-empty fallback", async () => {
+    routeReportsResult = { data: [], error: { message: "connection reset" } };
+
+    const result = await submitRouteReport(baseInput);
+
+    expect(result).toEqual({ error: "Failed to submit report." });
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
   it("inserts, invalidates the needs-fresh-reports cache, and returns a receipt on success", async () => {
     const result = await submitRouteReport(baseInput);
 
@@ -221,9 +226,26 @@ describe("submitRouteReport", () => {
     );
   });
 
+  it("falls back to the pre-insert snapshot and still reports success when the post-insert re-fetch fails", async () => {
+    routeReportsSelectMock.mockImplementationOnce(() => chainable({ data: [], error: null }));
+    routeReportsSelectMock.mockImplementationOnce(() =>
+      chainable({ data: [], error: { message: "connection reset" } })
+    );
+
+    const result = await submitRouteReport(baseInput);
+
+    if ("error" in result) throw new Error(result.error);
+    expect(result.receipt.evidenceAfterState).toBe("limited_evidence");
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "Failed to re-fetch route_reports after insert; receipt may be based on a stale snapshot",
+      expect.objectContaining({ error: "connection reset" })
+    );
+  });
+
   it("surfaces a genuine evidence-state transition in the receipt", async () => {
-    beforeRouteReportsResult = {
-      data: [{ user_id: "user-2", status: "success", tested_at: "2026-06-15" }],
+    routeReportsResult = {
+      data: [{ id: "existing-1", user_id: "user-2", status: "success", tested_at: "2026-06-15" }],
+      error: null,
     };
 
     const result = await submitRouteReport(baseInput);
@@ -235,8 +257,9 @@ describe("submitRouteReport", () => {
   });
 
   it("recognizes the submitting user as a repeat reporter for this exact route+rail", async () => {
-    beforeRouteReportsResult = {
-      data: [{ user_id: "user-1", status: "success", tested_at: "2026-06-15" }],
+    routeReportsResult = {
+      data: [{ id: "existing-1", user_id: "user-1", status: "success", tested_at: "2026-06-15" }],
+      error: null,
     };
 
     const result = await submitRouteReport(baseInput);
@@ -246,40 +269,63 @@ describe("submitRouteReport", () => {
     expect(result.receipt.lines).toContain("Your evidence for this route was updated.");
   });
 
-  it("only queries the fulfilled-request count when there are open requests to check", async () => {
-    openRequestsResult = { data: [] };
+  it("reflects a concurrent submitter's report picked up by the post-insert re-fetch, not just the pre-insert snapshot", async () => {
+    // Pre-insert: route has no evidence yet. A concurrent submitter's
+    // report for the same route+rail lands in between our snapshot and our
+    // own insert, so the authoritative post-insert re-fetch shows it too —
+    // proving the receipt is built from fresh data, not the stale
+    // pre-insert snapshot (which would have missed it entirely).
+    routeReportsSelectMock.mockImplementationOnce(() => chainable({ data: [], error: null }));
+    routeReportsSelectMock.mockImplementationOnce(() =>
+      chainable({
+        data: [
+          { id: "concurrent-1", user_id: "user-2", status: "success", tested_at: "2026-07-01" },
+          { id: "report-1", user_id: "user-1", status: "success", tested_at: "2026-07-01" },
+        ],
+        error: null,
+      })
+    );
 
     const result = await submitRouteReport(baseInput);
 
     if ("error" in result) throw new Error(result.error);
-    expect(result.receipt.fulfilledRequestCount).toBe(0);
-    expect(routeRequestsSelectMock).not.toHaveBeenCalledWith("id", expect.objectContaining({ count: "exact" }));
+    expect(result.receipt.evidenceBeforeState).toBe("limited_evidence");
+    expect(result.receipt.evidenceAfterState).toBe("observed_working");
   });
 
-  it("reports the exact fulfilled-request count from the post-insert timestamp match", async () => {
-    openRequestsResult = { data: [{ id: "req-1" }, { id: "req-2" }] };
-    fulfilledCountResult = { count: 2 };
+  it("counts fulfilled requests by fulfilled_by_report_id, not by matching timestamps", async () => {
+    fulfilledCountResult = { count: 2, error: null };
 
     const result = await submitRouteReport(baseInput);
 
     if ("error" in result) throw new Error(result.error);
     expect(result.receipt.fulfilledRequestCount).toBe(2);
     expect(result.receipt.lines[0]).toBe("Your report fulfilled 2 open route requests.");
+    expect(routeRequestsSelectMock).toHaveBeenCalledWith("id", { count: "exact", head: true });
+  });
+
+  it("understates (never overstates) fulfillment when the count query fails, logging the failure", async () => {
+    fulfilledCountResult = { count: 0, error: { message: "connection reset" } };
+
+    const result = await submitRouteReport(baseInput);
+
+    if ("error" in result) throw new Error(result.error);
+    expect(result.receipt.fulfilledRequestCount).toBe(0);
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "Failed to count fulfilled route_requests after insert; receipt will understate fulfillment",
+      expect.objectContaining({ error: "connection reset" })
+    );
   });
 
   it("never lets a losing concurrent submitter overclaim credit for requests another report actually fulfilled", async () => {
-    // Two users both see the same two open requests as still-open before
-    // either of their reports commits. In reality only one insert's
-    // trigger actually flips fulfilled_at (the other's conditional UPDATE
-    // matches zero rows, since they're already fulfilled by the winner) —
-    // simulated here by the winner's post-insert count query returning 2
-    // and the loser's returning 0, exactly as Postgres would report it.
-    openRequestsResult = { data: [{ id: "req-1" }, { id: "req-2" }] };
-
-    fulfilledCountResult = { count: 2 };
+    // Two users submit for the same route pair. In reality, the DB trigger
+    // sets fulfilled_by_report_id to whichever report's transaction wins
+    // the race — the loser's count query (filtered to its own report id)
+    // simply finds zero matching rows, never someone else's.
+    fulfilledCountResult = { count: 2, error: null };
     const winner = await submitRouteReport(baseInput);
 
-    fulfilledCountResult = { count: 0 };
+    fulfilledCountResult = { count: 0, error: null };
     const loser = await submitRouteReport({ ...baseInput, testedAt: "2026-07-02" });
 
     if ("error" in winner) throw new Error(winner.error);

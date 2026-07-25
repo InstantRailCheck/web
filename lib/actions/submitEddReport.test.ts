@@ -26,30 +26,36 @@ function chainable<T>(result: T) {
   return obj;
 }
 
-let beforeReportsResult: {
-  data: Array<{
-    bank_id: string;
-    user_id: string | null;
-    days_early: number;
-    created_at: string;
-    deposit_type: string | null;
-    payroll_provider: string | null;
-  }>;
-} = { data: [] };
+type MockEddRow = {
+  id: string;
+  bank_id: string;
+  user_id: string | null;
+  days_early: number;
+  created_at: string;
+  deposit_type: string | null;
+  payroll_provider: string | null;
+};
+
+// Same mocked rows are returned for both the pre-insert and post-insert
+// edd_reports queries (the action re-reads after the write — see
+// submitEddReport.ts) — this fixture represents "what's in the table",
+// consistent across both reads in a non-concurrent test scenario.
+let beforeReportsResult: { data: MockEddRow[]; error: { message?: string } | null } = { data: [], error: null };
 const eddReportsSelectMock = vi.fn(() => chainable(beforeReportsResult));
 
 let insertResult: {
-  data: {
-    bank_id: string;
-    user_id: string | null;
-    days_early: number;
-    created_at: string;
-    deposit_type: string | null;
-    payroll_provider: string | null;
-  } | null;
+  data: MockEddRow | null;
   error: { message?: string } | null;
 } = {
-  data: { bank_id: "bank-a", user_id: "user-1", days_early: 2, created_at: "2026-07-01T00:00:00Z", deposit_type: null, payroll_provider: null },
+  data: {
+    id: "new-edd-report",
+    bank_id: "bank-a",
+    user_id: "user-1",
+    days_early: 2,
+    created_at: "2026-07-01T00:00:00Z",
+    deposit_type: null,
+    payroll_provider: null,
+  },
   error: null,
 };
 const insertMock = vi.fn(() => ({
@@ -87,9 +93,17 @@ const baseInput = {
 beforeEach(() => {
   currentUser = { id: "user-1" };
   bankCheckResult = { data: { id: "bank-a", is_active: true } };
-  beforeReportsResult = { data: [] };
+  beforeReportsResult = { data: [], error: null };
   insertResult = {
-    data: { bank_id: "bank-a", user_id: "user-1", days_early: 2, created_at: "2026-07-01T00:00:00Z", deposit_type: null, payroll_provider: null },
+    data: {
+      id: "new-edd-report",
+      bank_id: "bank-a",
+      user_id: "user-1",
+      days_early: 2,
+      created_at: "2026-07-01T00:00:00Z",
+      deposit_type: null,
+      payroll_provider: null,
+    },
     error: null,
   };
   getUserMock.mockClear();
@@ -150,6 +164,15 @@ describe("submitEddReport", () => {
     expect(result).toEqual({ error: "Failed to submit report." });
   });
 
+  it("aborts before writing when the pre-insert snapshot query fails, rather than building a receipt on a silently-empty fallback", async () => {
+    beforeReportsResult = { data: [], error: { message: "connection reset" } };
+
+    const result = await submitEddReport(baseInput);
+
+    expect(result).toEqual({ error: "Failed to submit report." });
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
   it("inserts and returns a receipt on success", async () => {
     const result = await submitEddReport(baseInput);
 
@@ -161,11 +184,98 @@ describe("submitEddReport", () => {
     expect(result.receipt.contributorCountAfter).toBe(1);
   });
 
+  it("falls back to the pre-insert snapshot and still reports success when the post-insert re-fetch fails", async () => {
+    // First call (pre-insert) succeeds normally; second call (post-insert,
+    // used to build the authoritative "after" state) fails.
+    eddReportsSelectMock.mockImplementationOnce(() => chainable({ data: [], error: null }));
+    eddReportsSelectMock.mockImplementationOnce(() => chainable({ data: [], error: { message: "connection reset" } }));
+
+    const result = await submitEddReport(baseInput);
+
+    if ("error" in result) throw new Error(result.error);
+    expect(result.receipt.contributorCountAfter).toBe(1);
+  });
+
+  it("reflects a concurrent submitter's report picked up by the post-insert re-fetch, not just the pre-insert snapshot", async () => {
+    // Pre-insert: only user-2 has reported. Post-insert: user-3's report
+    // landed in between our snapshot and our own insert, so the
+    // authoritative re-fetch now shows both — proving the receipt is built
+    // from the fresh post-insert data, not the stale pre-insert one.
+    eddReportsSelectMock.mockImplementationOnce(() =>
+      chainable({
+        data: [
+          {
+            id: "existing-1",
+            bank_id: "bank-a",
+            user_id: "user-2",
+            days_early: 1,
+            created_at: "2026-06-01T00:00:00Z",
+            deposit_type: null,
+            payroll_provider: null,
+          },
+        ],
+        error: null,
+      })
+    );
+    eddReportsSelectMock.mockImplementationOnce(() =>
+      chainable({
+        data: [
+          {
+            id: "existing-1",
+            bank_id: "bank-a",
+            user_id: "user-2",
+            days_early: 1,
+            created_at: "2026-06-01T00:00:00Z",
+            deposit_type: null,
+            payroll_provider: null,
+          },
+          {
+            id: "existing-2-concurrent",
+            bank_id: "bank-a",
+            user_id: "user-3",
+            days_early: 4,
+            created_at: "2026-07-01T00:00:00.500Z",
+            deposit_type: null,
+            payroll_provider: null,
+          },
+          {
+            id: "new-edd-report",
+            bank_id: "bank-a",
+            user_id: "user-1",
+            days_early: 2,
+            created_at: "2026-07-01T00:00:00Z",
+            deposit_type: null,
+            payroll_provider: null,
+          },
+        ],
+        error: null,
+      })
+    );
+
+    const result = await submitEddReport(baseInput);
+
+    if ("error" in result) throw new Error(result.error);
+    // 3 real distinct contributors after the write (user-1, user-2,
+    // user-3), not 2 — the concurrent user-3 row is only visible in the
+    // post-insert re-fetch, and would have been missed entirely by the old
+    // "pre-insert snapshot + only my own row" reconstruction.
+    expect(result.receipt.contributorCountAfter).toBe(3);
+  });
+
   it("surfaces a visibility-threshold crossing in the receipt", async () => {
     beforeReportsResult = {
       data: [
-        { bank_id: "bank-a", user_id: "user-2", days_early: 1, created_at: "2026-06-01T00:00:00Z", deposit_type: null, payroll_provider: null },
+        {
+          id: "existing-1",
+          bank_id: "bank-a",
+          user_id: "user-2",
+          days_early: 1,
+          created_at: "2026-06-01T00:00:00Z",
+          deposit_type: null,
+          payroll_provider: null,
+        },
       ],
+      error: null,
     };
 
     const result = await submitEddReport(baseInput);
@@ -180,9 +290,26 @@ describe("submitEddReport", () => {
   it("recognizes a repeat reporter and never claims the contributor count increased", async () => {
     beforeReportsResult = {
       data: [
-        { bank_id: "bank-a", user_id: "user-1", days_early: 1, created_at: "2026-06-01T00:00:00Z", deposit_type: null, payroll_provider: null },
-        { bank_id: "bank-a", user_id: "user-2", days_early: 1, created_at: "2026-06-01T00:00:00Z", deposit_type: null, payroll_provider: null },
+        {
+          id: "existing-1",
+          bank_id: "bank-a",
+          user_id: "user-1",
+          days_early: 1,
+          created_at: "2026-06-01T00:00:00Z",
+          deposit_type: null,
+          payroll_provider: null,
+        },
+        {
+          id: "existing-2",
+          bank_id: "bank-a",
+          user_id: "user-2",
+          days_early: 1,
+          created_at: "2026-06-01T00:00:00Z",
+          deposit_type: null,
+          payroll_provider: null,
+        },
       ],
+      error: null,
     };
 
     const result = await submitEddReport(baseInput);
