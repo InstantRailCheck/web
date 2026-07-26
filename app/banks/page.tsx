@@ -85,7 +85,7 @@ export default async function BanksDirectoryPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main id="main-content" className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <PageBreadcrumb
           items={[
@@ -102,6 +102,7 @@ export default async function BanksDirectoryPage({
           <input
             type="text"
             name="q"
+            aria-label="Search banks by name"
             defaultValue={q ?? ""}
             placeholder="Search by name..."
             className="min-w-[200px] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500"

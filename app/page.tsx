@@ -74,7 +74,7 @@ export default async function Home({
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main id="main-content" className="min-h-screen bg-slate-950 text-white">
       <script
         type="application/ld+json"
         nonce={nonce ?? undefined}

@@ -14,7 +14,17 @@ const NAV_ITEMS = [
 
 export function SiteNavLinks() {
   return (
-    <nav className="mx-auto flex w-fit min-w-0 max-w-[min(56rem,100%)] flex-nowrap gap-1.5 overflow-x-auto px-6">
+    // On narrow viewports this row overflows and scrolls horizontally, but
+    // nothing about a plain overflow-x-auto row signals that there's more
+    // to see — most mobile browsers hide the scrollbar entirely, so links
+    // past the fold (Changelog, API, Methodology) could go undiscovered.
+    // The mask fades both edges toward transparent as a standard "there's
+    // more this way" affordance; harmless when the row doesn't overflow
+    // (it only clips a couple of already-padded pixels).
+    <nav
+      aria-label="Site navigation"
+      className="mx-auto flex w-fit min-w-0 max-w-[min(56rem,100%)] flex-nowrap gap-1.5 overflow-x-auto px-6 [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
+    >
       {NAV_ITEMS.map((item) => (
         <Link
           key={item.href}

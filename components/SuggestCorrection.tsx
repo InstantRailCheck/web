@@ -72,24 +72,37 @@ export function SuggestCorrection({ bankId }: Props) {
         match, it&apos;s flagged for review instead of applied automatically.
       </p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <select
-          value={field}
-          onChange={(e) => setField(e.target.value as CorrectionField)}
-          className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white"
-        >
-          <option value="website">Website</option>
-          <option value="phone">Phone</option>
-        </select>
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={field === "website" ? "https://example.com" : "(555) 555-5555"}
-          className="min-w-[180px] flex-1 rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white placeholder-slate-500"
-        />
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <div>
+          <label htmlFor="correction-field" className="mb-1 block text-xs font-medium text-slate-300">
+            Field
+          </label>
+          <select
+            id="correction-field"
+            value={field}
+            onChange={(e) => setField(e.target.value as CorrectionField)}
+            className="rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white"
+          >
+            <option value="website">Website</option>
+            <option value="phone">Phone</option>
+          </select>
+        </div>
+        <div className="min-w-[180px] flex-1">
+          <label htmlFor="correction-value" className="mb-1 block text-xs font-medium text-slate-300">
+            New value
+          </label>
+          <input
+            id="correction-value"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={field === "website" ? "https://example.com" : "(555) 555-5555"}
+            className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-sm text-white placeholder-slate-500"
+          />
+        </div>
         <button
           onClick={handleSubmit}
           disabled={!value.trim() || loading}
+          aria-live="polite"
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? "Checking..." : "Submit"}
@@ -98,6 +111,7 @@ export function SuggestCorrection({ bankId }: Props) {
 
       {result && (
         <p
+          role={result.status === "error" ? "alert" : "status"}
           className={`mt-3 text-sm ${
             result.status === "auto_applied"
               ? "text-green-400"

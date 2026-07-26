@@ -78,26 +78,37 @@ export function WebhooksManager() {
         account. Deliveries aren&apos;t retried — check your endpoint returns a 2xx quickly.
       </p>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://your-server.com/webhook"
-          className="min-w-[220px] flex-1 rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white placeholder-slate-500"
-        />
+      <div className="mt-4 flex flex-wrap items-end gap-2">
+        <div className="min-w-[220px] flex-1">
+          <label htmlFor="webhook-url" className="mb-1 block text-sm font-medium text-slate-300">
+            Webhook URL
+          </label>
+          <input
+            id="webhook-url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://your-server.com/webhook"
+            className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white placeholder-slate-500"
+          />
+        </div>
         <button
           onClick={handleRegister}
           disabled={!url.trim() || loading}
+          aria-live="polite"
           className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? "Adding..." : "Add webhook (bank_added)"}
         </button>
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          {error}
+        </p>
+      )}
 
       {newSecret && (
-        <div className="mt-3 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm">
+        <div role="status" className="mt-3 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm">
           <p className="text-green-300">Webhook registered. Save this secret — it won&apos;t be shown again:</p>
           <code className="mt-1 block break-all text-xs text-green-200">{newSecret}</code>
           <p className="mt-1 text-xs text-slate-400">

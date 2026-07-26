@@ -211,24 +211,31 @@ export function AuthModal({ open, onOpenChange }: Props) {
             <p className="text-sm text-slate-400">
               Enter your email and we&apos;ll send you a sign-in link. No password needed.
             </p>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="you@example.com"
-              // RFC 5321's own limit — this call goes straight to Supabase's
-              // GoTrue auth service (not through any of our own API code),
-              // which has its own request validation and OTP rate limiting;
-              // this is just basic input hygiene, not a security boundary.
-              maxLength={254}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white placeholder-slate-500 outline-none focus:border-blue-500"
-              autoFocus
-            />
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="text-left">
+              <label htmlFor="signin-email" className="mb-1 block text-sm font-medium text-slate-300">
+                Email address
+              </label>
+              <input
+                id="signin-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder="you@example.com"
+                // RFC 5321's own limit — this call goes straight to Supabase's
+                // GoTrue auth service (not through any of our own API code),
+                // which has its own request validation and OTP rate limiting;
+                // this is just basic input hygiene, not a security boundary.
+                maxLength={254}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white placeholder-slate-500 outline-none focus:border-blue-500"
+                autoFocus
+              />
+            </div>
+            {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
             <button
               onClick={handleSend}
               disabled={!email || loading}
+              aria-live="polite"
               className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
             >
               {loading ? "Sending..." : "Send sign-in link"}
@@ -239,24 +246,31 @@ export function AuthModal({ open, onOpenChange }: Props) {
             <p className="text-sm text-slate-400">
               We sent an email to{" "}
               <span className="font-medium text-white">{email}</span>. Click
-              the link to sign in, or enter the 6-digit code below.
+              the link to sign in, or enter the 8-digit code below.
             </p>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={otp}
-              onChange={(e) =>
-                setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))
-              }
-              onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
-              placeholder="00000000"
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-2xl tracking-[0.5em] text-white placeholder-slate-700 outline-none focus:border-blue-500"
-              autoFocus
-            />
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="text-left">
+              <label htmlFor="signin-otp" className="mb-1 block text-sm font-medium text-slate-300">
+                8-digit code
+              </label>
+              <input
+                id="signin-otp"
+                type="text"
+                inputMode="numeric"
+                value={otp}
+                onChange={(e) =>
+                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))
+                }
+                onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
+                placeholder="00000000"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-2xl tracking-[0.5em] text-white placeholder-slate-700 outline-none focus:border-blue-500"
+                autoFocus
+              />
+            </div>
+            {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
             <button
               onClick={handleVerifyOtp}
               disabled={otp.length < 8 || loading}
+              aria-live="polite"
               className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
             >
               {loading ? "Verifying..." : "Verify code"}

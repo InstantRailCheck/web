@@ -37,7 +37,7 @@ export default async function ChangelogPage() {
   const feed = await getActivityFeed(50);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main id="main-content" className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <h1 className="text-center text-3xl font-bold">Changelog</h1>
         <p className="mt-1 text-center text-sm text-slate-400">

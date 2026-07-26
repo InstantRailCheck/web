@@ -150,3 +150,20 @@
 
 .animate-fade-in {
 animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);}
+
+/* Neutralizes Tailwind's animate-pulse/animate-spin, the custom fade-in
+   above, and any CSS transition/scroll-behavior site-wide for users who've
+   asked the OS not to animate things — covers the RouteSearch/BankSelect
+   loading placeholders and any anchor-link jump. JS-driven
+   scrollIntoView({behavior:"smooth"}) calls (HomeRouteChecker.tsx) aren't
+   affected by scroll-behavior here since an explicit JS behavior option
+   overrides the CSS property — those check
+   window.matchMedia("(prefers-reduced-motion: reduce)") directly instead. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

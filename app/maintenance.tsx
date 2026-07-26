@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export default function MaintenancePage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-center text-white">
+    <main id="main-content" className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-6 text-center text-white">
       <Image
         src="/logo-banner.png"
         alt="InstantRailCheck"

@@ -49,7 +49,7 @@ const ENDPOINTS = [
 
 export default function DevelopersPage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main id="main-content" className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <PageBreadcrumb
           items={[

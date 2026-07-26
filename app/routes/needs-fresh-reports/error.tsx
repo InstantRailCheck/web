@@ -14,7 +14,7 @@ export default function NeedsFreshReportsError({
   }, [error]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+    <main id="main-content" className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-md flex-col items-center px-6 text-center">
         <h1 className="text-2xl font-bold">Something went wrong</h1>
         <p className="mt-2 text-sm text-slate-400">Couldn&apos;t load this list right now. Please try again.</p>

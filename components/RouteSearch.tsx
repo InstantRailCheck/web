@@ -103,6 +103,7 @@ function CopyLinkButton({ fromSlug, toSlug }: { fromSlug: string; toSlug: string
     <button
       type="button"
       onClick={handleCopy}
+      aria-live="polite"
       className="inline-flex items-center gap-1.5 text-slate-400 transition hover:text-blue-300"
     >
       {status === "copied" ? (
@@ -166,7 +167,13 @@ export function RouteSearch({
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-left shadow-2xl">
-      <form className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_auto_1fr_auto] md:items-end">
+      <form
+        className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[1fr_auto_1fr_auto] md:items-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onCheckRoute();
+        }}
+      >
         {/* Spans only the From/Swap/To columns (1-3), not the Check Route
             button's column (4) - that column has no counterpart on the
             left, so including it in the span would pull the centered text
@@ -213,8 +220,7 @@ export function RouteSearch({
           />
         </div>
         <button
-          type="button"
-          onClick={onCheckRoute}
+          type="submit"
           disabled={!fromBank || !toBank || fromBank.id === toBank.id}
           className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 md:row-start-2"
         >
@@ -227,13 +233,13 @@ export function RouteSearch({
       </form>
 
       {fromBank && toBank && fromBank.id === toBank.id && (
-        <p className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
+        <p role="alert" className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
           Choose two different banks to check a route.
         </p>
       )}
 
       {loading && (
-        <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950 p-5">
+        <div role="status" aria-live="polite" className="mt-6 rounded-xl border border-slate-800 bg-slate-950 p-5">
           <p className="text-sm uppercase tracking-[0.3em] text-blue-400">
             Analyzing Routes
           </p>

@@ -313,6 +313,16 @@ describe("HomeRouteChecker — swap, copy link, reverse check, compare", () => {
     expect(screen.getByRole("combobox", { name: "To bank" })).toHaveTextContent(BANK_A.name);
   });
 
+  it("moves focus to the report form (not just scrolling) when 'Report this route' is clicked", async () => {
+    const user = userEvent.setup();
+    render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);
+    await waitFor(() => screen.getByText("No community evidence yet for this route. Have you tried it?"));
+
+    await user.click(screen.getByRole("button", { name: "Report this route" }));
+
+    expect(document.getElementById("submit-route-report")).toHaveFocus();
+  });
+
   it("links to the compare page with both bank slugs once a result is shown", async () => {
     routeApiMock.mockReturnValue(WITH_EVIDENCE);
     render(<HomeRouteChecker bankCount={100} initialFromBank={BANK_A} initialToBank={BANK_B} />);

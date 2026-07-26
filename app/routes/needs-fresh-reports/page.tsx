@@ -78,7 +78,7 @@ export default async function NeedsFreshReportsPage({
   const pageRoutes = allRoutes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main id="main-content" className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <h1 className="text-center text-3xl font-bold">Routes that need fresh reports</h1>
         <p className="mt-1 text-center text-sm text-slate-400">

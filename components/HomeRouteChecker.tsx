@@ -37,6 +37,20 @@ type Props = {
 // full remount here rather than trying to resync already-mounted pickers.
 const shouldAutoFetch = (from: Bank | null, to: Bank | null) => !!from && !!to && from.id !== to.id;
 
+// Scrolling the viewport alone doesn't tell a keyboard/screen-reader user
+// where they landed — the target must also receive real focus (hence
+// `tabIndex={-1}` on resultRef's container and #submit-route-report below,
+// so a plain <div> can be a programmatic focus target without joining the
+// normal tab order). preventScroll avoids the browser's own default
+// focus-scroll fighting the explicit scrollIntoView above it. Respects
+// prefers-reduced-motion instead of always animating the scroll.
+function focusAndScrollTo(el: HTMLElement | null) {
+  if (!el) return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  el.focus({ preventScroll: true });
+}
+
 export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: Props) {
   const router = useRouter();
   const [fromBank, setFromBank] = useState<Bank | null>(initialFromBank);
@@ -167,7 +181,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
     setToBank(route.toBank);
     router.push(`/?from=${route.fromBank.slug}&to=${route.toBank.slug}#search`);
     await checkRoute(route.fromBank, route.toBank);
-    resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    focusAndScrollTo(resultRef.current);
   }
 
   const hasEvidence = !!result && result.rails.length > 0;
@@ -183,7 +197,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
 
   return (
     <>
-      <div ref={resultRef}>
+      <div ref={resultRef} tabIndex={-1}>
         <RouteSearch
           bankCount={bankCount}
           fromBank={fromBank}
@@ -209,9 +223,7 @@ export function HomeRouteChecker({ bankCount, initialFromBank, initialToBank }: 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() =>
-                document.getElementById("submit-route-report")?.scrollIntoView({ behavior: "smooth", block: "start" })
-              }
+              onClick={() => focusAndScrollTo(document.getElementById("submit-route-report"))}
               className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-500"
             >
               Report this route

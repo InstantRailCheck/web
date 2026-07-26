@@ -100,5 +100,10 @@ describe("HomeRouteChecker — editing the prefilled report before submitting", 
 
     // The URL also updates to reflect the submitted route, not the original.
     expect(pushMock).toHaveBeenCalledWith(expect.stringContaining(`from=${BANK_C.slug}&to=${BANK_D.slug}`));
+
+    // Moving the viewport alone isn't enough for keyboard/screen-reader
+    // users — the refreshed results container must actually receive focus.
+    const resultsContainer = screen.getByText("Check a transfer route").closest('[tabindex="-1"]');
+    expect(resultsContainer).toHaveFocus();
   });
 });

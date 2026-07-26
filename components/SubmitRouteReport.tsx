@@ -206,7 +206,7 @@ export function SubmitRouteReport(props: Props) {
     <>
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
 
-      <div id="submit-route-report" className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+      <div id="submit-route-report" tabIndex={-1} className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <div className="relative">
           <div className="text-center">
             <h2 className="text-xl font-semibold">Submit Route Report</h2>
@@ -414,13 +414,14 @@ export function SubmitRouteReport(props: Props) {
             <button
               onClick={handleSubmit}
               disabled={loading}
+              aria-live="polite"
               className="rounded-xl bg-green-600 px-6 py-3 font-semibold text-white md:col-span-2 disabled:opacity-50"
             >
               {loading ? "Submitting..." : "Submit Report"}
             </button>
 
             {receipt && (
-              <div className="text-sm text-green-400 md:col-span-2 space-y-1">
+              <div role="status" className="text-sm text-green-400 md:col-span-2 space-y-1">
                 {receipt.lines.map((line, i) => (
                   <p key={i}>{line}</p>
                 ))}
@@ -428,7 +429,7 @@ export function SubmitRouteReport(props: Props) {
             )}
 
             {error && (
-              <p className="text-sm text-red-400 md:col-span-2">{error}</p>
+              <p role="alert" className="text-sm text-red-400 md:col-span-2">{error}</p>
             )}
           </div>
         )}
