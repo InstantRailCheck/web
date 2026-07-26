@@ -124,7 +124,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
   }
 
   async function handleVerifyOtp() {
-    if (otp.length < 6) return;
+    if (otp.length < 8) return;
     setLoading(true);
     setError(null);
     const supabase = createClient();
@@ -249,14 +249,14 @@ export function AuthModal({ open, onOpenChange }: Props) {
                 setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))
               }
               onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
-              placeholder="000000"
+              placeholder="00000000"
               className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-2xl tracking-[0.5em] text-white placeholder-slate-700 outline-none focus:border-blue-500"
               autoFocus
             />
             {error && <p className="text-sm text-red-400">{error}</p>}
             <button
               onClick={handleVerifyOtp}
-              disabled={otp.length < 6 || loading}
+              disabled={otp.length < 8 || loading}
               className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
             >
               {loading ? "Verifying..." : "Verify code"}
