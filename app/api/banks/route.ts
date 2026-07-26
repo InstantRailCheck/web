@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { apiJson, apiCsv, apiCorsPreflight, withApiProtection } from "@/lib/apiResponse";
+import { apiJson, apiError, apiCsv, apiCorsPreflight, withApiProtection } from "@/lib/apiResponse";
 import { toCsv } from "@/lib/csv";
 import { normalizeForSearch } from "@/lib/utils";
+import { logError } from "@/lib/logger";
 
 export function OPTIONS() {
   return apiCorsPreflight();
@@ -28,16 +29,62 @@ export function OPTIONS() {
 const MAX_LIMIT = 500;
 const DEFAULT_UNPAGINATED_CAP = 5000;
 const MAX_QUERY_LENGTH = 200;
+const SUPPORTED_FORMATS = new Set(["json", "csv"]);
+const SUPPORTED_BOOLEANS = new Set(["true", "false"]);
+
+// Digits only — rejects negatives, decimals, "+5", "Infinity", "NaN",
+// leading/trailing whitespace, and exponential notation outright, rather
+// than coercing them into something plausible-looking the way `Number(x) ||
+// fallback` did (e.g. "-5" silently became a clamped 1, "1.5" silently
+// became a fractional Postgrest .range() bound).
+const DIGITS_ONLY = /^\d+$/;
+
+function parsePositiveInt(value: string): number | null {
+  if (!DIGITS_ONLY.test(value)) return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+function parseNonNegativeInt(value: string): number | null {
+  if (!DIGITS_ONLY.test(value)) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
 export const GET = withApiProtection(async (request: NextRequest) => {
   const q = request.nextUrl.searchParams.get("q")?.slice(0, MAX_QUERY_LENGTH) || null;
-  const format = request.nextUrl.searchParams.get("format");
+  const formatParam = request.nextUrl.searchParams.get("format");
   const limitParam = request.nextUrl.searchParams.get("limit");
   const offsetParam = request.nextUrl.searchParams.get("offset");
-  const includeInactive = request.nextUrl.searchParams.get("include_inactive") === "true";
+  const includeInactiveParam = request.nextUrl.searchParams.get("include_inactive");
 
-  const limit = limitParam ? Math.min(Math.max(Number(limitParam) || 1, 1), MAX_LIMIT) : DEFAULT_UNPAGINATED_CAP;
-  const offset = Math.max(Number(offsetParam) || 0, 0);
+  if (formatParam !== null && !SUPPORTED_FORMATS.has(formatParam)) {
+    return apiError(`Invalid 'format': must be one of ${[...SUPPORTED_FORMATS].join(", ")}`, 400);
+  }
+  const format = formatParam;
+
+  let limit = DEFAULT_UNPAGINATED_CAP;
+  if (limitParam !== null) {
+    const parsed = parsePositiveInt(limitParam);
+    if (parsed === null || parsed > MAX_LIMIT) {
+      return apiError(`Invalid 'limit': must be a positive integer up to ${MAX_LIMIT}`, 400);
+    }
+    limit = parsed;
+  }
+
+  let offset = 0;
+  if (offsetParam !== null) {
+    const parsed = parseNonNegativeInt(offsetParam);
+    if (parsed === null) {
+      return apiError("Invalid 'offset': must be a nonnegative integer", 400);
+    }
+    offset = parsed;
+  }
+
+  if (includeInactiveParam !== null && !SUPPORTED_BOOLEANS.has(includeInactiveParam)) {
+    return apiError("Invalid 'include_inactive': must be 'true' or 'false'", 400);
+  }
+  const includeInactive = includeInactiveParam === "true";
 
   const supabase = await createClient();
   let query = supabase
@@ -59,7 +106,10 @@ export const GET = withApiProtection(async (request: NextRequest) => {
   }
 
   const { data, error, count } = await query;
-  if (error) return apiJson({ error: error.message }, { status: 500 });
+  if (error) {
+    logError("banks query failed", { error: error.message, q, limit, offset, includeInactive });
+    return apiError("Something went wrong. Please try again.", 500);
+  }
 
   const total = count ?? 0;
   const returned = data?.length ?? 0;

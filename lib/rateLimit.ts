@@ -41,6 +41,15 @@ export async function getClientIpFromServerAction(): Promise<string> {
   return extractClientIp((name) => h.get(name));
 }
 
+// isRateLimited buckets callers into a fixed window (windowStart =
+// floor(now/window)), so the exact moment that window rolls over is
+// deterministic from the current time alone — no extra round trip to the
+// limiter needed to tell a caller how long to wait.
+export function secondsUntilRateLimitReset(windowSeconds: number = WINDOW_SECONDS): number {
+  const nowSeconds = Date.now() / 1000;
+  return Math.ceil(windowSeconds - (nowSeconds % windowSeconds));
+}
+
 export async function isRateLimited(
   identifier: string,
   limit: number = LIMIT,

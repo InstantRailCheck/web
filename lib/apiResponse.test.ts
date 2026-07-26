@@ -6,12 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // build. Not something to enforce in a vitest run, so it's a no-op here.
 vi.mock("server-only", () => ({}));
 
-import { legacyApiRedirect, withApiProtection } from "./apiResponse";
+import { apiError, apiJson, isValidUuid, legacyApiRedirect, withApiProtection } from "./apiResponse";
 import { isRateLimited } from "./rateLimit";
 
 vi.mock("./rateLimit", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./rateLimit")>();
-  return { ...actual, isRateLimited: vi.fn() };
+  return { ...actual, isRateLimited: vi.fn(), secondsUntilRateLimitReset: () => 42 };
 });
 
 function requestFor(url: string, host: string): NextRequest {
@@ -122,5 +122,69 @@ describe("withApiProtection", () => {
     const response = await wrapped(request, { id: "abc" });
 
     expect(await response.json()).toEqual({ id: "abc" });
+  });
+
+  it("checks the rate limiter under the 'api:public:' namespace, not the bare IP", async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(false);
+    const wrapped = withApiProtection(async () => NextResponse.json({ ok: true }));
+
+    const request = requestFor("https://api.instantrailcheck.com/banks", "api.instantrailcheck.com");
+    await wrapped(request);
+
+    expect(isRateLimited).toHaveBeenCalledWith("api:public:unknown");
+  });
+
+  it("includes a Retry-After header on the 429 response", async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(true);
+    const wrapped = withApiProtection(async () => NextResponse.json({ ok: true }));
+
+    const request = requestFor("https://api.instantrailcheck.com/banks", "api.instantrailcheck.com");
+    const response = await wrapped(request);
+
+    expect(response.headers.get("Retry-After")).toBe("42");
+  });
+});
+
+describe("isValidUuid", () => {
+  it("accepts a canonical lowercase uuid", () => {
+    expect(isValidUuid("00000000-0000-4000-8000-000000000001")).toBe(true);
+  });
+
+  it("accepts an uppercase uuid", () => {
+    expect(isValidUuid("00000000-0000-4000-8000-000000000001".toUpperCase())).toBe(true);
+  });
+
+  it.each([
+    "not-a-uuid",
+    "00000000-0000-4000-8000", // too short
+    "00000000-0000-4000-8000-0000000000001", // too long
+    "00000000000040008000000000000001", // missing dashes
+    "'; drop table banks; --",
+    "",
+  ])("rejects %s", (value) => {
+    expect(isValidUuid(value)).toBe(false);
+  });
+});
+
+describe("apiJson / apiError cache headers", () => {
+  it("uses the shared public cache for a successful response", () => {
+    const response = apiJson({ ok: true });
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=60, stale-while-revalidate=300");
+  });
+
+  it("uses private, no-store for a 4xx response", () => {
+    const response = apiError("bad request", 400);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("uses private, no-store for a 5xx response", () => {
+    const response = apiError("internal error", 500);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("merges extra headers (e.g. Retry-After) without dropping the error Cache-Control", () => {
+    const response = apiError("rate limited", 429, { "Retry-After": "30" });
+    expect(response.headers.get("Retry-After")).toBe("30");
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });

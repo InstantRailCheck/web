@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { API_URL } from "@/lib/siteConfig";
-import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+import { getClientIp, isRateLimited, secondsUntilRateLimitReset } from "@/lib/rateLimit";
 
 // Bumped on any breaking response-shape change to a documented endpoint (see
 // app/developers/page.tsx) — e.g. v6 replaced /routes' confidence/successRate
@@ -24,24 +24,36 @@ const CORS_HEADERS = {
   // that don't bother respecting robots.txt.
   "X-Robots-Tag": "noindex",
   "X-Api-Version": API_VERSION,
-  // A conservative shared default across all four endpoints — short enough
-  // that /changelog (the most write-heavy one) never serves meaningfully
-  // stale activity, long enough to give CDNs/browsers real cache benefit
-  // for the slower-moving ones (/banks, /banks/:id, /routes). No endpoint
-  // varies by caller identity (no auth-scoped data), so a shared public
-  // cache is safe everywhere this header is applied.
-  "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
 };
 
-export function apiJson(data: unknown, init?: { status?: number }) {
+// A conservative shared default across all four endpoints — short enough
+// that /changelog (the most write-heavy one) never serves meaningfully
+// stale activity, long enough to give CDNs/browsers real cache benefit
+// for the slower-moving ones (/banks, /banks/:id, /routes). No endpoint
+// varies by caller identity (no auth-scoped data), so a shared public
+// cache is safe everywhere this header is applied to a successful response.
+const PUBLIC_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
+
+// 4xx/429/5xx responses are per-request outcomes (a bad query param, an
+// exhausted rate-limit window, a transient DB error), not shareable
+// content — a shared/CDN cache holding onto one would keep serving it long
+// after the underlying condition has cleared.
+const ERROR_CACHE_CONTROL = "private, no-store";
+
+export function apiJson(data: unknown, init?: { status?: number; headers?: Record<string, string> }) {
+  const status = init?.status ?? 200;
   return NextResponse.json(data, {
-    status: init?.status ?? 200,
-    headers: CORS_HEADERS,
+    status,
+    headers: {
+      ...CORS_HEADERS,
+      "Cache-Control": status >= 400 ? ERROR_CACHE_CONTROL : PUBLIC_CACHE_CONTROL,
+      ...init?.headers,
+    },
   });
 }
 
-export function apiError(message: string, status: number) {
-  return apiJson({ error: message }, { status });
+export function apiError(message: string, status: number, headers?: Record<string, string>) {
+  return apiJson({ error: message }, { status, headers });
 }
 
 export function apiCsv(csv: string, filename: string, extraHeaders?: Record<string, string>) {
@@ -49,6 +61,7 @@ export function apiCsv(csv: string, filename: string, extraHeaders?: Record<stri
     status: 200,
     headers: {
       ...CORS_HEADERS,
+      "Cache-Control": PUBLIC_CACHE_CONTROL,
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
       ...extraHeaders,
@@ -61,7 +74,18 @@ export function apiCsv(csv: string, filename: string, extraHeaders?: Record<stri
 // when the real request would have worked fine. Only legacyApiRedirect (the
 // actual GET/data request) redirects; this never does.
 export function apiCorsPreflight() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  return new NextResponse(null, { status: 204, headers: { ...CORS_HEADERS, "Cache-Control": PUBLIC_CACHE_CONTROL } });
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Every bank id in this schema is a Postgres-generated uuid column — a
+// non-uuid value can never match a row, so rejecting it at the API boundary
+// with a 400 (instead of letting it fall through to Postgres, which errors
+// on invalid uuid input syntax) turns "malformed request" into the right
+// status code instead of a raw DB error or a misleading empty result.
+export function isValidUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
 }
 
 const LEGACY_API_HOSTS = new Set(["www.instantrailcheck.com", "instantrailcheck.com"]);
@@ -91,8 +115,14 @@ export function withApiProtection<Args extends unknown[]>(
     const redirect = legacyApiRedirect(request);
     if (redirect) return redirect;
 
-    if (await isRateLimited(getClientIp(request))) {
-      return apiError("Rate limit exceeded. Try again shortly.", 429);
+    // Namespaced so this documented-API budget can never be shared with (or
+    // exhausted by) a different caller of isRateLimited keyed on the same
+    // bare IP — see app/api/bank-search/route.ts's "api:bank-search:"
+    // namespace for the other side of that split.
+    if (await isRateLimited(`api:public:${getClientIp(request)}`)) {
+      return apiError("Rate limit exceeded. Try again shortly.", 429, {
+        "Retry-After": String(secondsUntilRateLimitReset()),
+      });
     }
 
     return handler(request, ...args);

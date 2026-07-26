@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/lib/rateLimit", () => ({
   isRateLimited: vi.fn(() => Promise.resolve(false)),
   getClientIp: vi.fn(() => "127.0.0.1"),
@@ -111,10 +113,79 @@ describe("GET /api/banks", () => {
     expect(lastFilters.eqCalls.some(([col]) => col === "is_active")).toBe(false);
   });
 
-  it("caps an explicit limit at MAX_LIMIT (500)", async () => {
+  it("accepts an explicit limit at exactly MAX_LIMIT (500)", async () => {
     queryResult = { data: [], error: null, count: 0 };
-    await GET(makeRequest({ limit: "10000" }));
+    const res = await GET(makeRequest({ limit: "500" }));
+    expect(res.status).toBe(200);
     expect(lastFilters.rangeCall).toEqual([0, 499]);
+  });
+
+  it("rejects a limit above MAX_LIMIT with a 400 instead of silently clamping it", async () => {
+    const res = await GET(makeRequest({ limit: "10000" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/limit/i);
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["0", "-5", "1.5", "abc", "1e3", " 5"])("rejects a malformed limit=%s with a 400", async (value) => {
+    const res = await GET(makeRequest({ limit: value }));
+    expect(res.status).toBe(400);
+  });
+
+  it.each(["-1", "1.5", "abc", "-0.5"])("rejects a malformed offset=%s with a 400", async (value) => {
+    const res = await GET(makeRequest({ offset: value }));
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts offset=0 (nonnegative, not positive-only)", async () => {
+    queryResult = { data: [], error: null, count: 0 };
+    const res = await GET(makeRequest({ offset: "0" }));
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects an unsupported format value with a 400", async () => {
+    const res = await GET(makeRequest({ format: "xml" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/format/i);
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported include_inactive value with a 400 instead of silently treating it as false", async () => {
+    const res = await GET(makeRequest({ include_inactive: "yes" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/include_inactive/i);
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts include_inactive=false explicitly", async () => {
+    queryResult = { data: [], error: null, count: 0 };
+    const res = await GET(makeRequest({ include_inactive: "false" }));
+    expect(res.status).toBe(200);
+    expect(lastFilters.eqCalls).toContainEqual(["is_active", true]);
+  });
+
+  it("returns a generic message and never the raw DB error on a query failure", async () => {
+    queryResult = { data: [], error: { message: "relation \"banks\" does not exist: leaked schema detail" }, count: 0 };
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).not.toMatch(/relation|schema/i);
+  });
+
+  it("marks error responses private, no-store instead of the shared public cache", async () => {
+    const res = await GET(makeRequest({ limit: "not-a-number" }));
+    expect(res.status).toBe(400);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("keeps the shared public cache on a successful response", async () => {
+    queryResult = { data: [makeBank(1)], error: null, count: 1 };
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=60, stale-while-revalidate=300");
   });
 
   it("JSON response reports truncated=true and the correct next_offset when more rows remain", async () => {

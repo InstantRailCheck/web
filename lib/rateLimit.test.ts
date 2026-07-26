@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 // rateLimit.ts imports lib/supabase/admin.ts, which is marked server-only —
 // that package throws on import outside a real Next.js server build. Not
@@ -16,7 +16,8 @@ vi.mock("next/headers", () => ({
   headers: () => headersMock(),
 }));
 
-const { getClientIp, getClientIpFromServerAction, isRateLimited, isActionRateLimited } = await import("./rateLimit");
+const { getClientIp, getClientIpFromServerAction, isRateLimited, isActionRateLimited, secondsUntilRateLimitReset } =
+  await import("./rateLimit");
 
 function fakeHeaders(values: Record<string, string>) {
   return { get: (name: string) => values[name.toLowerCase()] ?? null };
@@ -108,6 +109,30 @@ describe("isRateLimited", () => {
   it("fails open (returns false) if the limiter RPC errors", async () => {
     rpcMock.mockResolvedValue({ data: null, error: new Error("db unavailable") });
     expect(await isRateLimited("key", 10, 60)).toBe(false);
+  });
+});
+
+describe("secondsUntilRateLimitReset", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns the full window right at a window boundary", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(0)); // exactly on a 60s boundary
+    expect(secondsUntilRateLimitReset(60)).toBe(60);
+  });
+
+  it("returns the remaining seconds until the next window boundary", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(25 * 1000)); // 25s into a 60s window
+    expect(secondsUntilRateLimitReset(60)).toBe(35);
+  });
+
+  it("respects a custom window size", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(90 * 1000)); // 30s into the second 60s window
+    expect(secondsUntilRateLimitReset(600)).toBe(510); // 90s into a 600s window
   });
 });
 
