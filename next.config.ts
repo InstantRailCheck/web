@@ -12,6 +12,17 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  images: {
+    // Every next/image usage in this app already passes `unoptimized`
+    // (logo-banner.png, favicon) — nothing here relies on the built-in
+    // Image Optimization API. Disabling it here too closes off the
+    // /_next/image route itself, which otherwise stays reachable
+    // regardless of per-component `unoptimized` and would still invoke
+    // sharp — currently pinned to a libvips-vulnerable range by Next's own
+    // optionalDependencies (GHSA-f88m-g3jw-g9cj) with no patched release
+    // available yet.
+    unoptimized: true,
+  },
   async headers() {
     return [
       {
