@@ -12,6 +12,7 @@ import { submitUrlsToIndexNow } from "@/lib/indexNow";
 import { SITE_URL } from "@/lib/siteConfig";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { getUserModerationStatus } from "@/lib/moderationStatus";
+import { logError } from "@/lib/logger";
 
 export type BankCandidate = {
   id: string;
@@ -116,12 +117,35 @@ export async function addBank(name: string): Promise<AddBankResult> {
 
   if (error || !data) return { error: "Failed to add bank." };
 
-  enrichBank(data.id).catch(() => {});
-  triggerWebhooks("bank_added", { bankId: data.id, bankName: data.name }).catch(() => {});
-  // after() extends the serverless invocation until this settles — an
-  // un-awaited promise alone risks Vercel freezing the invocation (once the
-  // response is sent) before the fetch() to IndexNow actually completes.
-  after(() => submitUrlsToIndexNow([`${SITE_URL}/banks/${data.slug}`]).catch(() => {}));
+  // Enrichment and webhook delivery used to run as detached ("fire and
+  // forget") promises, and only the IndexNow submission was registered with
+  // after() — a serverless invocation can be frozen the instant the
+  // response is sent, so anything not registered with after() risked never
+  // finishing. All three now share one after() call: Vercel keeps the
+  // invocation alive until every task in the Promise.allSettled below has
+  // settled, and one task failing (e.g. a webhook delivery erroring) can't
+  // abort the others or affect the bank-creation result already returned.
+  const bankUrl = `${SITE_URL}/banks/${data.slug}`;
+  after(async () => {
+    const tasks = [
+      { name: "enrichBank", run: () => enrichBank(data.id) },
+      { name: "triggerWebhooks", run: () => triggerWebhooks("bank_added", { bankId: data.id, bankName: data.name }) },
+      { name: "submitUrlsToIndexNow", run: () => submitUrlsToIndexNow([bankUrl]) },
+    ] as const;
+
+    const results = await Promise.allSettled(tasks.map((task) => task.run()));
+
+    results.forEach((result, i) => {
+      if (result.status === "rejected") {
+        logError(`addBank background task failed: ${tasks[i].name}`, {
+          task: tasks[i].name,
+          bankId: data.id,
+          bankSlug: data.slug,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    });
+  });
 
   return data;
 }

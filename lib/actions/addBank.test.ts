@@ -2,10 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 // after() requires a real Next.js request-scope context that doesn't exist
-// under vitest — tests only care that the wrapped call happens, not its
-// real deferred-until-response-sent timing, so this just invokes it
-// immediately.
-vi.mock("next/server", () => ({ after: (fn: () => void) => fn() }));
+// under vitest. Rather than auto-invoking the callback (which would hide
+// bugs like "never registered with after() at all"), this captures it so
+// tests can assert it was scheduled and then explicitly await it to
+// exercise what runs after the response would have been sent.
+let capturedAfterCallback: (() => void | Promise<void>) | null = null;
+vi.mock("next/server", () => ({
+  after: (fn: () => void | Promise<void>) => {
+    capturedAfterCallback = fn;
+  },
+}));
+
+const logErrorMock = vi.fn();
+vi.mock("@/lib/logger", () => ({ logError: (...args: unknown[]) => logErrorMock(...args) }));
 
 let currentUser: { id: string } | null = { id: "user-1" };
 const getUserMock = vi.fn(() => Promise.resolve({ data: { user: currentUser } }));
@@ -51,9 +60,14 @@ vi.mock("@/lib/rateLimit", () => ({
   isActionRateLimited: (...args: unknown[]) => isActionRateLimitedMock(...args),
 }));
 
-vi.mock("@/lib/actions/enrichBank", () => ({ enrichBank: vi.fn(() => Promise.resolve()) }));
-vi.mock("@/lib/actions/triggerWebhooks", () => ({ triggerWebhooks: vi.fn(() => Promise.resolve()) }));
-vi.mock("@/lib/indexNow", () => ({ submitUrlsToIndexNow: vi.fn(() => Promise.resolve()) }));
+const enrichBankMock = vi.fn();
+vi.mock("@/lib/actions/enrichBank", () => ({ enrichBank: (...args: unknown[]) => enrichBankMock(...args) }));
+
+const triggerWebhooksMock = vi.fn();
+vi.mock("@/lib/actions/triggerWebhooks", () => ({ triggerWebhooks: (...args: unknown[]) => triggerWebhooksMock(...args) }));
+
+const submitUrlsToIndexNowMock = vi.fn();
+vi.mock("@/lib/indexNow", () => ({ submitUrlsToIndexNow: (...args: unknown[]) => submitUrlsToIndexNowMock(...args) }));
 
 const { addBank } = await import("./addBank");
 
@@ -70,6 +84,14 @@ beforeEach(() => {
   getUserModerationStatusMock.mockResolvedValue({ blocked: false });
   isActionRateLimitedMock.mockClear();
   isActionRateLimitedMock.mockResolvedValue(false);
+  capturedAfterCallback = null;
+  logErrorMock.mockClear();
+  enrichBankMock.mockClear();
+  enrichBankMock.mockResolvedValue(undefined);
+  triggerWebhooksMock.mockClear();
+  triggerWebhooksMock.mockResolvedValue(undefined);
+  submitUrlsToIndexNowMock.mockClear();
+  submitUrlsToIndexNowMock.mockResolvedValue(undefined);
 });
 
 describe("addBank", () => {
@@ -148,5 +170,55 @@ describe("addBank", () => {
     const result = await addBank("Test Bank");
 
     expect(result).toEqual({ error: "Failed to add bank." });
+  });
+
+  describe("post-insert background work", () => {
+    it("registers enrichment, webhook delivery, and IndexNow submission through a single after() call", async () => {
+      const result = await addBank("Test Bank");
+
+      expect(result).toEqual({ id: "bank-1", slug: "test-bank", name: "Test Bank" });
+      // None of the background work runs until the captured after() callback
+      // is actually invoked — the action returning must not have run it inline.
+      expect(enrichBankMock).not.toHaveBeenCalled();
+      expect(triggerWebhooksMock).not.toHaveBeenCalled();
+      expect(submitUrlsToIndexNowMock).not.toHaveBeenCalled();
+      expect(capturedAfterCallback).not.toBeNull();
+
+      await capturedAfterCallback?.();
+
+      expect(enrichBankMock).toHaveBeenCalledWith("bank-1");
+      expect(triggerWebhooksMock).toHaveBeenCalledWith("bank_added", { bankId: "bank-1", bankName: "Test Bank" });
+      expect(submitUrlsToIndexNowMock).toHaveBeenCalledWith(["https://www.instantrailcheck.com/banks/test-bank"]);
+      expect(logErrorMock).not.toHaveBeenCalled();
+    });
+
+    it("does not throw and still runs the other tasks when one background task rejects", async () => {
+      enrichBankMock.mockRejectedValue(new Error("FDIC lookup timed out"));
+
+      await addBank("Test Bank");
+
+      await expect(capturedAfterCallback?.()).resolves.toBeUndefined();
+
+      expect(triggerWebhooksMock).toHaveBeenCalled();
+      expect(submitUrlsToIndexNowMock).toHaveBeenCalled();
+      expect(logErrorMock).toHaveBeenCalledWith(
+        "addBank background task failed: enrichBank",
+        expect.objectContaining({ task: "enrichBank", bankId: "bank-1", bankSlug: "test-bank", error: "FDIC lookup timed out" })
+      );
+    });
+
+    it("logs every task that rejects, not just the first", async () => {
+      enrichBankMock.mockRejectedValue(new Error("enrich failed"));
+      triggerWebhooksMock.mockRejectedValue(new Error("webhook failed"));
+
+      await addBank("Test Bank");
+      await capturedAfterCallback?.();
+
+      expect(logErrorMock).toHaveBeenCalledTimes(2);
+      expect(logErrorMock).toHaveBeenCalledWith("addBank background task failed: enrichBank", expect.objectContaining({ error: "enrich failed" }));
+      expect(logErrorMock).toHaveBeenCalledWith("addBank background task failed: triggerWebhooks", expect.objectContaining({ error: "webhook failed" }));
+      // submitUrlsToIndexNow still succeeded, so it must not be logged as a failure.
+      expect(logErrorMock).not.toHaveBeenCalledWith(expect.stringContaining("submitUrlsToIndexNow"), expect.anything());
+    });
   });
 });
