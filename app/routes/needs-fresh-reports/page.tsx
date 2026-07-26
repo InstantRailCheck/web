@@ -93,14 +93,14 @@ export default async function NeedsFreshReportsPage({
         <div className="mt-6 grid gap-2">
           {pageRoutes.length === 0 ? (
             isPageOutOfRange(page, total, PAGE_SIZE) ? (
-              <p className="text-center text-sm text-slate-500">
+              <p className="text-center text-sm text-slate-400">
                 No routes on page {page}.{" "}
                 <Link href="/routes/needs-fresh-reports" className="text-blue-400 hover:text-blue-300 transition">
                   Back to page 1
                 </Link>
               </p>
             ) : (
-              <p className="text-center text-sm text-slate-500">
+              <p className="text-center text-sm text-slate-400">
                 Nothing needs a fresh report right now — every checked route has solid evidence.
               </p>
             )
@@ -120,7 +120,7 @@ export default async function NeedsFreshReportsPage({
             ) : (
               <span className="text-slate-700">← Previous</span>
             )}
-            <span className="text-slate-500">
+            <span className="text-slate-400">
               Page {page} of {totalPages}
             </span>
             {page < totalPages ? (

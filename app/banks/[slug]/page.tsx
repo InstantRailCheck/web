@@ -52,7 +52,7 @@ function PhoneText({ phone }: { phone: string }) {
 
 function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"] }) {
   if (rails.length === 0) {
-    return <p className="text-center text-sm text-slate-500">No reports yet.</p>;
+    return <p className="text-center text-sm text-slate-400">No reports yet.</p>;
   }
 
   return (
@@ -120,7 +120,7 @@ function RailEvidenceCard({
       )}
       <dl className="mt-3 space-y-2 text-xs">
         <div>
-          <dt className="text-slate-500">Source</dt>
+          <dt className="text-slate-400">Source</dt>
           <dd className="text-slate-300">
             {evidence.sourceUrl ? (
               <a
@@ -137,7 +137,7 @@ function RailEvidenceCard({
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">Community confirmations</dt>
+          <dt className="text-slate-400">Community confirmations</dt>
           <dd className="text-slate-300">{evidence.communityConfirmations}</dd>
         </div>
       </dl>
@@ -173,7 +173,7 @@ function EddCard({ evidence, bankName }: { evidence: EddEvidence; bankName: stri
           </>
         )}
       </p>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-slate-400">
         Self-reported — no official directory exists for this feature. See the{" "}
         <Link href="/early-direct-deposit#methodology" className="underline decoration-slate-600 underline-offset-2 hover:text-white hover:decoration-slate-400 transition">
           leaderboard methodology
@@ -361,7 +361,7 @@ export default async function BankProfilePage({
             </p>
           )}
           {profile.bank.aka_names && profile.bank.aka_names.length > 0 && (
-            <p className="mt-1 text-sm text-slate-500">Also known as {profile.bank.aka_names.join(", ")}</p>
+            <p className="mt-1 text-sm text-slate-400">Also known as {profile.bank.aka_names.join(", ")}</p>
           )}
           {profile.bank.website && (
             <a
@@ -382,9 +382,9 @@ export default async function BankProfilePage({
             </p>
           )}
           {(profile.bank.website || profile.bank.address || profile.bank.phone) && contactSourceLabel && (
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-slate-400">
               Contact info sourced from {contactSourceLabel}. See{" "}
-              <Link href="/methodology" className="text-slate-500 hover:text-slate-400 underline transition">
+              <Link href="/methodology" className="text-slate-400 hover:text-slate-400 underline transition">
                 methodology
               </Link>
               .

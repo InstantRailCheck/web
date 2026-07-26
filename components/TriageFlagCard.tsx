@@ -18,7 +18,7 @@ function FlagDetail({ row }: { row: TriageRow }) {
       <div className="flex flex-col text-sm text-slate-200">
         <span>
           {row.fromBankName} → {row.toBankName}
-          {row.direction && <span className="text-slate-500"> · {row.direction}</span>}
+          {row.direction && <span className="text-slate-400"> · {row.direction}</span>}
         </span>
         <span className="text-xs text-slate-400">
           {row.railUsed ?? "Unknown rail"} · {row.status}
@@ -43,7 +43,7 @@ function ComparisonList({ row }: { row: TriageRow }) {
   if (row.table !== "route_reports" || row.comparison.length === 0) return null;
   return (
     <details className="mt-2 text-xs text-slate-400">
-      <summary className="cursor-pointer text-slate-500 hover:text-slate-300">
+      <summary className="cursor-pointer text-slate-400 hover:text-slate-300">
         Compare with {row.comparison.length} other recent report{row.comparison.length === 1 ? "" : "s"} for this route/rail
       </summary>
       <ul className="mt-1 space-y-0.5 pl-4">
@@ -65,7 +65,7 @@ export function TriageFlagCard({ row }: { row: TriageRow }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
           <FlagDetail row={row} />
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-400">
             {formatTimestamp(row.createdAt)} ·{" "}
             {row.userId ? (
               <a href={`/admin/moderation/users/${row.userId}`} className="text-blue-400 hover:text-blue-300 transition">

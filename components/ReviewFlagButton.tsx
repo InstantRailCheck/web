@@ -43,7 +43,7 @@ export function ReviewFlagButton({ targetTable, targetId, subjectUserId, signals
   }
 
   if (done) {
-    return <span className="shrink-0 text-xs text-slate-500">Reviewed</span>;
+    return <span className="shrink-0 text-xs text-slate-400">Reviewed</span>;
   }
 
   if (!expanded) {

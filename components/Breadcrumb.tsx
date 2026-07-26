@@ -4,7 +4,7 @@ import type { BreadcrumbItems } from "@/lib/breadcrumbs";
 
 export function Breadcrumb({ items }: { items: BreadcrumbItems }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-4 text-center text-sm text-slate-500">
+    <nav aria-label="Breadcrumb" className="mb-4 text-center text-sm text-slate-400">
       <ol className="inline-flex items-center gap-2">
         {items.map((item, index) => {
           const isCurrent = index === items.length - 1;

@@ -214,7 +214,7 @@ export function BankSelect({
               ) : (
                 <>
                   {loading && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400">
                       <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-700 border-t-slate-400" />
                       Searching...
                     </div>
@@ -267,7 +267,7 @@ export function BankSelect({
                         )}
                       />
                       {bank.name}
-                      {location && <span className="ml-2 text-xs text-slate-500">{location}</span>}
+                      {location && <span className="ml-2 text-xs text-slate-400">{location}</span>}
                     </CommandItem>
                   );
                 })}

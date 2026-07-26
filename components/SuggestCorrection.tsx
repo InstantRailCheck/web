@@ -56,7 +56,7 @@ export function SuggestCorrection({ bankId }: Props) {
         <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
         <button
           onClick={() => setOpen(true)}
-          className="mt-3 text-xs text-slate-500 hover:text-slate-300 transition"
+          className="mt-3 text-xs text-slate-400 hover:text-slate-300 transition"
         >
           Something wrong? Suggest a correction
         </button>

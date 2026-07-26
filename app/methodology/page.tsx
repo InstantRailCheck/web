@@ -7,7 +7,7 @@ export default function MethodologyPage() {
     <main id="main-content" className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto flex w-full max-w-3xl flex-col px-6 pt-10 pb-16">
         <h1 className="text-center text-3xl font-bold">Methodology</h1>
-        <p className="mt-1 text-center text-sm text-slate-500">Last updated July 19, 2026.</p>
+        <p className="mt-1 text-center text-sm text-slate-400">Last updated July 19, 2026.</p>
         <p className="mt-2 text-center text-sm text-slate-400">
           How InstantRailCheck sources, verifies, and scores the data behind every route.
         </p>

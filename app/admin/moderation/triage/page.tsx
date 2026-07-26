@@ -212,13 +212,13 @@ export default async function AdminTriagePage({ searchParams }: { searchParams: 
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-slate-500">
+        <p className="mt-4 text-center text-sm text-slate-400">
           {total} flagged submission{total !== 1 ? "s" : ""}
         </p>
 
         <div className="mt-4 grid gap-3">
           {rows.length === 0 ? (
-            <p className="text-center text-sm text-slate-500">No submissions currently match these filters.</p>
+            <p className="text-center text-sm text-slate-400">No submissions currently match these filters.</p>
           ) : (
             rows.map((row) => <TriageFlagCard key={`${row.table}:${row.id}`} row={row} />)
           )}
@@ -233,7 +233,7 @@ export default async function AdminTriagePage({ searchParams }: { searchParams: 
             ) : (
               <span className="text-slate-700">← Previous</span>
             )}
-            <span className="text-slate-500">
+            <span className="text-slate-400">
               Page {page} of {totalPages}
             </span>
             {page < totalPages ? (

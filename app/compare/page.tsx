@@ -22,7 +22,7 @@ function RailCell({
 }: {
   rail: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"][number] | undefined;
 }) {
-  if (!rail) return <span className="text-slate-600">No data</span>;
+  if (!rail) return <span className="text-slate-400">No data</span>;
   return (
     <span>
       {describeRailEvidence(rail)}
@@ -34,7 +34,7 @@ function RailCell({
 
 function PhoneCell({ phone }: { phone: string | null }) {
   const href = telHref(phone);
-  if (!href) return <span className="text-slate-600">—</span>;
+  if (!href) return <span className="text-slate-400">—</span>;
   return (
     <a href={href} className="hover:text-slate-300 transition">
       {formatPhone(phone)}
@@ -43,7 +43,7 @@ function PhoneCell({ phone }: { phone: string | null }) {
 }
 
 function WebsiteCell({ website }: { website: string | null }) {
-  if (!website) return <span className="text-slate-600">—</span>;
+  if (!website) return <span className="text-slate-400">—</span>;
   return (
     <a
       href={websiteHref(website) ?? undefined}
@@ -57,7 +57,7 @@ function WebsiteCell({ website }: { website: string | null }) {
 }
 
 function EddCell({ evidence }: { evidence: { avgDaysEarly: number | null; reportCount: number; hasMoreThanFive: boolean } | null }) {
-  if (!evidence) return <span className="text-slate-600">No data</span>;
+  if (!evidence) return <span className="text-slate-400">No data</span>;
   return (
     <span>
       {evidence.avgDaysEarly === null ? (
@@ -68,7 +68,7 @@ function EddCell({ evidence }: { evidence: { avgDaysEarly: number | null; report
           {evidence.hasMoreThanFive && "+"} day{evidence.avgDaysEarly !== 1 ? "s" : ""} early
         </>
       )}
-      <span className="text-slate-500">
+      <span className="text-slate-400">
         {" "}
         ({evidence.reportCount} report{evidence.reportCount !== 1 ? "s" : ""})
       </span>
@@ -154,7 +154,7 @@ export default async function ComparePage({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-800">
-                  <th className="px-5 py-3 text-slate-500">Feature</th>
+                  <th className="px-5 py-3 text-slate-400">Feature</th>
                   <th className="px-5 py-3">
                     <Link href={`/banks/${a.bank.slug}`} className="text-blue-400 hover:text-blue-300 transition">
                       {a.bank.name}
@@ -171,7 +171,7 @@ export default async function ComparePage({
               </thead>
               <tbody className="divide-y divide-slate-800">
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">Website</td>
+                  <td className="px-5 py-3 text-slate-400">Website</td>
                   <td className="px-5 py-3">
                     <WebsiteCell website={a.bank.website} />
                   </td>
@@ -180,12 +180,12 @@ export default async function ComparePage({
                   </td>
                 </tr>
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">Address</td>
-                  <td className="px-5 py-3">{a.bank.address ?? <span className="text-slate-600">—</span>}</td>
-                  <td className="px-5 py-3">{b.bank.address ?? <span className="text-slate-600">—</span>}</td>
+                  <td className="px-5 py-3 text-slate-400">Address</td>
+                  <td className="px-5 py-3">{a.bank.address ?? <span className="text-slate-400">—</span>}</td>
+                  <td className="px-5 py-3">{b.bank.address ?? <span className="text-slate-400">—</span>}</td>
                 </tr>
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">Phone</td>
+                  <td className="px-5 py-3 text-slate-400">Phone</td>
                   <td className="px-5 py-3">
                     <PhoneCell phone={a.bank.phone} />
                   </td>
@@ -194,23 +194,23 @@ export default async function ComparePage({
                   </td>
                 </tr>
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">FedNow</td>
+                  <td className="px-5 py-3 text-slate-400">FedNow</td>
                   <td className="px-5 py-3">{a.bank.fednow_participant ? "✅" : "—"}</td>
                   <td className="px-5 py-3">{b.bank.fednow_participant ? "✅" : "—"}</td>
                 </tr>
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">RTP</td>
+                  <td className="px-5 py-3 text-slate-400">RTP</td>
                   <td className="px-5 py-3">{a.bank.rtp_participant ? "✅" : "—"}</td>
                   <td className="px-5 py-3">{b.bank.rtp_participant ? "✅" : "—"}</td>
                 </tr>
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">P2P - Zelle</td>
+                  <td className="px-5 py-3 text-slate-400">P2P - Zelle</td>
                   <td className="px-5 py-3">{a.bank.zelle_participant ? "✅" : "—"}</td>
                   <td className="px-5 py-3">{b.bank.zelle_participant ? "✅" : "—"}</td>
                 </tr>
                 {ALWAYS_SHOWN_RAILS.map((rail) => (
                   <tr key={rail}>
-                    <td className="px-5 py-3 text-slate-500">{rail}</td>
+                    <td className="px-5 py-3 text-slate-400">{rail}</td>
                     <td className="px-5 py-3">
                       <RailCell rail={findRail(a, rail)} />
                     </td>
@@ -221,7 +221,7 @@ export default async function ComparePage({
                 ))}
                 {rails.map((rail) => (
                   <tr key={rail}>
-                    <td className="px-5 py-3 text-slate-500">{rail}</td>
+                    <td className="px-5 py-3 text-slate-400">{rail}</td>
                     <td className="px-5 py-3">
                       <RailCell rail={findRail(a, rail)} />
                     </td>
@@ -231,7 +231,7 @@ export default async function ComparePage({
                   </tr>
                 ))}
                 <tr>
-                  <td className="px-5 py-3 text-slate-500">Early Direct Deposit</td>
+                  <td className="px-5 py-3 text-slate-400">Early Direct Deposit</td>
                   <td className="px-5 py-3">
                     <EddCell evidence={a.eddEvidence} />
                   </td>

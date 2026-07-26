@@ -62,7 +62,7 @@ function HistoryRowDetail({ row }: { row: UserHistoryRow }) {
       <div className="flex flex-col text-sm text-slate-200">
         <span>
           {row.fromBankName} → {row.toBankName}
-          {row.direction && <span className="text-slate-500"> · {row.direction}</span>}
+          {row.direction && <span className="text-slate-400"> · {row.direction}</span>}
         </span>
         <span className="text-xs text-slate-400">
           {row.railUsed ?? "Unknown rail"} · {row.status}
@@ -174,7 +174,7 @@ export default async function AdminUserProfilePage({
               </span>
             )}
           </p>
-          {moderationStatus?.note && <p className="mt-1 text-xs text-slate-500">&ldquo;{moderationStatus.note}&rdquo;</p>}
+          {moderationStatus?.note && <p className="mt-1 text-xs text-slate-400">&ldquo;{moderationStatus.note}&rdquo;</p>}
 
           <div className="mt-3 flex flex-wrap items-center gap-3">
             {moderationStatus?.auth_sync_status === "pending" && (
@@ -192,12 +192,12 @@ export default async function AdminUserProfilePage({
         </div>
 
         <h2 className="mt-10 text-center text-xl font-semibold">Moderation history</h2>
-        <p className="mt-2 text-center text-sm text-slate-500">
+        <p className="mt-2 text-center text-sm text-slate-400">
           Includes removed submissions and account-level actions. Removed content itself is not retained here.
         </p>
         <div className="mt-4 grid gap-2">
           {moderationHistory.length === 0 ? (
-            <p className="text-center text-sm text-slate-500">No moderation actions for this user.</p>
+            <p className="text-center text-sm text-slate-400">No moderation actions for this user.</p>
           ) : (
             moderationHistory.map((action) => (
               <div key={action.id} className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
@@ -205,7 +205,7 @@ export default async function AdminUserProfilePage({
                   <p className="text-sm font-semibold text-white">
                     {action.actionType.replaceAll("_", " ")} · {action.targetTable.replaceAll("_", " ")}
                   </p>
-                  <p className="text-xs text-slate-500">{formatTimestamp(action.createdAt)}</p>
+                  <p className="text-xs text-slate-400">{formatTimestamp(action.createdAt)}</p>
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
                   {action.reasonCategory}: {action.reason}
@@ -232,18 +232,18 @@ export default async function AdminUserProfilePage({
           ))}
         </div>
 
-        <p className="mt-4 text-center text-sm text-slate-500">
+        <p className="mt-4 text-center text-sm text-slate-400">
           {total} result{total !== 1 ? "s" : ""}
         </p>
 
         <div className="mt-4 grid gap-2">
           {rows.length === 0 ? (
-            <p className="text-center text-sm text-slate-500">No submissions in this category.</p>
+            <p className="text-center text-sm text-slate-400">No submissions in this category.</p>
           ) : (
             rows.map((row) => (
               <div key={row.id} className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
                 <HistoryRowDetail row={row} />
-                <p className="mt-2 text-xs text-slate-500">{formatTimestamp(row.createdAt)}</p>
+                <p className="mt-2 text-xs text-slate-400">{formatTimestamp(row.createdAt)}</p>
               </div>
             ))
           )}
@@ -258,7 +258,7 @@ export default async function AdminUserProfilePage({
             ) : (
               <span className="text-slate-700">← Previous</span>
             )}
-            <span className="text-slate-500">
+            <span className="text-slate-400">
               Page {page} of {totalPages}
             </span>
             {page < totalPages ? (

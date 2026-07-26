@@ -45,14 +45,14 @@ export default async function ChangelogPage() {
         </p>
 
         {feed.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-slate-500">Nothing here yet.</p>
+          <p className="mt-8 text-center text-sm text-slate-400">Nothing here yet.</p>
         ) : (
           <div className="mt-8 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
             {feed.map((item) => (
               <div key={item.id} className="flex items-start justify-between gap-4 px-5 py-4 text-sm">
                 {item.type === "bank_added" ? (
                   <p>
-                    <span className="text-slate-500">+ Bank added: </span>
+                    <span className="text-slate-400">+ Bank added: </span>
                     <Link href={`/banks/${item.bankSlug}`} className="text-blue-400 hover:text-blue-300 transition">
                       {item.bankName}
                     </Link>
@@ -67,14 +67,14 @@ export default async function ChangelogPage() {
                     <Link href={`/banks/${item.fromBankSlug ?? item.fromBankId}`} className="text-blue-400 hover:text-blue-300 transition">
                       {item.fromBankName}
                     </Link>
-                    <span className="text-slate-500"> → {item.toBankName} via </span>
+                    <span className="text-slate-400"> → {item.toBankName} via </span>
                     <span className={RAIL_COLORS[item.rail] ?? "text-slate-200"}>{railDisplayName(item.rail)}</span>
                     <span className={`ml-2 ${STATUS_STYLES[item.status] ?? "text-slate-400"}`}>
                       {item.status}
                     </span>
                   </p>
                 )}
-                <span className="shrink-0 text-xs text-slate-600">{timeAgo(item.createdAt)}</span>
+                <span className="shrink-0 text-xs text-slate-400">{timeAgo(item.createdAt)}</span>
               </div>
             ))}
           </div>

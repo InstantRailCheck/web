@@ -35,11 +35,11 @@ function RailColumn({
       <h2 className={`flex items-center justify-center gap-2 text-center text-lg font-semibold ${color}`}>
         {icon} {label}
       </h2>
-      <p className="mt-1 text-center text-xs text-slate-500">{total} banks</p>
+      <p className="mt-1 text-center text-xs text-slate-400">{total} banks</p>
       {footnote && <p className="mt-1 text-center text-xs text-yellow-500/80">{footnote}</p>}
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {banks.length === 0 ? (
-          <p className="px-5 py-4 text-sm text-slate-500">None confirmed yet.</p>
+          <p className="px-5 py-4 text-sm text-slate-400">None confirmed yet.</p>
         ) : (
           banks.map((bank) => (
             <Link
@@ -68,10 +68,10 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
       <h2 className="flex items-center justify-center gap-2 text-center text-lg font-semibold">
         <span>{icon}</span> {label}
       </h2>
-      <p className="mt-1 text-center text-xs text-slate-500">{entries.length} banks</p>
+      <p className="mt-1 text-center text-xs text-slate-400">{entries.length} banks</p>
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {shown.length === 0 ? (
-          <p className="px-5 py-4 text-sm text-slate-500">No reports yet.</p>
+          <p className="px-5 py-4 text-sm text-slate-400">No reports yet.</p>
         ) : (
           shown.map((entry) => (
             <Link
@@ -80,7 +80,7 @@ function CommunityRailColumn({ icon, label, entries }: { icon: string; label: st
               className="flex items-center justify-between px-5 py-3 text-sm text-slate-200 hover:bg-slate-900 hover:text-white transition"
             >
               <span>{entry.bankName}</span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-400">
                 {entry.successCount} report{entry.successCount !== 1 ? "s" : ""}
               </span>
             </Link>
@@ -98,12 +98,12 @@ function EddColumn({ entries }: { entries: EddLeaderboardEntry[] }) {
       <h2 className="flex items-center justify-center gap-2 text-center text-lg font-semibold text-teal-300">
         <Clock className="h-[18px] w-[18px]" /> Early Direct Deposit
       </h2>
-      <p className="mt-1 text-center text-xs text-slate-500">
+      <p className="mt-1 text-center text-xs text-slate-400">
         {entries.length} bank{entries.length !== 1 ? "s" : ""} ranked by typical (median) days early
       </p>
       <div className="mt-3 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/70">
         {shown.length === 0 ? (
-          <p className="px-5 py-4 text-sm text-slate-500">
+          <p className="px-5 py-4 text-sm text-slate-400">
             No institution has enough community-reported evidence yet to appear here.
           </p>
         ) : (
@@ -114,7 +114,7 @@ function EddColumn({ entries }: { entries: EddLeaderboardEntry[] }) {
               className="flex items-center justify-between px-5 py-3 text-sm text-slate-200 hover:bg-slate-900 hover:text-white transition"
             >
               <span>{entry.bankName}</span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-400">
                 {typicalValueLabel(entry.typical)} · {entry.reportCount} report{entry.reportCount !== 1 ? "s" : ""}
               </span>
             </Link>

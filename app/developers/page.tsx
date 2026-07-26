@@ -75,7 +75,7 @@ export default function DevelopersPage() {
                 <code className="text-sm text-slate-100">{ep.path}</code>
               </div>
               <p className="mt-2 text-sm text-slate-400">{ep.description}</p>
-              <code className="mt-3 block rounded-lg bg-slate-950 p-3 text-xs text-slate-500">
+              <code className="mt-3 block rounded-lg bg-slate-950 p-3 text-xs text-slate-400">
                 GET {API_URL}{ep.example}
               </code>
             </div>

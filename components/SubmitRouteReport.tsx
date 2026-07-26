@@ -218,7 +218,7 @@ export function SubmitRouteReport(props: Props) {
           </div>
           {user && (
             <div className="absolute right-0 top-0 text-right">
-              <p className="text-xs text-slate-500">{user.email}</p>
+              <p className="text-xs text-slate-400">{user.email}</p>
               <div className="flex items-center justify-end gap-2 text-xs">
                 <Link href="/account" className="text-slate-400 hover:text-white transition">
                   Account

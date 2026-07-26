@@ -138,7 +138,7 @@ export default async function BanksDirectoryPage({
 
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
           {(banks ?? []).length === 0 ? (
-            <p className="text-sm text-slate-500">No banks match those filters.</p>
+            <p className="text-sm text-slate-400">No banks match those filters.</p>
           ) : (
             (banks ?? []).map((bank) => (
               <Link
@@ -149,7 +149,7 @@ export default async function BanksDirectoryPage({
                 <span>
                   {bank.name}
                   {(bank.city || bank.state) && (
-                    <span className="ml-1.5 text-xs text-slate-500">
+                    <span className="ml-1.5 text-xs text-slate-400">
                       {[bank.city, bank.state].filter(Boolean).join(", ")}
                     </span>
                   )}
@@ -173,7 +173,7 @@ export default async function BanksDirectoryPage({
             ) : (
               <span className="text-slate-700">← Previous</span>
             )}
-            <span className="text-slate-500">
+            <span className="text-slate-400">
               Page {page} of {totalPages}
             </span>
             {page < totalPages ? (

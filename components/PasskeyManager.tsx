@@ -115,13 +115,13 @@ export function PasskeyManager() {
 
         <div className="mt-6 divide-y divide-slate-800 rounded-xl border border-slate-800">
           {passkeys.length === 0 ? (
-            <p className="p-4 text-sm text-slate-500">No passkeys registered yet.</p>
+            <p className="p-4 text-sm text-slate-400">No passkeys registered yet.</p>
           ) : (
             passkeys.map((pk) => (
               <div key={pk.id} className="flex items-center justify-between gap-4 p-4 text-sm">
                 <div>
                   <p className="text-slate-200">{pk.friendly_name || "Passkey"}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     Added {new Date(pk.created_at).toLocaleDateString()}
                     {pk.last_used_at && ` · last used ${new Date(pk.last_used_at).toLocaleDateString()}`}
                   </p>

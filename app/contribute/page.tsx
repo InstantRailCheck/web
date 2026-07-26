@@ -127,19 +127,19 @@ export function PrivateSummaryPanel({ summary }: { summary: PrivateSummary }) {
           {summary.routeReports.recent.map((r) => (
             <p key={`route-${r.id}`} className="text-sm text-slate-300">
               {r.fromBankName} → {r.toBankName}{" "}
-              <span className="text-slate-500">
+              <span className="text-slate-400">
                 · {r.railUsed ?? "Unknown rail"} · {r.status}
               </span>
             </p>
           ))}
           {summary.eddReports.recent.map((r) => (
             <p key={`edd-${r.id}`} className="text-sm text-slate-300">
-              {r.bankName} <span className="text-slate-500">· {distributionBucketLabel(r.daysEarly)}</span>
+              {r.bankName} <span className="text-slate-400">· {distributionBucketLabel(r.daysEarly)}</span>
             </p>
           ))}
           {summary.openRequests.recent.map((r) => (
             <p key={`request-${r.id}`} className="text-sm text-slate-300">
-              {r.fromBankName} → {r.toBankName} <span className="text-slate-500">· requested</span>
+              {r.fromBankName} → {r.toBankName} <span className="text-slate-400">· requested</span>
             </p>
           ))}
         </div>

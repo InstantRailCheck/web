@@ -44,7 +44,7 @@ function DistributionBars({ entry }: { entry: EddLeaderboardEntry }) {
   if (buckets.length === 0) return null;
 
   return (
-    <ul className="mt-2 space-y-0.5 text-xs text-slate-500">
+    <ul className="mt-2 space-y-0.5 text-xs text-slate-400">
       {buckets.map(([bucket, count]) => (
         <li key={bucket}>
           {distributionBucketLabel(bucket)}: {count} report{count !== 1 ? "s" : ""}
@@ -62,7 +62,7 @@ function LeaderboardRow({ entry, rank }: { entry: EddLeaderboardEntry; rank?: nu
     >
       <div className="flex items-center justify-between gap-3">
         <span className="flex items-center gap-3">
-          {rank !== undefined && <span className="w-5 shrink-0 text-slate-500">{rank}</span>}
+          {rank !== undefined && <span className="w-5 shrink-0 text-slate-400">{rank}</span>}
           <span className="font-medium">{entry.bankName}</span>
         </span>
         <span className="shrink-0 text-right text-xs text-slate-400">
@@ -75,7 +75,7 @@ function LeaderboardRow({ entry, rank }: { entry: EddLeaderboardEntry; rank?: nu
           </div>
         </span>
       </div>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-slate-400">
         Last reported {formatMonthYear(entry.latestReportDate)}
         {entry.isStale && " (no reports in the last 180 days)"}
       </p>
@@ -107,7 +107,7 @@ export default async function EarlyDirectDepositPage() {
           Deposit timing can depend on when an employer, benefits agency, or payroll provider
           sends the payment file. A bank&apos;s past timing does not guarantee future availability.
         </p>
-        <p className="mt-3 text-center text-xs text-slate-500">
+        <p className="mt-3 text-center text-xs text-slate-400">
           Rankings mix every deposit type reported (paychecks, government benefits, tax refunds,
           pensions, and gig-platform payouts) since paycheck-specific timing isn&apos;t yet broken
           out separately.
@@ -115,7 +115,7 @@ export default async function EarlyDirectDepositPage() {
 
         <section className="mt-8">
           <h2 className="text-center text-xl font-semibold">Ranked institutions</h2>
-          <p className="mt-1 text-center text-xs text-slate-500">
+          <p className="mt-1 text-center text-xs text-slate-400">
             Requires at least {EDD_LEADERBOARD_MIN_REPORTERS} distinct reporters to appear.
           </p>
 
@@ -125,7 +125,7 @@ export default async function EarlyDirectDepositPage() {
                 No institution has {EDD_LEADERBOARD_MIN_REPORTERS} or more distinct community
                 reports yet, so nothing meets the bar for a credible ranking.
               </p>
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-slate-400">
                 Reported early direct deposit at your bank? Submitting a report below helps get
                 this leaderboard started.
               </p>
@@ -142,7 +142,7 @@ export default async function EarlyDirectDepositPage() {
         {earlyEvidence.length > 0 && (
           <section className="mt-10">
             <h2 className="text-center text-xl font-semibold">Early evidence</h2>
-            <p className="mt-1 text-center text-xs text-slate-500">
+            <p className="mt-1 text-center text-xs text-slate-400">
               {EDD_MIN_REPORTERS}-{EDD_LEADERBOARD_MIN_REPORTERS - 1}{" "}
               distinct reporters — not enough yet for a ranked position, shown unranked and in no
               particular order of confidence.
@@ -200,7 +200,7 @@ export default async function EarlyDirectDepositPage() {
           </ul>
         </section>
 
-        <p className="mt-8 text-center text-xs text-slate-500">
+        <p className="mt-8 text-center text-xs text-slate-400">
           See also:{" "}
           <Link href="/rails" className="text-blue-400 hover:text-blue-300 transition">
             payment rail explorer

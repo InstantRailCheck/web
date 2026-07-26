@@ -51,7 +51,7 @@ export function RetryAuthSyncButton({ targetUserId, prominent, errorMessage }: P
       type="button"
       onClick={handleRetry}
       disabled={loading}
-      className="text-xs text-slate-500 underline transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+      className="text-xs text-slate-400 underline transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {loading ? "Re-syncing..." : "Re-sync Auth status"}
     </button>

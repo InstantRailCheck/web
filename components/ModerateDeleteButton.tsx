@@ -53,7 +53,7 @@ export function ModerateDeleteButton({ targetTable, targetId }: Props) {
   }
 
   if (removed) {
-    return <span className="shrink-0 text-xs text-slate-500">Removed</span>;
+    return <span className="shrink-0 text-xs text-slate-400">Removed</span>;
   }
 
   if (!confirming) {
@@ -96,7 +96,7 @@ export function ModerateDeleteButton({ targetTable, targetId }: Props) {
           rows={2}
           className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-white"
         />
-        <span className="mt-1 block text-[11px] text-slate-500">
+        <span className="mt-1 block text-[11px] text-slate-400">
           Internal note — avoid including email addresses or other personal information beyond what&apos;s necessary.
         </span>
       </label>

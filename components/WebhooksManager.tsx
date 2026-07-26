@@ -120,13 +120,13 @@ export function WebhooksManager() {
 
       <div className="mt-6 divide-y divide-slate-800 rounded-xl border border-slate-800">
         {webhooks.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No webhooks registered yet.</p>
+          <p className="p-4 text-sm text-slate-400">No webhooks registered yet.</p>
         ) : (
           webhooks.map((wh) => (
             <div key={wh.id} className="flex items-center justify-between gap-4 p-4 text-sm">
               <div>
                 <p className="text-slate-200">{wh.url}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   {wh.event} · added {new Date(wh.created_at).toLocaleDateString()}
                 </p>
               </div>

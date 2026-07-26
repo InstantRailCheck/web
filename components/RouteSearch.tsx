@@ -59,7 +59,7 @@ const EVIDENCE_STYLES: Record<EvidenceState, string> = {
   reported_delayed: "text-yellow-400",
   reported_unsuccessful: "text-red-400",
   conflicting: "text-orange-400",
-  previously_observed: "text-slate-500",
+  previously_observed: "text-slate-400",
 };
 
 function EvidenceLine({
@@ -227,7 +227,7 @@ export function RouteSearch({
           {loading ? "Checking..." : "Check Route"}
         </button>
 
-        <p className="text-center text-sm text-slate-500 md:col-span-3 md:row-start-3">
+        <p className="text-center text-sm text-slate-400 md:col-span-3 md:row-start-3">
           {bankCount} banks currently available.
         </p>
       </form>
@@ -248,7 +248,7 @@ export function RouteSearch({
             <div className="h-2 w-3/4 animate-pulse rounded bg-slate-800" />
             <div className="h-2 w-1/2 animate-pulse rounded bg-slate-800" />
           </div>
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-slate-400">
             Checking RTP, ACH, FedNow, and wire availability...
           </p>
         </div>
@@ -296,7 +296,7 @@ export function RouteSearch({
             <>
               {instantRails.length > 0 && (
                 <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                  <p className="text-xs uppercase tracking-wider text-slate-400">
                     Primary Rails (Instant Settlement)
                   </p>
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -316,7 +316,7 @@ export function RouteSearch({
 
               {fallbackRails.length > 0 && (
                 <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                  <p className="text-xs uppercase tracking-wider text-slate-400">
                     Fallback Rails
                   </p>
                   <div className="grid grid-cols-2 gap-3 text-sm">

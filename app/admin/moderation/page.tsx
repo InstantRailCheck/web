@@ -45,7 +45,7 @@ function RowDetail({ row }: { row: ModerationRow }) {
       <div className="flex flex-col text-sm text-slate-200">
         <span>
           {row.fromBankName} → {row.toBankName}
-          {row.direction && <span className="text-slate-500"> · {row.direction}</span>}
+          {row.direction && <span className="text-slate-400"> · {row.direction}</span>}
         </span>
         <span className="text-xs text-slate-400">
           {row.railUsed ?? "Unknown rail"} · {row.status}
@@ -53,7 +53,7 @@ function RowDetail({ row }: { row: ModerationRow }) {
           {row.settlementTimeMinutes !== null && ` · ${row.settlementTimeMinutes}min`}
           {row.sameDay !== null && (row.sameDay ? " · same-day" : " · not same-day")}
         </span>
-        {row.notes && <span className="mt-1 text-xs text-slate-500">&ldquo;{row.notes}&rdquo;</span>}
+        {row.notes && <span className="mt-1 text-xs text-slate-400">&ldquo;{row.notes}&rdquo;</span>}
       </div>
     );
   }
@@ -86,7 +86,7 @@ function ModerationRowCard({ row }: { row: ModerationRow }) {
     <div className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900/70 p-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex-1">
         <RowDetail row={row} />
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-slate-400">
           {formatTimestamp(row.createdAt)} ·{" "}
           {row.attributable && row.userId ? (
             <a href={`/admin/moderation/users/${row.userId}`} className="text-blue-400 hover:text-blue-300 transition">
@@ -171,13 +171,13 @@ export default async function AdminModerationPage({
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-slate-500">
+        <p className="mt-4 text-center text-sm text-slate-400">
           {total} result{total !== 1 ? "s" : ""}
         </p>
 
         <div className="mt-4 grid gap-2">
           {rows.length === 0 ? (
-            <p className="text-center text-sm text-slate-500">No submissions match.</p>
+            <p className="text-center text-sm text-slate-400">No submissions match.</p>
           ) : (
             rows.map((row) => <ModerationRowCard key={row.id} row={row} />)
           )}
@@ -192,7 +192,7 @@ export default async function AdminModerationPage({
             ) : (
               <span className="text-slate-700">← Previous</span>
             )}
-            <span className="text-slate-500">
+            <span className="text-slate-400">
               Page {page} of {totalPages}
             </span>
             {page < totalPages ? (

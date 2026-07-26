@@ -117,7 +117,7 @@ export function SubmitEddReport(props: Props) {
         </div>
         {user && (
           <div className="absolute right-0 top-0 text-right">
-            <p className="text-xs text-slate-500">{user.email}</p>
+            <p className="text-xs text-slate-400">{user.email}</p>
             <div className="flex items-center justify-end gap-2 text-xs">
               <Link href="/account" className="text-slate-400 hover:text-white transition">
                 Account
@@ -216,7 +216,7 @@ export function SubmitEddReport(props: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <p className="mt-2 text-center text-xs text-slate-500">
+            <p className="mt-2 text-center text-xs text-slate-400">
               Optional. This may appear on your paystub or payroll portal.
             </p>
           </div>

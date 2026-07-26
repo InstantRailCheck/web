@@ -173,7 +173,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
               {!googleLoading && <GoogleIcon />}
               {googleLoading ? "Redirecting..." : "Continue with Google"}
             </button>
-            <p className="text-center text-xs text-slate-500">
+            <p className="text-center text-xs text-slate-400">
               We only use your Google account to verify your identity — we never access your
               Gmail, Drive, or other Google data.
             </p>
@@ -185,7 +185,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
               {!githubLoading && <GitHubIcon />}
               {githubLoading ? "Redirecting..." : "Continue with GitHub"}
             </button>
-            <p className="text-center text-xs text-slate-500">
+            <p className="text-center text-xs text-slate-400">
               We only use basic GitHub profile details to verify your identity — we never
               request access to your repositories.
             </p>
@@ -197,12 +197,12 @@ export function AuthModal({ open, onOpenChange }: Props) {
               {!passkeyLoading && <KeyRound className="h-[18px] w-[18px]" />}
               {passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey"}
             </button>
-            <p className="text-center text-xs text-slate-500">
+            <p className="text-center text-xs text-slate-400">
               Passkeys can be added once you have an account — sign in with Google, GitHub, or
               email first, then register one from your account page.
             </p>
 
-            <div className="flex items-center gap-3 text-xs text-slate-500">
+            <div className="flex items-center gap-3 text-xs text-slate-400">
               <div className="h-px flex-1 bg-slate-800" />
               or
               <div className="h-px flex-1 bg-slate-800" />

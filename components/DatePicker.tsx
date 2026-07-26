@@ -75,12 +75,12 @@ export function DatePicker({ label, value, onChange, max, centerLabel = false }:
             disabled={maxDate ? { after: maxDate } : undefined}
             classNames={{
               caption_label: "font-medium text-white select-none text-sm",
-              weekday: "flex-1 text-[0.8rem] font-normal text-slate-500 select-none",
+              weekday: "flex-1 text-[0.8rem] font-normal text-slate-400 select-none",
               button_previous: "text-white hover:bg-slate-800 hover:text-white",
               button_next: "text-white hover:bg-slate-800 hover:text-white",
               day: "group/day relative aspect-square h-full w-full rounded-lg p-0 text-center text-white select-none",
               today: "rounded-lg bg-slate-800 text-white",
-              outside: "text-slate-600 aria-selected:text-slate-600",
+              outside: "text-slate-400 aria-selected:text-slate-400",
               disabled: "text-slate-700 opacity-50",
             }}
             className="bg-slate-950 text-white"
