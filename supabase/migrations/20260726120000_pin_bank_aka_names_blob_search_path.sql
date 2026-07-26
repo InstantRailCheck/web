@@ -1,0 +1,12 @@
+-- bank_aka_names_blob (20260712234508_include_aka_names_in_search.sql) never
+-- got the `set search_path = public` pin every other function in this
+-- codebase carries as defense-in-depth against search_path hijacking (a
+-- caller-controlled search_path could shadow an unqualified reference
+-- inside the function body with an object from another schema) — flagged
+-- by Supabase's Security Advisor ("Function Search Path Mutable"). This
+-- function has no unqualified references in its body today, so there's no
+-- live exploit, but the pin costs nothing and matches the standing
+-- convention. Configuration-only change: doesn't touch the function's
+-- signature, volatility, or body, so name_normalized's generated-column
+-- expression is unaffected.
+alter function public.bank_aka_names_blob(text[]) set search_path = public;
