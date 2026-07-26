@@ -41,7 +41,12 @@ export function describeRailEvidence(rail: RailStats): string {
   );
 }
 
-export type RailEvidence = {
+// Named distinctly from lib/routingEngine.ts's own RailEvidence (a
+// different shape entirely: route-level rail evidence for a from/to pair)
+// — the two used to share a bare "RailEvidence" name across separate
+// modules with no import-time collision but a real risk of grabbing the
+// wrong one via auto-import or a stale mental model of which is which.
+export type RailParticipationEvidence = {
   source: string;
   sourceUrl: string | null;
   confirmedAt: string | null;
@@ -240,7 +245,7 @@ export type BankProfile = {
   } | null;
   sending: RailStats[];
   receiving: RailStats[];
-  railEvidence: Record<"fednow" | "rtp" | "zelle", RailEvidence>;
+  railEvidence: Record<"fednow" | "rtp" | "zelle", RailParticipationEvidence>;
   eddEvidence: EddEvidence | null;
 };
 

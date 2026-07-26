@@ -24,6 +24,16 @@ vi.mock("next/cache", () => ({
   updateTag: (...args: unknown[]) => updateTagMock(...args),
 }));
 
+// moderateDelete.ts now imports MODERATION_TARGET_TABLES from
+// @/lib/moderation (a single source of truth shared with the admin queue,
+// instead of a second independently-declared copy) — mocked at that
+// boundary rather than letting the real module load, which would drag in
+// its own real @/lib/needsFreshReports dependency (unstable_cache et al.)
+// for no benefit to this file's tests.
+vi.mock("@/lib/moderation", () => ({
+  MODERATION_TARGET_TABLES: ["route_reports", "edd_reports", "route_requests"],
+}));
+
 const logErrorMock = vi.fn();
 vi.mock("@/lib/logger", () => ({
   logError: (...args: unknown[]) => logErrorMock(...args),

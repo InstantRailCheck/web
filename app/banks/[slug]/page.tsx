@@ -8,7 +8,7 @@ import {
   getBankSlugById,
   describeRailEvidence,
   describeEddProviderEvidence,
-  type RailEvidence,
+  type RailParticipationEvidence,
   type EddEvidence,
 } from "@/lib/bankProfile";
 import { formatPhone, telHref, websiteHref } from "@/lib/utils";
@@ -99,7 +99,7 @@ function RailEvidenceCard({
   border: string;
   bg: string;
   text: string;
-  evidence: RailEvidence;
+  evidence: RailParticipationEvidence;
   footnote?: string;
 }) {
   return (

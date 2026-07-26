@@ -6,9 +6,14 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isActionRateLimited } from "@/lib/rateLimit";
 import { logError } from "@/lib/logger";
-
-export const MODERATION_TARGET_TABLES = ["route_reports", "edd_reports", "route_requests"] as const;
-export type ModerationTargetTable = (typeof MODERATION_TARGET_TABLES)[number];
+// Previously redeclared here with an identical value list to
+// lib/moderation.ts's own MODERATION_TARGET_TABLES/ModerationTargetTable —
+// same three tables, two independent definitions that could silently drift
+// if the DB's target_table CHECK constraint ever gained a fourth. Imported
+// (for use below) and re-exported (so nothing importing from this module
+// has to change) from that single source instead.
+import { MODERATION_TARGET_TABLES, type ModerationTargetTable } from "@/lib/moderation";
+export { MODERATION_TARGET_TABLES, type ModerationTargetTable };
 
 export const MODERATION_REASON_CATEGORIES = ["spam", "fabricated", "duplicate", "privacy", "other"] as const;
 export type ModerationReasonCategory = (typeof MODERATION_REASON_CATEGORIES)[number];
