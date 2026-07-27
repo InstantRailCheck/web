@@ -273,7 +273,6 @@ export function AuthModal({ open, onOpenChange }: Props) {
                 // this is just basic input hygiene, not a security boundary.
                 maxLength={254}
                 className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white placeholder-slate-500 outline-none focus:border-blue-500"
-                autoFocus
               />
             </div>
             {error && <p role="alert" className="text-sm text-red-400">{error}</p>}

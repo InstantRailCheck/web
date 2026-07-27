@@ -116,9 +116,9 @@ export function SubmitEddReport(props: Props) {
           </p>
         </div>
         {user && (
-          <div className="absolute right-0 top-0 text-right">
+          <div className="mb-3 text-center sm:absolute sm:right-0 sm:top-0 sm:mb-0 sm:text-right">
             <p className="text-xs text-slate-400">{user.email}</p>
-            <div className="flex items-center justify-end gap-2 text-xs">
+            <div className="flex items-center justify-center gap-2 text-xs sm:justify-end">
               <Link href="/account" className="text-slate-400 hover:text-white transition">
                 Account
               </Link>
