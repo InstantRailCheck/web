@@ -104,6 +104,7 @@ describe("AuthModal Microsoft sign-in", () => {
       options: {
         redirectTo:
           `${window.location.origin}/auth/callback?next=` + encodeURIComponent("/contribute#search"),
+        scopes: "email profile",
       },
     });
   });

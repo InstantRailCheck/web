@@ -108,7 +108,13 @@ export function AuthModal({ open, onOpenChange }: Props) {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "azure",
-      options: { redirectTo: oauthRedirectTo(window.location) },
+      // Unlike Google/GitHub, Azure doesn't return email/profile claims by
+      // default — Supabase's own docs require explicitly requesting these
+      // scopes (see supabase.com/docs/guides/auth/social-login/auth-azure).
+      // The Azure app registration also needs "email" added as an optional
+      // ID token claim in its manifest, or the scope alone still won't
+      // produce one.
+      options: { redirectTo: oauthRedirectTo(window.location), scopes: "email profile" },
     });
     if (error) {
       setMicrosoftLoading(false);
