@@ -90,3 +90,21 @@ describe("AuthModal Google sign-in", () => {
     });
   });
 });
+
+describe("AuthModal Microsoft sign-in", () => {
+  it("passes the current page's path+hash as redirectTo's ?next=, so the callback route can return the user to it", async () => {
+    window.history.pushState({}, "", "/contribute#search");
+    const user = userEvent.setup();
+
+    render(<AuthModal open onOpenChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /Continue with Microsoft/i }));
+
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: "azure",
+      options: {
+        redirectTo:
+          `${window.location.origin}/auth/callback?next=` + encodeURIComponent("/contribute#search"),
+      },
+    });
+  });
+});

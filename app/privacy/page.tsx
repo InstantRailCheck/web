@@ -41,8 +41,8 @@ export default function PrivacyPage() {
               </p>
               <p className="mt-2">
                 Supabase processes authentication and database information, Vercel provides
-                hosting and analytics, and Google or GitHub processes information if you choose
-                the corresponding sign-in option.
+                hosting and analytics, and Google, GitHub, or Microsoft processes information if
+                you choose the corresponding sign-in option.
               </p>
               <p className="mt-2">
                 We do not sell personal information, run advertising, or track you across other

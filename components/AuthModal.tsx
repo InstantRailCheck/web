@@ -39,6 +39,17 @@ function GitHubIcon() {
   );
 }
 
+function MicrosoftIcon() {
+  return (
+    <svg viewBox="0 0 23 23" width="18" height="18" aria-hidden="true">
+      <path fill="#f25022" d="M1 1h10v10H1z" />
+      <path fill="#00a4ef" d="M1 12h10v10H1z" />
+      <path fill="#7fba00" d="M12 1h10v10H12z" />
+      <path fill="#ffb900" d="M12 12h10v10H12z" />
+    </svg>
+  );
+}
+
 // Carries the page the user opened this modal from through the OAuth round
 // trip, so e.g. signing in from /contribute lands back on /contribute (and
 // signing in from the homepage's #search anchor lands back on #search)
@@ -58,6 +69,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
+  const [microsoftLoading, setMicrosoftLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleGoogleSignIn() {
@@ -88,6 +100,21 @@ export function AuthModal({ open, onOpenChange }: Props) {
       setError(error.message);
     }
     // On success the browser navigates to GitHub — no further state to set.
+  }
+
+  async function handleMicrosoftSignIn() {
+    setMicrosoftLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "azure",
+      options: { redirectTo: oauthRedirectTo(window.location) },
+    });
+    if (error) {
+      setMicrosoftLoading(false);
+      setError(error.message);
+    }
+    // On success the browser navigates to Microsoft — no further state to set.
   }
 
   async function handlePasskeySignIn() {
@@ -190,6 +217,18 @@ export function AuthModal({ open, onOpenChange }: Props) {
               request access to your repositories.
             </p>
             <button
+              onClick={handleMicrosoftSignIn}
+              disabled={microsoftLoading}
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+            >
+              {!microsoftLoading && <MicrosoftIcon />}
+              {microsoftLoading ? "Redirecting..." : "Continue with Microsoft"}
+            </button>
+            <p className="text-center text-xs text-slate-400">
+              We only use your Microsoft account to verify your identity — we never access your
+              Outlook, OneDrive, or other Microsoft data.
+            </p>
+            <button
               onClick={handlePasskeySignIn}
               disabled={passkeyLoading}
               className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
@@ -198,8 +237,8 @@ export function AuthModal({ open, onOpenChange }: Props) {
               {passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey"}
             </button>
             <p className="text-center text-xs text-slate-400">
-              Passkeys can be added once you have an account — sign in with Google, GitHub, or
-              email first, then register one from your account page.
+              Passkeys can be added once you have an account — sign in with Google, GitHub,
+              Microsoft, or email first, then register one from your account page.
             </p>
 
             <div className="flex items-center gap-3 text-xs text-slate-400">
