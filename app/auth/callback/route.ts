@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { SITE_URL } from "@/lib/siteConfig";
+import { logError } from "@/lib/logger";
 
 // Only ever redirect back into this site after auth. Resolving against a
 // fixed trusted origin (not request.url's own Host) and checking the
@@ -43,6 +44,21 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       return NextResponse.redirect(new URL(next, base));
+    }
+    logError("OAuth code exchange failed in /auth/callback", { error: error.message });
+  } else {
+    // No code means the provider (or Supabase's own GoTrue) redirected here
+    // with its own error instead — e.g. a misconfigured provider secret or
+    // redirect URI. Logging these query params is the only way to see why,
+    // since the user-facing redirect below collapses every failure mode
+    // into the same generic banner.
+    const providerError = request.nextUrl.searchParams.get("error");
+    const providerErrorDescription = request.nextUrl.searchParams.get("error_description");
+    if (providerError) {
+      logError("OAuth provider returned an error in /auth/callback", {
+        error: providerError,
+        description: providerErrorDescription,
+      });
     }
   }
 

@@ -1,6 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { sanitizeRedirectPath, trustedRedirectBase } from "./route";
+
+const exchangeCodeForSessionMock = vi.fn();
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: () => Promise.resolve({ auth: { exchangeCodeForSession: exchangeCodeForSessionMock } }),
+}));
+
+const logErrorMock = vi.fn();
+vi.mock("@/lib/logger", () => ({
+  logError: (...args: unknown[]) => logErrorMock(...args),
+}));
+
+const { GET } = await import("./route");
 
 describe("sanitizeRedirectPath", () => {
   it("defaults to / when next is missing", () => {
@@ -77,5 +89,59 @@ describe("trustedRedirectBase", () => {
   it("falls back to the fixed trusted origin for an arbitrary/spoofed Host", () => {
     const request = new NextRequest("https://attacker.example/auth/callback");
     expect(trustedRedirectBase(request)).toBe("https://www.instantrailcheck.com");
+  });
+});
+
+describe("GET /auth/callback", () => {
+  beforeEach(() => {
+    exchangeCodeForSessionMock.mockReset();
+    logErrorMock.mockReset();
+  });
+
+  it("redirects to next on a successful code exchange", async () => {
+    exchangeCodeForSessionMock.mockResolvedValue({ error: null });
+    const request = new NextRequest("https://www.instantrailcheck.com/auth/callback?code=abc123&next=%2Fcontribute");
+
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe("https://www.instantrailcheck.com/contribute");
+    expect(logErrorMock).not.toHaveBeenCalled();
+  });
+
+  it("logs the real error and redirects to the generic auth_error banner when the code exchange fails", async () => {
+    exchangeCodeForSessionMock.mockResolvedValue({ error: { message: "invalid_grant: code already used" } });
+    const request = new NextRequest("https://www.instantrailcheck.com/auth/callback?code=abc123");
+
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe("https://www.instantrailcheck.com/?auth_error=1");
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "OAuth code exchange failed in /auth/callback",
+      { error: "invalid_grant: code already used" }
+    );
+  });
+
+  it("logs the provider's own error/error_description when no code is present at all (e.g. a misconfigured provider secret or redirect URI)", async () => {
+    const request = new NextRequest(
+      "https://www.instantrailcheck.com/auth/callback?error=server_error&error_description=Unable+to+exchange+external+code"
+    );
+
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe("https://www.instantrailcheck.com/?auth_error=1");
+    expect(exchangeCodeForSessionMock).not.toHaveBeenCalled();
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "OAuth provider returned an error in /auth/callback",
+      { error: "server_error", description: "Unable to exchange external code" }
+    );
+  });
+
+  it("redirects to the generic auth_error banner without logging when there's simply no code and no provider error (e.g. a direct/bare hit on the route)", async () => {
+    const request = new NextRequest("https://www.instantrailcheck.com/auth/callback");
+
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe("https://www.instantrailcheck.com/?auth_error=1");
+    expect(logErrorMock).not.toHaveBeenCalled();
   });
 });
