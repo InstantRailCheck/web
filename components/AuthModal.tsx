@@ -249,7 +249,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
             <p className="text-sm text-slate-400">
               Enter your email and we&apos;ll send you a sign-in link. No password needed.
             </p>
-            <div className="text-left">
+            <div className="text-center">
               <label htmlFor="signin-email" className="mb-1 block text-sm font-medium text-slate-300">
                 Email address
               </label>
@@ -265,7 +265,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
                 // which has its own request validation and OTP rate limiting;
                 // this is just basic input hygiene, not a security boundary.
                 maxLength={254}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white placeholder-slate-500 outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-center text-white placeholder-slate-500 outline-none focus:border-blue-500"
               />
             </div>
             {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
