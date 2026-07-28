@@ -28,3 +28,15 @@ export function buildBankBreadcrumbJsonLd(bank: { name: string; slug: string }) 
     { name: bank.name, href: `/banks/${bank.slug}` },
   ]);
 }
+
+export function buildFaqJsonLd(items: { question: string; answer: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer },
+    })),
+  };
+}
