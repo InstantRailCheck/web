@@ -302,7 +302,7 @@ describe("describeBankEddEvidence", () => {
 });
 
 describe("buildBankFaq", () => {
-  const EVIDENCE_NO_CONFIRMATIONS = { source: "Federal Reserve's FedNow participant list", sourceUrl: null, confirmedAt: null, communityConfirmations: 0 };
+  const EVIDENCE_NO_CONFIRMATIONS = { source: "Federal Reserve's FedNow participant list", sourceUrl: null, confirmedAt: null, communityConfirmations: 0, observedTransferCount: 0 };
 
   function faqInput(overrides: Partial<Parameters<typeof buildBankFaq>[0]> = {}) {
     return {
@@ -361,15 +361,38 @@ describe("buildBankFaq", () => {
     );
   });
 
-  it("surfaces community evidence even when the rail isn't officially confirmed", () => {
+  it("surfaces community evidence even when the rail isn't officially confirmed, when at least one report actually completed", () => {
     const items = buildBankFaq(faqInput({
       railEvidence: {
         ...faqInput().railEvidence,
-        fednow: { ...EVIDENCE_NO_CONFIRMATIONS, communityConfirmations: 2 },
+        fednow: { ...EVIDENCE_NO_CONFIRMATIONS, communityConfirmations: 2, observedTransferCount: 2 },
       },
     }));
     const fednow = items.find((i) => i.question === "Does Chase support FedNow?")!;
     expect(fednow.answer).toContain("though 2 community reports have observed a transfer over this rail");
+  });
+
+  it("does not claim an observed transfer when every attributable report failed — only report activity, not a success", () => {
+    const items = buildBankFaq(faqInput({
+      railEvidence: {
+        ...faqInput().railEvidence,
+        fednow: { ...EVIDENCE_NO_CONFIRMATIONS, communityConfirmations: 2, observedTransferCount: 0 },
+      },
+    }));
+    const fednow = items.find((i) => i.question === "Does Chase support FedNow?")!;
+    expect(fednow.answer).toContain("though 2 community reports have attempted a transfer over this rail without a confirmed success");
+    expect(fednow.answer).not.toContain("observed a transfer");
+  });
+
+  it("counts a delayed report as an observed transfer, since it still arrived", () => {
+    const items = buildBankFaq(faqInput({
+      railEvidence: {
+        ...faqInput().railEvidence,
+        fednow: { ...EVIDENCE_NO_CONFIRMATIONS, communityConfirmations: 1, observedTransferCount: 1 },
+      },
+    }));
+    const fednow = items.find((i) => i.question === "Does Chase support FedNow?")!;
+    expect(fednow.answer).toContain("though 1 community report has observed a transfer over this rail");
   });
 
   it("includes the Zelle incompleteness caveat on both confirmed and unconfirmed answers", () => {

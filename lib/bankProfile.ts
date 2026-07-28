@@ -100,7 +100,16 @@ export type RailParticipationEvidence = {
   source: string;
   sourceUrl: string | null;
   confirmedAt: string | null;
+  // Every attributable report referencing this rail, regardless of
+  // outcome — a neutral "how much report activity exists" count, not a
+  // claim that any of it succeeded.
   communityConfirmations: number;
+  // The subset that actually completed (successful or delayed — a delayed
+  // transfer still arrived, just later than expected). Only this count
+  // supports language like "observed a transfer over this rail": a failed
+  // attempt doesn't confirm a transfer ever went through, and could just as
+  // easily mean the rail isn't supported.
+  observedTransferCount: number;
 };
 
 export type EddProviderEvidence = {
@@ -333,10 +342,20 @@ export function buildBankFaq(input: {
           : "";
       answer = `Yes. ${input.bankName} appears in ${evidence.source}${confirmedAtClause}.${confirmationsClause}`;
     } else {
-      const communityClause =
-        confirmations > 0
-          ? `, though ${confirmations} community report${confirmations !== 1 ? "s" : ""} ${confirmations === 1 ? "has" : "have"} observed a transfer over this rail`
-          : ", and no community reports have confirmed this rail for this bank yet";
+      const observed = evidence.observedTransferCount;
+      let communityClause: string;
+      if (observed > 0) {
+        // Only successful/delayed reports back this claim — a failed
+        // attempt doesn't confirm a transfer ever went through.
+        communityClause = `, though ${observed} community report${observed !== 1 ? "s" : ""} ${observed === 1 ? "has" : "have"} observed a transfer over this rail`;
+      } else if (confirmations > 0) {
+        // Report activity exists (failed attempts), but none of it
+        // confirms the rail actually works for this bank — worth
+        // surfacing without overclaiming an "observed" transfer.
+        communityClause = `, though ${confirmations} community report${confirmations !== 1 ? "s" : ""} ${confirmations === 1 ? "has" : "have"} attempted a transfer over this rail without a confirmed success`;
+      } else {
+        communityClause = ", and no community reports have confirmed this rail for this bank yet";
+      }
       answer = `This hasn't been confirmed. ${input.bankName} does not currently appear in ${evidence.source}${communityClause}.`;
     }
 
@@ -460,9 +479,9 @@ export async function getBankProfileById(id: string): Promise<BankProfile> {
 }
 
 const EMPTY_RAIL_EVIDENCE: BankProfile["railEvidence"] = {
-  fednow: { source: RAIL_SOURCES.fednow.label, sourceUrl: RAIL_SOURCES.fednow.url, confirmedAt: null, communityConfirmations: 0 },
-  rtp: { source: RAIL_SOURCES.rtp.label, sourceUrl: RAIL_SOURCES.rtp.url, confirmedAt: null, communityConfirmations: 0 },
-  zelle: { source: RAIL_SOURCES.zelle.label, sourceUrl: RAIL_SOURCES.zelle.url, confirmedAt: null, communityConfirmations: 0 },
+  fednow: { source: RAIL_SOURCES.fednow.label, sourceUrl: RAIL_SOURCES.fednow.url, confirmedAt: null, communityConfirmations: 0, observedTransferCount: 0 },
+  rtp: { source: RAIL_SOURCES.rtp.label, sourceUrl: RAIL_SOURCES.rtp.url, confirmedAt: null, communityConfirmations: 0, observedTransferCount: 0 },
+  zelle: { source: RAIL_SOURCES.zelle.label, sourceUrl: RAIL_SOURCES.zelle.url, confirmedAt: null, communityConfirmations: 0, observedTransferCount: 0 },
 };
 
 async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
@@ -533,14 +552,20 @@ async function buildProfile(bank: BankProfile["bank"]): Promise<BankProfile> {
     // confirmation — could be the original backfill or a later re-check.
     const confirmedAt = history?.find((h) => h.rail === rail)?.changed_at ?? null;
     const displayName = RAIL_DISPLAY_NAMES[rail];
-    const communityConfirmations =
-      (sending.find((s) => s.rail === displayName)?.attributableCount ?? 0) +
-      (receiving.find((r) => r.rail === displayName)?.attributableCount ?? 0);
+    const sendingStats = sending.find((s) => s.rail === displayName);
+    const receivingStats = receiving.find((r) => r.rail === displayName);
+    const communityConfirmations = (sendingStats?.attributableCount ?? 0) + (receivingStats?.attributableCount ?? 0);
+    const observedTransferCount =
+      (sendingStats?.successfulCount ?? 0) +
+      (sendingStats?.delayedCount ?? 0) +
+      (receivingStats?.successfulCount ?? 0) +
+      (receivingStats?.delayedCount ?? 0);
     railEvidence[rail] = {
       source: RAIL_SOURCES[rail].label,
       sourceUrl: RAIL_SOURCES[rail].url,
       confirmedAt,
       communityConfirmations,
+      observedTransferCount,
     };
   }
 

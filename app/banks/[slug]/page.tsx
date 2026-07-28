@@ -281,6 +281,13 @@ export default async function BankProfilePage({
 
   const provenance = resolveProvenance(profile.bank);
   const contactSourceLabel = contactInfoSourceLabel(provenance);
+  const syncFreshnessClause = profile.bank.source_last_synced_at
+    ? ` Directory data last synced ${new Date(profile.bank.source_last_synced_at).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}.`
+    : "";
 
   // Inactive banks stay viewable with a banner, never 404 — an existing
   // shared link or indexed page shouldn't break just because the
@@ -412,22 +419,27 @@ export default async function BankProfilePage({
               <PhoneText phone={profile.bank.phone} />
             </p>
           )}
-          {(profile.bank.website || profile.bank.address || profile.bank.phone) && contactSourceLabel && (
+          {(profile.bank.website || profile.bank.address || profile.bank.phone) && contactSourceLabel ? (
             <p className="mt-1 text-xs text-slate-400">
-              Contact info sourced from {contactSourceLabel}.
-              {profile.bank.source_last_synced_at &&
-                ` Directory data last synced ${new Date(profile.bank.source_last_synced_at).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}.`}{" "}
+              Contact info sourced from {contactSourceLabel}.{syncFreshnessClause}{" "}
               See{" "}
               <Link href="/methodology" className="text-slate-400 hover:text-slate-400 underline transition">
                 methodology
               </Link>
               .
             </p>
-          )}
+          ) : profile.bank.source_last_synced_at ? (
+            // No contact fields to attribute a source to, but the sync
+            // freshness signal is still real and shouldn't disappear just
+            // because this bank has no website/address/phone on file.
+            <p className="mt-1 text-xs text-slate-400">
+              {syncFreshnessClause.trim()} See{" "}
+              <Link href="/methodology" className="text-slate-400 hover:text-slate-400 underline transition">
+                methodology
+              </Link>
+              .
+            </p>
+          ) : null}
         </div>
 
         {(profile.bank.fednow_participant || profile.bank.rtp_participant || profile.bank.zelle_participant) && (
