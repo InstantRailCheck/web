@@ -27,6 +27,24 @@ updates:
         dependency-type: "development"
         update-types:
           - "patch"
+      # react and react-dom are versioned in lockstep by the React team —
+      # every release bumps both to the exact same version number
+      # simultaneously. Without grouping, Dependabot opens a PR bumping
+      # react-dom alone, which can never install: react-dom's peer
+      # dependency requires the identical react version, and react stays
+      # behind at its old pin. This is exactly what happened repeatedly
+      # before this group existed (react-dom 19.2.7 -> 19.2.8 alone,
+      # npm ci failing with ERESOLVE on every retry). Unlike
+      # dev-dependencies above, this isn't restricted to patch releases —
+      # since both packages' version numbers are always textually
+      # identical, fetch-metadata's previous-version/update-type outputs
+      # for "the first dependency in the group" are accurate for the whole
+      # group here regardless of bump size, so dependabot-automerge.yml's
+      # patch/minor-only guard still works correctly.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
     ignore:
       # @types/node is intentionally capped to the ^24 range to match the
       # Node 24.x runtime this project targets (package.json's engines
