@@ -39,6 +39,10 @@ const {
   EDD_MIN_REPORTERS,
   EDD_PROVIDER_MIN_REPORTERS,
   EDD_DAYS_SENTINEL,
+  buildBankLede,
+  describeEmptyRailSection,
+  describeBankEddEvidence,
+  buildBankFaq,
 } = await import("./bankProfile");
 
 beforeEach(() => {
@@ -224,6 +228,172 @@ describe("describeEddProviderEvidence", () => {
   it("describes a null average categorically, never as a fabricated number", () => {
     const text = describeEddProviderEvidence({ provider: "adp", providerLabel: "ADP", avgDaysEarly: null, reportCount: 4 });
     expect(text).toBe("ADP payroll deposits were reported as more than 5 days early by 4 distinct reporters.");
+  });
+});
+
+describe("buildBankLede", () => {
+  it("names all three rails in one sentence when all are confirmed", () => {
+    const text = buildBankLede({ name: "Chase", fednow_participant: true, rtp_participant: true, zelle_participant: true });
+    expect(text).toBe("Chase supports FedNow, RTP, and Zelle.");
+  });
+
+  it("says participation has not been confirmed for any rail when none are confirmed", () => {
+    const text = buildBankLede({ name: "Chase", fednow_participant: null, rtp_participant: false, zelle_participant: null });
+    expect(text).toBe("Chase's FedNow, RTP, and Zelle participation has not been confirmed.");
+  });
+
+  it("splits confirmed and unconfirmed rails into two sentences for a mixed bank", () => {
+    const text = buildBankLede({ name: "Chase", fednow_participant: true, rtp_participant: false, zelle_participant: true });
+    expect(text).toBe("Chase supports FedNow and Zelle. RTP participation has not been confirmed.");
+  });
+
+  it("treats false and null identically as unconfirmed", () => {
+    const withFalse = buildBankLede({ name: "Chase", fednow_participant: true, rtp_participant: false, zelle_participant: false });
+    const withNull = buildBankLede({ name: "Chase", fednow_participant: true, rtp_participant: null, zelle_participant: null });
+    expect(withFalse).toBe(withNull);
+  });
+
+  it("uses correct grammar for a single confirmed rail", () => {
+    const text = buildBankLede({ name: "Chase", fednow_participant: true, rtp_participant: false, zelle_participant: false });
+    expect(text).toBe("Chase supports FedNow. RTP and Zelle participation has not been confirmed.");
+  });
+});
+
+describe("describeEmptyRailSection", () => {
+  it("describes the sending direction", () => {
+    expect(describeEmptyRailSection("sending", "Chase")).toBe(
+      "No sending reports yet for Chase. Once community members report a transfer from this bank, " +
+        "this section will show which rail was used, how many reports were successful, delayed, or " +
+        "unsuccessful, and the average settlement time."
+    );
+  });
+
+  it("describes the receiving direction", () => {
+    expect(describeEmptyRailSection("receiving", "Chase")).toBe(
+      "No receiving reports yet for Chase. Once community members report a transfer into this bank, " +
+        "this section will show which rail was used, how many reports were successful, delayed, or " +
+        "unsuccessful, and the average settlement time."
+    );
+  });
+});
+
+describe("describeBankEddEvidence", () => {
+  it("describes an exact average", () => {
+    const text = describeBankEddEvidence({ avgDaysEarly: 2, reportCount: 3, hasMoreThanFive: false, providers: [] }, "Chase");
+    expect(text).toBe("Chase releases direct deposits an average of 2 days early, based on 3 community reports.");
+  });
+
+  it("flags when the average understates reality because some reports used the sentinel", () => {
+    const text = describeBankEddEvidence({ avgDaysEarly: 2, reportCount: 3, hasMoreThanFive: true, providers: [] }, "Chase");
+    expect(text).toBe(
+      "Chase releases direct deposits an average of 2+ days early, based on 3 community reports (some reported more than 5 days)."
+    );
+  });
+
+  it("describes a null average categorically, never as a fabricated number", () => {
+    const text = describeBankEddEvidence({ avgDaysEarly: null, reportCount: 4, hasMoreThanFive: true, providers: [] }, "Chase");
+    expect(text).toBe("Chase releases direct deposits more than 5 days early, based on 4 community reports.");
+  });
+
+  it("uses singular grammar for exactly one report/day", () => {
+    const text = describeBankEddEvidence({ avgDaysEarly: 1, reportCount: 1, hasMoreThanFive: false, providers: [] }, "Chase");
+    expect(text).toBe("Chase releases direct deposits an average of 1 day early, based on 1 community report.");
+  });
+});
+
+describe("buildBankFaq", () => {
+  const EVIDENCE_NO_CONFIRMATIONS = { source: "Federal Reserve's FedNow participant list", sourceUrl: null, confirmedAt: null, communityConfirmations: 0 };
+
+  function faqInput(overrides: Partial<Parameters<typeof buildBankFaq>[0]> = {}) {
+    return {
+      bankName: "Chase",
+      fednow_participant: null,
+      rtp_participant: null,
+      zelle_participant: null,
+      railEvidence: {
+        fednow: { ...EVIDENCE_NO_CONFIRMATIONS },
+        rtp: { ...EVIDENCE_NO_CONFIRMATIONS, source: "The Clearing House's RTP participant list" },
+        zelle: { ...EVIDENCE_NO_CONFIRMATIONS, source: "Zelle's partner directory" },
+      },
+      eddEvidence: null,
+      ...overrides,
+    };
+  }
+
+  it("always returns exactly 4 items", () => {
+    expect(buildBankFaq(faqInput())).toHaveLength(4);
+  });
+
+  it("answers yes with the source when a rail is confirmed", () => {
+    const items = buildBankFaq(faqInput({
+      fednow_participant: true,
+      railEvidence: {
+        ...faqInput().railEvidence,
+        fednow: { ...EVIDENCE_NO_CONFIRMATIONS },
+      },
+    }));
+    const fednow = items.find((i) => i.question === "Does Chase support FedNow?")!;
+    expect(fednow.answer).toBe("Yes. Chase appears in Federal Reserve's FedNow participant list.");
+  });
+
+  it("includes a confirmation date when known", () => {
+    const items = buildBankFaq(faqInput({
+      fednow_participant: true,
+      railEvidence: {
+        ...faqInput().railEvidence,
+        fednow: { ...EVIDENCE_NO_CONFIRMATIONS, confirmedAt: "2026-07-09" },
+      },
+    }));
+    const fednow = items.find((i) => i.question === "Does Chase support FedNow?")!;
+    // Matches an existing timezone quirk (RailEvidenceCard's identical
+    // toLocaleDateString call has the same behavior): the local machine's
+    // timezone, not UTC, governs the displayed calendar date. Not the
+    // subject of this test — just asserting a real date renders at all.
+    expect(fednow.answer).toMatch(/, confirmed \w+ \d{1,2}, 2026\./);
+  });
+
+  it("says the rail hasn't been confirmed and no community reports exist when there's no evidence at all", () => {
+    const items = buildBankFaq(faqInput());
+    const fednow = items.find((i) => i.question === "Does Chase support FedNow?")!;
+    expect(fednow.answer).toBe(
+      "This hasn't been confirmed. Chase does not currently appear in Federal Reserve's FedNow participant list, " +
+        "and no community reports have confirmed this rail for this bank yet."
+    );
+  });
+
+  it("surfaces community evidence even when the rail isn't officially confirmed", () => {
+    const items = buildBankFaq(faqInput({
+      railEvidence: {
+        ...faqInput().railEvidence,
+        fednow: { ...EVIDENCE_NO_CONFIRMATIONS, communityConfirmations: 2 },
+      },
+    }));
+    const fednow = items.find((i) => i.question === "Does Chase support FedNow?")!;
+    expect(fednow.answer).toContain("though 2 community reports have observed a transfer over this rail");
+  });
+
+  it("includes the Zelle incompleteness caveat on both confirmed and unconfirmed answers", () => {
+    const unconfirmed = buildBankFaq(faqInput());
+    const confirmed = buildBankFaq(faqInput({
+      zelle_participant: true,
+      railEvidence: { ...faqInput().railEvidence, zelle: { ...EVIDENCE_NO_CONFIRMATIONS, source: "Zelle's partner directory" } },
+    }));
+    const zelleUnconfirmed = unconfirmed.find((i) => i.question === "Does Chase support Zelle?")!;
+    const zelleConfirmed = confirmed.find((i) => i.question === "Does Chase support Zelle?")!;
+    expect(zelleUnconfirmed.answer).toContain("Zelle's own directory is known to be incomplete");
+    expect(zelleConfirmed.answer).toContain("Zelle's own directory is known to be incomplete");
+  });
+
+  it("answers the EDD question with real evidence when present", () => {
+    const items = buildBankFaq(faqInput({ eddEvidence: { avgDaysEarly: 2, reportCount: 3, hasMoreThanFive: false, providers: [] } }));
+    const edd = items.find((i) => i.question === "Does Chase have early direct deposit (EDD) evidence?")!;
+    expect(edd.answer).toBe("Chase releases direct deposits an average of 2 days early, based on 3 community reports.");
+  });
+
+  it("answers the EDD question honestly when there's no evidence yet", () => {
+    const items = buildBankFaq(faqInput());
+    const edd = items.find((i) => i.question === "Does Chase have early direct deposit (EDD) evidence?")!;
+    expect(edd.answer).toBe("No early direct deposit evidence has been reported for Chase yet.");
   });
 });
 

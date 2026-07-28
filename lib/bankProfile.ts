@@ -41,6 +41,56 @@ export function describeRailEvidence(rail: RailStats): string {
   );
 }
 
+// Oxford-comma join — "FedNow", "FedNow and RTP", "FedNow, RTP, and Zelle".
+function joinWithAnd(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+// First-screen evidence statement for a bank profile page, built strictly
+// from the three participation booleans — never freeform synthesis. false
+// and null are treated identically ("not confirmed"), matching the existing
+// convention elsewhere on this page: the rail badges themselves only render
+// when a flag is exactly true, collapsing the same distinction.
+export function buildBankLede(bank: {
+  name: string;
+  fednow_participant: boolean | null;
+  rtp_participant: boolean | null;
+  zelle_participant: boolean | null;
+}): string {
+  const rails: [string, boolean | null][] = [
+    ["FedNow", bank.fednow_participant],
+    ["RTP", bank.rtp_participant],
+    ["Zelle", bank.zelle_participant],
+  ];
+  const confirmed = rails.filter(([, v]) => v === true).map(([label]) => label);
+  const unconfirmed = rails.filter(([, v]) => v !== true).map(([label]) => label);
+
+  if (unconfirmed.length === 0) {
+    return `${bank.name} supports ${joinWithAnd(confirmed)}.`;
+  }
+  if (confirmed.length === 0) {
+    return `${bank.name}'s ${joinWithAnd(unconfirmed)} participation has not been confirmed.`;
+  }
+  return (
+    `${bank.name} supports ${joinWithAnd(confirmed)}. ` +
+    `${joinWithAnd(unconfirmed)} participation has not been confirmed.`
+  );
+}
+
+// Replaces a bare "No reports yet." — explains what this section will show
+// once real reports exist, without naming a specific rail or claiming
+// anything about this bank (no invented example rails).
+export function describeEmptyRailSection(direction: "sending" | "receiving", bankName: string): string {
+  const preposition = direction === "sending" ? "from" : "into";
+  return (
+    `No ${direction} reports yet for ${bankName}. Once community members report a transfer ${preposition} ` +
+    `this bank, this section will show which rail was used, how many reports were successful, delayed, or ` +
+    `unsuccessful, and the average settlement time.`
+  );
+}
+
 // Named distinctly from lib/routingEngine.ts's own RailEvidence (a
 // different shape entirely: route-level rail evidence for a from/to pair)
 // — the two used to share a bare "RailEvidence" name across separate
@@ -215,6 +265,96 @@ export function describeEddProviderEvidence(entry: EddProviderEvidence): string 
     `${entry.providerLabel} payroll deposits were reported ${entry.avgDaysEarly} ` +
     `day${entry.avgDaysEarly !== 1 ? "s" : ""} early ${reporterPhrase}`
   );
+}
+
+// Plain-text sibling of EddCard's own JSX rendering (app/banks/[slug]/page.tsx)
+// — same three fields, same voice — for contexts that can't contain markup
+// (FAQ answers, JSON-LD). Deliberately not a refactor of EddCard itself, to
+// avoid risking a visible regression in its existing bold-formatted output.
+export function describeBankEddEvidence(evidence: EddEvidence, bankName: string): string {
+  const reportsPhrase = `${evidence.reportCount} community report${evidence.reportCount !== 1 ? "s" : ""}`;
+  if (evidence.avgDaysEarly === null) {
+    return `${bankName} releases direct deposits more than 5 days early, based on ${reportsPhrase}.`;
+  }
+  const moreThanFiveNote = evidence.hasMoreThanFive ? " (some reported more than 5 days)" : "";
+  return (
+    `${bankName} releases direct deposits an average of ${evidence.avgDaysEarly}${evidence.hasMoreThanFive ? "+" : ""} ` +
+    `day${evidence.avgDaysEarly !== 1 ? "s" : ""} early, based on ${reportsPhrase}${moreThanFiveNote}.`
+  );
+}
+
+export type BankFaqItem = { question: string; answer: string };
+
+const FAQ_RAILS: {
+  key: "fednow" | "rtp" | "zelle";
+  label: string;
+  participantKey: "fednow_participant" | "rtp_participant" | "zelle_participant";
+}[] = [
+  { key: "fednow", label: "FedNow", participantKey: "fednow_participant" },
+  { key: "rtp", label: "RTP", participantKey: "rtp_participant" },
+  { key: "zelle", label: "Zelle", participantKey: "zelle_participant" },
+];
+
+// Matches app/rails/page.tsx's existing wording verbatim (the same caveat
+// exists in a slightly different form on this same page's Zelle badge —
+// pre-existing drift this task doesn't attempt to consolidate).
+const ZELLE_INCOMPLETE_CAVEAT =
+  "Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks support, only that it isn't listed there.";
+
+// Always exactly 4 items (3 rails + EDD) — every bank has some real, sourced
+// answer to each, even "not confirmed," so this reliably adds substantive
+// unique content to every bank profile page. Every answer is templated
+// strictly off real fields (railEvidence, eddEvidence) — no freeform prose.
+export function buildBankFaq(input: {
+  bankName: string;
+  fednow_participant: boolean | null;
+  rtp_participant: boolean | null;
+  zelle_participant: boolean | null;
+  railEvidence: Record<"fednow" | "rtp" | "zelle", RailParticipationEvidence>;
+  eddEvidence: EddEvidence | null;
+}): BankFaqItem[] {
+  const items: BankFaqItem[] = FAQ_RAILS.map(({ key, label, participantKey }) => {
+    const confirmed = input[participantKey] === true;
+    const evidence = input.railEvidence[key];
+    const confirmations = evidence.communityConfirmations;
+
+    let answer: string;
+    if (confirmed) {
+      const confirmedAtClause = evidence.confirmedAt
+        ? `, confirmed ${new Date(evidence.confirmedAt).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}`
+        : "";
+      const confirmationsClause =
+        confirmations > 0
+          ? ` ${confirmations} community report${confirmations !== 1 ? "s" : ""} also reference${confirmations === 1 ? "s" : ""} this rail.`
+          : "";
+      answer = `Yes. ${input.bankName} appears in ${evidence.source}${confirmedAtClause}.${confirmationsClause}`;
+    } else {
+      const communityClause =
+        confirmations > 0
+          ? `, though ${confirmations} community report${confirmations !== 1 ? "s" : ""} ${confirmations === 1 ? "has" : "have"} observed a transfer over this rail`
+          : ", and no community reports have confirmed this rail for this bank yet";
+      answer = `This hasn't been confirmed. ${input.bankName} does not currently appear in ${evidence.source}${communityClause}.`;
+    }
+
+    if (key === "zelle") {
+      answer += ` ${ZELLE_INCOMPLETE_CAVEAT}`;
+    }
+
+    return { question: `Does ${input.bankName} support ${label}?`, answer };
+  });
+
+  items.push({
+    question: `Does ${input.bankName} have early direct deposit (EDD) evidence?`,
+    answer: input.eddEvidence
+      ? describeBankEddEvidence(input.eddEvidence, input.bankName)
+      : `No early direct deposit evidence has been reported for ${input.bankName} yet.`,
+  });
+
+  return items;
 }
 
 export type BankProfile = {
