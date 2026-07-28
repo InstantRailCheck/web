@@ -1030,6 +1030,15 @@ This release starts with a full security pass of every API route and RLS policy 
 - `components/SubmitRouteReport.tsx`/`components/SubmitEddReport.tsx`: the static "Report submitted — thank you!" line is replaced by the receipt's own lines
 - No schema migration, no points/badges/public usernames, no leaderboard-visibility behavior changes (the new leaderboard-crossing copy is text only)
 
+## Version 9.2.0 (v9.2 — shipped July 28 2026)
+
+**Bank profile SEO content depth** — a third-party SEO audit found bank profile pages too thin/templated to rank well (mostly structured data with little original text, empty sections just saying "No reports yet."). Addressed the parts of the audit consistent with this project's Data Principles; explicitly declined the parts that weren't (a freeform "opinionated summary" risking overclaiming, a fabricated "reliability score," and a "Next scheduled verification: Quarterly" claim that doesn't match the real weekly/monthly sync cadence)
+- New `buildBankLede()`: a first-screen evidence statement built strictly from the three rail-participation booleans (e.g. "Chase supports FedNow and Zelle. RTP participation has not been confirmed.") — `false` and `null` are treated identically ("not confirmed"), matching the existing convention where the rail badges themselves only render on an exact `true`
+- `RailList`'s bare "No reports yet." replaced with `describeEmptyRailSection()` — explains what the section will show once real reports exist, without naming a specific rail or claiming anything about the bank
+- New `buildBankFaq()`: always exactly 4 real, sourced FAQ items (FedNow/RTP/Zelle participation + EDD evidence) per bank, rendered both as a visible FAQ section and FAQPage JSON-LD (`buildFaqJsonLd()` in `lib/jsonLd.ts`) — every answer traces to `railEvidence`/`eddEvidence`, including the asymmetric case where community reports exist despite a rail's absence from the official participant list
+- New `lib/similarInstitutions.ts`: internal links to up to 5 other institutions of the same type (`source_authority` — fdic bank vs ncua credit union) in the same state, ordered by `total_assets`. New `banks_state_authority_active_idx` (concurrent) index supports the query, which now runs on every bank profile page
+- Freshness signal ("Directory data last synced...") added using the bank's real `source_last_synced_at`, omitted entirely when null rather than shown with a placeholder — same "blank over wrong" pattern as every other optional field on this page
+
 ## Data Principles
 
 - Real-world reports only
