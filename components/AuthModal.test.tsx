@@ -79,7 +79,7 @@ describe("AuthModal Google sign-in", () => {
     const user = userEvent.setup();
 
     render(<AuthModal open onOpenChange={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: /Continue with Google/i }));
+    await user.click(screen.getByRole("button", { name: "Google" }));
 
     expect(signInWithOAuthMock).toHaveBeenCalledWith({
       provider: "google",
@@ -97,7 +97,7 @@ describe("AuthModal Microsoft sign-in", () => {
     const user = userEvent.setup();
 
     render(<AuthModal open onOpenChange={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: /Continue with Microsoft/i }));
+    await user.click(screen.getByRole("button", { name: "Microsoft" }));
 
     expect(signInWithOAuthMock).toHaveBeenCalledWith({
       provider: "azure",

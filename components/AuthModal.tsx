@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
@@ -198,41 +198,35 @@ export function AuthModal({ open, onOpenChange }: Props) {
 
         {step === "email" ? (
           <div className="space-y-4">
-            <button
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-            >
-              {!googleLoading && <GoogleIcon />}
-              {googleLoading ? "Redirecting..." : "Continue with Google"}
-            </button>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 py-3 text-xs font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
+              >
+                {googleLoading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GoogleIcon />}
+                Google
+              </button>
+              <button
+                onClick={handleGitHubSignIn}
+                disabled={githubLoading}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 py-3 text-xs font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
+              >
+                {githubLoading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <GitHubIcon />}
+                GitHub
+              </button>
+              <button
+                onClick={handleMicrosoftSignIn}
+                disabled={microsoftLoading}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 py-3 text-xs font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
+              >
+                {microsoftLoading ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <MicrosoftIcon />}
+                Microsoft
+              </button>
+            </div>
             <p className="text-center text-xs text-slate-400">
-              We only use your Google account to verify your identity — we never access your
-              Gmail, Drive, or other Google data.
-            </p>
-            <button
-              onClick={handleGitHubSignIn}
-              disabled={githubLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-            >
-              {!githubLoading && <GitHubIcon />}
-              {githubLoading ? "Redirecting..." : "Continue with GitHub"}
-            </button>
-            <p className="text-center text-xs text-slate-400">
-              We only use basic GitHub profile details to verify your identity — we never
-              request access to your repositories.
-            </p>
-            <button
-              onClick={handleMicrosoftSignIn}
-              disabled={microsoftLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-            >
-              {!microsoftLoading && <MicrosoftIcon />}
-              {microsoftLoading ? "Redirecting..." : "Continue with Microsoft"}
-            </button>
-            <p className="text-center text-xs text-slate-400">
-              We only use your Microsoft account to verify your identity — we never access your
-              Outlook, OneDrive, or other Microsoft data.
+              We only use these accounts to verify your identity — never your files, mail, or
+              repositories.
             </p>
             <button
               onClick={handlePasskeySignIn}
@@ -243,8 +237,7 @@ export function AuthModal({ open, onOpenChange }: Props) {
               {passkeyLoading ? "Waiting for passkey..." : "Sign in with a passkey"}
             </button>
             <p className="text-center text-xs text-slate-400">
-              Passkeys can be added once you have an account — sign in with Google, GitHub,
-              Microsoft, or email first, then register one from your account page.
+              Add a passkey from your account page after signing in once.
             </p>
 
             <div className="flex items-center gap-3 text-xs text-slate-400">
