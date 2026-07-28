@@ -8,9 +8,13 @@ import {
   getBankSlugById,
   describeRailEvidence,
   describeEddProviderEvidence,
+  buildBankLede,
+  describeEmptyRailSection,
+  buildBankFaq,
   type RailParticipationEvidence,
   type EddEvidence,
 } from "@/lib/bankProfile";
+import { getSimilarBanks } from "@/lib/similarInstitutions";
 import { formatPhone, telHref, websiteHref } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bankIsIndexable, hasAttributableReportForBank } from "@/lib/institutionIndexability";
@@ -20,7 +24,7 @@ import { SubmitEddReport } from "@/components/SubmitEddReport";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { BankBreadcrumb } from "@/components/BankBreadcrumb";
 import { SITE_URL } from "@/lib/siteConfig";
-import { safeJsonLdString, buildBankBreadcrumbJsonLd } from "@/lib/jsonLd";
+import { safeJsonLdString, buildBankBreadcrumbJsonLd, buildFaqJsonLd } from "@/lib/jsonLd";
 import { railDisplayName } from "@/lib/railDisplayName";
 import { resolveProvenance, contactInfoSourceLabel } from "@/lib/institutionProvenance";
 
@@ -50,9 +54,19 @@ function PhoneText({ phone }: { phone: string }) {
   );
 }
 
-function RailList({ rails }: { rails: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"] }) {
+function RailList({
+  rails,
+  bankName,
+  direction,
+}: {
+  rails: Awaited<ReturnType<typeof getBankProfileBySlug>>["sending"];
+  bankName: string;
+  direction: "sending" | "receiving";
+}) {
   if (rails.length === 0) {
-    return <p className="text-center text-sm text-slate-400">No reports yet.</p>;
+    return (
+      <p className="text-center text-sm text-slate-400">{describeEmptyRailSection(direction, bankName)}</p>
+    );
   }
 
   return (
@@ -282,6 +296,17 @@ export default async function BankProfilePage({
     mergedInto = data;
   }
 
+  const similarBanks = await getSimilarBanks(profile.bank);
+  const faqItems = buildBankFaq({
+    bankName: profile.bank.name,
+    fednow_participant: profile.bank.fednow_participant,
+    rtp_participant: profile.bank.rtp_participant,
+    zelle_participant: profile.bank.zelle_participant,
+    railEvidence: profile.railEvidence,
+    eddEvidence: profile.eddEvidence,
+  });
+  const faqJsonLd = buildFaqJsonLd(faqItems);
+
   // Nonce required even for a non-executing script tag — script-src governs
   // any <script> element regardless of type under this site's CSP.
   const nonce = (await headers()).get("x-nonce");
@@ -322,6 +347,11 @@ export default async function BankProfilePage({
         nonce={nonce ?? undefined}
         dangerouslySetInnerHTML={{ __html: safeJsonLdString(breadcrumbJsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        nonce={nonce ?? undefined}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdString(faqJsonLd) }}
+      />
       <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
         <BankBreadcrumb bankName={profile.bank.name} bankSlug={profile.bank.slug} />
         {!profile.bank.is_active && (
@@ -346,6 +376,7 @@ export default async function BankProfilePage({
         )}
         <div className="text-center">
           <h1 className="text-3xl font-bold">{profile.bank.name}</h1>
+          <p className="mt-2 text-sm text-slate-300">{buildBankLede(profile.bank)}</p>
           {(profile.bank.city || profile.bank.state || regulatorLabel(provenance)) && (
             <p className="mt-1 text-sm text-slate-400">
               {[
@@ -383,7 +414,14 @@ export default async function BankProfilePage({
           )}
           {(profile.bank.website || profile.bank.address || profile.bank.phone) && contactSourceLabel && (
             <p className="mt-1 text-xs text-slate-400">
-              Contact info sourced from {contactSourceLabel}. See{" "}
+              Contact info sourced from {contactSourceLabel}.
+              {profile.bank.source_last_synced_at &&
+                ` Directory data last synced ${new Date(profile.bank.source_last_synced_at).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}.`}{" "}
+              See{" "}
               <Link href="/methodology" className="text-slate-400 hover:text-slate-400 underline transition">
                 methodology
               </Link>
@@ -440,7 +478,7 @@ export default async function BankProfilePage({
             Rails observed when {profile.bank.name} was the sending bank.
           </p>
           <div className="mt-4">
-            <RailList rails={profile.sending} />
+            <RailList rails={profile.sending} bankName={profile.bank.name} direction="sending" />
           </div>
         </section>
 
@@ -450,7 +488,39 @@ export default async function BankProfilePage({
             Rails observed when {profile.bank.name} was the receiving bank.
           </p>
           <div className="mt-4">
-            <RailList rails={profile.receiving} />
+            <RailList rails={profile.receiving} bankName={profile.bank.name} direction="receiving" />
+          </div>
+        </section>
+
+        {similarBanks.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+            <h2 className="text-center text-lg font-semibold">Similar institutions</h2>
+            <p className="mt-1 text-center text-sm text-slate-400">
+              Other {regulatorLabel(provenance) === "NCUA" ? "credit unions" : "banks"}
+              {profile.bank.state ? ` in ${profile.bank.state}` : ""}.
+            </p>
+            <ul className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm">
+              {similarBanks.map((b) => (
+                <li key={b.slug}>
+                  <Link href={`/banks/${b.slug}`} className="text-blue-400 hover:text-blue-300">
+                    {b.name}
+                  </Link>
+                  {b.city && <span className="text-slate-500"> · {b.city}</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+          <h2 className="text-center text-lg font-semibold">Frequently asked questions</h2>
+          <div className="mt-4 space-y-4">
+            {faqItems.map((item) => (
+              <div key={item.question}>
+                <h3 className="text-sm font-semibold text-white">{item.question}</h3>
+                <p className="mt-1 text-sm text-slate-400">{item.answer}</p>
+              </div>
+            ))}
           </div>
         </section>
 
