@@ -159,6 +159,17 @@ animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);}
    affected by scroll-behavior here since an explicit JS behavior option
    overrides the CSS property — those check
    window.matchMedia("(prefers-reduced-motion: reduce)") directly instead. */
+/* Keeps the element scrollable (drag/swipe/trackpad) but hides the native
+   scrollbar chrome — used where a fading mask-image already signals "more
+   content this way" and a visible scrollbar underneath would be redundant. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

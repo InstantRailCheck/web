@@ -23,7 +23,7 @@ export function SiteNavLinks() {
     // (it only clips a couple of already-padded pixels).
     <nav
       aria-label="Site navigation"
-      className="mx-auto flex w-fit min-w-0 max-w-[min(56rem,100%)] flex-nowrap gap-1.5 overflow-x-auto px-6 [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
+      className="no-scrollbar mx-auto flex w-fit min-w-0 max-w-[min(56rem,100%)] flex-nowrap gap-1.5 overflow-x-auto px-6 [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
     >
       {NAV_ITEMS.map((item) => (
         <Link
