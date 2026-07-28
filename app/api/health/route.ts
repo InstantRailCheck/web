@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import crypto from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 
@@ -17,6 +18,24 @@ const HOUR_MS = 60 * 60 * 1000;
 // false-positive this into "degraded".
 const WEEKLY_MAX_AGE_HOURS = 24 * 9; // ~9 days
 const MONTHLY_MAX_AGE_HOURS = 24 * 40; // ~40 days
+
+const UNAUTHORIZED_HEADERS = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" };
+
+function isAuthorized(request: NextRequest): boolean {
+  const expected = process.env.HEALTH_CHECK_TOKEN;
+  if (!expected) return false; // fail closed if the token isn't configured yet
+
+  const header = request.headers.get("authorization") ?? "";
+  const provided = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!provided) return false;
+
+  const providedBuf = Buffer.from(provided);
+  const expectedBuf = Buffer.from(expected);
+  // timingSafeEqual throws on mismatched lengths rather than returning
+  // false, so the length check has to happen first.
+  if (providedBuf.length !== expectedBuf.length) return false;
+  return crypto.timingSafeEqual(providedBuf, expectedBuf);
+}
 
 type CheckResult = {
   ok: boolean;
@@ -43,37 +62,49 @@ function ageCheck(label: string, timestamp: string | null | undefined, maxAgeHou
 
 // Institution directory sync ships staged-only (PROJECT.md: "no --apply
 // wired into CI yet") — applying a staged run to `banks` is a deliberate,
-// unscheduled human review step, so gating this on sync_runs.status='applied'
-// would report "stale" essentially forever regardless of whether the
-// automated pipeline is healthy. What CI actually guarantees on a schedule is
-// a fresh *staged* run, so freshness is measured from the latest run's
-// started_at (any status) instead — a real failure is still surfaced via its
-// status, just independently of how long ago someone last ran --apply.
-const UNHEALTHY_SYNC_RUN_STATUSES = new Set(["failed", "guard_blocked"]);
+// unscheduled human review step, so gating this on status='applied' would
+// report stale almost permanently regardless of whether the automated
+// staging pipeline is healthy. 'staged' and 'applied' are the only statuses
+// that mean "the pipeline did its job" — everything else (a run stuck in
+// 'running'/'applying', 'failed', 'guard_blocked', or an 'expired' staged
+// run that was never applied in time) means it needs attention, so this is
+// an allowlist rather than a blocklist: an unrecognized/incomplete status
+// defaults to unhealthy, not the other way around.
+const HEALTHY_SYNC_RUN_STATUSES = new Set(["staged", "applied"]);
 
-function institutionDirectorySyncCheck(
-  run: { started_at: string; status: string } | null | undefined
-): CheckResult {
+type SyncRunRow = { started_at: string; status: string };
+
+// fdic (weekly) and both (monthly, covers NCUA) are tracked as two
+// independent checks rather than "the single latest run regardless of
+// scope" — the weekly FDIC-only run is always more recent than the monthly
+// full run, so a combined check would let a broken/stuck monthly NCUA sync
+// hide behind the next successful weekly FDIC run indefinitely.
+function directorySyncCheck(label: string, run: SyncRunRow | null | undefined, maxAgeHours: number): CheckResult {
   if (!run) {
-    return { ok: false, detail: "institutionDirectorySync: no sync run recorded", lastSyncedAt: null, ageHours: null };
+    return { ok: false, detail: `${label}: no sync run recorded`, lastSyncedAt: null, ageHours: null };
   }
   const ageHours = (Date.now() - new Date(run.started_at).getTime()) / HOUR_MS;
-  const fresh = ageHours <= WEEKLY_MAX_AGE_HOURS;
-  const healthyStatus = !UNHEALTHY_SYNC_RUN_STATUSES.has(run.status);
+  const fresh = ageHours <= maxAgeHours;
+  const healthyStatus = HEALTHY_SYNC_RUN_STATUSES.has(run.status);
   const ok = fresh && healthyStatus;
-  let detail = `institutionDirectorySync: last run ${ageHours.toFixed(1)}h ago, status "${run.status}"`;
-  if (!fresh) detail += ` (expected a run within ${WEEKLY_MAX_AGE_HOURS}h)`;
+  let detail = `${label}: last run ${ageHours.toFixed(1)}h ago, status "${run.status}"`;
+  if (!fresh) detail += ` (expected a run within ${maxAgeHours}h)`;
   if (!healthyStatus) detail += " — run requires attention";
   return { ok, detail, lastSyncedAt: run.started_at, ageHours: Math.round(ageHours * 10) / 10 };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UNAUTHORIZED_HEADERS });
+  }
+
   const admin = createAdminClient();
   const startedAt = Date.now();
 
   const [
     { error: bankError },
-    { data: latestSyncRun },
+    { data: latestFdicRun },
+    { data: latestFullRun },
     { data: fednowRow },
     { data: rtpRow },
     { data: zelleRow },
@@ -83,6 +114,14 @@ export async function GET() {
     admin
       .from("sync_runs")
       .select("started_at, status")
+      .eq("source_scope", "fdic")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("sync_runs")
+      .select("started_at, status")
+      .eq("source_scope", "both")
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -99,9 +138,14 @@ export async function GET() {
   const checks = {
     database: {
       ok: !bankError,
-      detail: bankError ? `database: query failed — ${bankError.message}` : `database: reachable (${Date.now() - startedAt}ms)`,
+      // Deliberately generic in the public response — the real message
+      // goes to logError above so it's visible in Vercel's log viewer
+      // without handing an unauthenticated (well, token-gated, but still
+      // externally-facing) caller raw Postgres error text.
+      detail: bankError ? "database: query failed" : `database: reachable (${Date.now() - startedAt}ms)`,
     },
-    institutionDirectorySync: institutionDirectorySyncCheck(latestSyncRun),
+    fdicDirectorySync: directorySyncCheck("fdicDirectorySync", latestFdicRun, WEEKLY_MAX_AGE_HOURS),
+    fullDirectorySync: directorySyncCheck("fullDirectorySync", latestFullRun, MONTHLY_MAX_AGE_HOURS),
     fednowSync: ageCheck("fednowSync", fednowRow?.updated_at, WEEKLY_MAX_AGE_HOURS),
     rtpSync: ageCheck("rtpSync", rtpRow?.updated_at, WEEKLY_MAX_AGE_HOURS),
     zelleSync: ageCheck("zelleSync", zelleRow?.updated_at, WEEKLY_MAX_AGE_HOURS),
