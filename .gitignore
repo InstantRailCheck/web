@@ -47,5 +47,8 @@ supabase/.branches
 # v8.0 reconciliation/sync reports — real institution data, never committed
 scripts/reports/
 
+# locally rendered media and creative working files
+/artifacts/
+
 # claude code (personal-only overrides)
 .claude/settings.local.json
