@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RedditIcon } from "@/components/RedditIcon";
 
 export function LegalFooterLinks() {
   return (
@@ -11,6 +12,17 @@ export function LegalFooterLinks() {
         <Link href="/terms" className="text-blue-400 hover:text-blue-300 transition">
           Terms
         </Link>
+      </p>
+      <p className="mx-auto mt-2 text-center text-sm text-slate-400">
+        <a
+          href="https://www.reddit.com/r/InstantRailCheck/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 transition"
+        >
+          <RedditIcon />
+          Community on Reddit
+        </a>
       </p>
     </div>
   );
