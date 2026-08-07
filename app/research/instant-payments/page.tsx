@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CoverageBarChart } from "@/components/CoverageBarChart";
-import { getCachedCoverageReport, getCachedCoverageFreshness } from "@/lib/coverageReportFreshness";
+import { getCachedCoverageReport, getCachedCoverageFreshness, maxDate } from "@/lib/coverageReportFreshness";
 import { buildDatasetJsonLd, safeJsonLdString } from "@/lib/jsonLd";
 import { ZELLE_INCOMPLETE_CAVEAT } from "@/lib/railDisplayName";
 import { SITE_URL } from "@/lib/siteConfig";
@@ -106,17 +106,16 @@ export default async function InstantPaymentsCoveragePage() {
   const [report, freshness] = await Promise.all([getCachedCoverageReport(), getCachedCoverageFreshness()]);
   const nonce = (await headers()).get("x-nonce");
 
-  // dateModified is deliberately omitted (not approximated from a source-
-  // list download date) — the step that actually determines whether the
-  // rail-coverage numbers changed (backfill-rail-participation.mjs) isn't
-  // logged yet, so any single date here would overstate how precisely this
-  // dataset's freshness is known. Revisit once rail_participation_sync_log
-  // exists (see PROJECT.md v10.0.0 notes).
+  // v10.1: dateModified is real again, not a fabricated approximation —
+  // fdicDirectoryAsOf, ncuaDirectoryAsOf, and railParticipationVerifiedAt
+  // are now all precise, verified completion timestamps (the last of the
+  // three previously didn't exist as a trustworthy signal at all; see
+  // PROJECT.md v10.1.0 notes).
   const datasetJsonLd = buildDatasetJsonLd({
     name: "U.S. Instant Payments Coverage",
     description: DESCRIPTION,
     url: PAGE_URL,
-    dateModified: null,
+    dateModified: maxDate(maxDate(freshness.fdicDirectoryAsOf, freshness.ncuaDirectoryAsOf), freshness.railParticipationVerifiedAt),
   });
 
   return (
@@ -199,14 +198,8 @@ export default async function InstantPaymentsCoveragePage() {
           {freshness.ncuaDirectoryAsOf && (
             <p>NCUA credit union directory last verified {formatDate(freshness.ncuaDirectoryAsOf)}.</p>
           )}
-          {freshness.fednowListDownloadedAt && (
-            <p>FedNow participant list last downloaded {formatDate(freshness.fednowListDownloadedAt)}.</p>
-          )}
-          {freshness.rtpListDownloadedAt && (
-            <p>RTP participant list last downloaded {formatDate(freshness.rtpListDownloadedAt)}.</p>
-          )}
-          {freshness.zelleListDownloadedAt && (
-            <p>Zelle participant list last downloaded {formatDate(freshness.zelleListDownloadedAt)}.</p>
+          {freshness.railParticipationVerifiedAt && (
+            <p>Rail participation last verified {formatDate(freshness.railParticipationVerifiedAt)}.</p>
           )}
           <p>
             See{" "}

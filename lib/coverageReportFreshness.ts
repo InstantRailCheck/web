@@ -14,25 +14,22 @@ export type CoverageFreshness = {
   // ncuaDirectoryAsOf can only ever come from 'both').
   fdicDirectoryAsOf: string | null;
   ncuaDirectoryAsOf: string | null;
-  // Marks when each raw source list was downloaded into
-  // fednow_participants/rtp_participants/zelle_participants — NOT when
-  // banks.fednow_participant/etc. were last backfilled from them.
-  // backfill-rail-participation.mjs logs nothing to the database about its
-  // own runs, so that step's completion time genuinely isn't knowable yet.
-  // Deliberately not called "coverage last verified" anywhere this is
-  // displayed — see PROJECT.md v10.0.0 notes. Kept as three separate dates
-  // (not one collapsed "rail" date) for the same reason as the directory
-  // split above: one freshly-downloaded rail shouldn't visually mask two
-  // stale ones.
-  fednowListDownloadedAt: string | null;
-  rtpListDownloadedAt: string | null;
-  zelleListDownloadedAt: string | null;
+  // v10.1: sourced from rail_participation_sync_log, written by
+  // backfill-rail-participation.mjs only when it completes a run with zero
+  // per-bank update failures — this can now honestly say "verified," not
+  // just "downloaded" (the v10.0 stopgap this replaced tracked three
+  // separate participant-table download dates, since there was no signal
+  // for whether the flags on `banks` were ever actually backfilled from
+  // them). One date, not three, because the script processes all three
+  // rails together per bank in a single run — there's no such thing as
+  // "FedNow was verified but RTP wasn't" within one run.
+  railParticipationVerifiedAt: string | null;
 };
 
 type SyncRunRow = { finished_at: string | null };
-type ParticipantRow = { updated_at: string };
+type RailParticipationSyncLogRow = { synced_at: string };
 
-function maxDate(a: string | null, b: string | null): string | null {
+export function maxDate(a: string | null, b: string | null): string | null {
   if (!a) return b;
   if (!b) return a;
   return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
@@ -58,36 +55,32 @@ async function latestAppliedFinishedAt(
   return (data as SyncRunRow | null)?.finished_at ?? null;
 }
 
-async function latestParticipantUpdatedAt(
-  supabase: SupabaseClient,
-  table: "fednow_participants" | "rtp_participants" | "zelle_participants"
-): Promise<string | null> {
+// rail_participation_sync_log has the same RLS shape as sync_runs (RLS
+// enabled, service_role-only grant) — the regular client would silently
+// return zero rows here too.
+async function latestRailParticipationSyncedAt(supabase: SupabaseClient): Promise<string | null> {
   const { data, error } = await supabase
-    .from(table)
-    .select("updated_at")
-    .order("updated_at", { ascending: false })
+    .from("rail_participation_sync_log")
+    .select("synced_at")
+    .order("synced_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(`${table} query failed: ${error.message}`);
-  return (data as ParticipantRow | null)?.updated_at ?? null;
+  if (error) throw new Error(`rail_participation_sync_log query failed: ${error.message}`);
+  return (data as RailParticipationSyncLogRow | null)?.synced_at ?? null;
 }
 
 async function fetchCoverageFreshness(): Promise<CoverageFreshness> {
   const supabase = createAdminClient();
-  const [fdicAppliedAt, bothAppliedAt, fednowAt, rtpAt, zelleAt] = await Promise.all([
+  const [fdicAppliedAt, bothAppliedAt, railParticipationVerifiedAt] = await Promise.all([
     latestAppliedFinishedAt(supabase, "fdic"),
     latestAppliedFinishedAt(supabase, "both"),
-    latestParticipantUpdatedAt(supabase, "fednow_participants"),
-    latestParticipantUpdatedAt(supabase, "rtp_participants"),
-    latestParticipantUpdatedAt(supabase, "zelle_participants"),
+    latestRailParticipationSyncedAt(supabase),
   ]);
 
   return {
     fdicDirectoryAsOf: maxDate(fdicAppliedAt, bothAppliedAt),
     ncuaDirectoryAsOf: bothAppliedAt,
-    fednowListDownloadedAt: fednowAt,
-    rtpListDownloadedAt: rtpAt,
-    zelleListDownloadedAt: zelleAt,
+    railParticipationVerifiedAt,
   };
 }
 

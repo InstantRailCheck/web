@@ -6,13 +6,8 @@ type SyncRunFixture = { finished_at: string; status: string };
 let syncRuns: { fdic: SyncRunFixture[]; both: SyncRunFixture[] } = { fdic: [], both: [] };
 let syncRunsError = false;
 
-type ParticipantTable = "fednow_participants" | "rtp_participants" | "zelle_participants";
-let participantUpdatedAt: Record<ParticipantTable, string | null> = {
-  fednow_participants: null,
-  rtp_participants: null,
-  zelle_participants: null,
-};
-let participantErrorTable: ParticipantTable | null = null;
+let railSyncLogSyncedAt: string | null = null;
+let railSyncLogError = false;
 
 type BankFixtureRow = {
   is_active: boolean;
@@ -50,17 +45,16 @@ vi.mock("@/lib/supabase/admin", () => ({
           }),
         };
       }
-      if (table === "fednow_participants" || table === "rtp_participants" || table === "zelle_participants") {
+      if (table === "rail_participation_sync_log") {
         return {
           select: () => ({
             order: () => ({
               limit: () => ({
                 maybeSingle: () => {
-                  if (participantErrorTable === table) {
-                    return Promise.resolve({ data: null, error: { message: `${table} db error` } });
+                  if (railSyncLogError) {
+                    return Promise.resolve({ data: null, error: { message: "rail_participation_sync_log db error" } });
                   }
-                  const value = participantUpdatedAt[table as ParticipantTable];
-                  return Promise.resolve({ data: value ? { updated_at: value } : null, error: null });
+                  return Promise.resolve({ data: railSyncLogSyncedAt ? { synced_at: railSyncLogSyncedAt } : null, error: null });
                 },
               }),
             }),
@@ -91,8 +85,8 @@ const { fetchCoverageFreshnessLogged, fetchCoverageReportLogged } = await import
 beforeEach(() => {
   syncRuns = { fdic: [], both: [] };
   syncRunsError = false;
-  participantUpdatedAt = { fednow_participants: null, rtp_participants: null, zelle_participants: null };
-  participantErrorTable = null;
+  railSyncLogSyncedAt = null;
+  railSyncLogError = false;
   bankRows = [];
   banksError = false;
 });
@@ -140,26 +134,18 @@ describe("fetchCoverageFreshnessLogged", () => {
     expect(result.ncuaDirectoryAsOf).toBe("2026-06-01T00:00:00Z");
   });
 
-  it("reports each rail's participant-list download date independently, not collapsed into one", async () => {
-    participantUpdatedAt = {
-      fednow_participants: "2026-07-10T00:00:00Z",
-      rtp_participants: "2026-07-25T00:00:00Z",
-      zelle_participants: "2026-07-15T00:00:00Z",
-    };
+  it("uses synced_at from the latest rail_participation_sync_log row for railParticipationVerifiedAt", async () => {
+    railSyncLogSyncedAt = "2026-07-25T00:00:00Z";
     const result = await fetchCoverageFreshnessLogged();
-    expect(result.fednowListDownloadedAt).toBe("2026-07-10T00:00:00Z");
-    expect(result.rtpListDownloadedAt).toBe("2026-07-25T00:00:00Z");
-    expect(result.zelleListDownloadedAt).toBe("2026-07-15T00:00:00Z");
+    expect(result.railParticipationVerifiedAt).toBe("2026-07-25T00:00:00Z");
   });
 
-  it("returns null for every field when no applied run or participant data exists yet", async () => {
+  it("returns null for every field when no applied run or sync log row exists yet", async () => {
     const result = await fetchCoverageFreshnessLogged();
     expect(result).toEqual({
       fdicDirectoryAsOf: null,
       ncuaDirectoryAsOf: null,
-      fednowListDownloadedAt: null,
-      rtpListDownloadedAt: null,
-      zelleListDownloadedAt: null,
+      railParticipationVerifiedAt: null,
     });
   });
 
@@ -173,11 +159,11 @@ describe("fetchCoverageFreshnessLogged", () => {
     errorSpy.mockRestore();
   });
 
-  it("logs and rethrows on a participant-table failure instead of returning null", async () => {
+  it("logs and rethrows on a rail_participation_sync_log failure instead of returning null", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    participantErrorTable = "zelle_participants";
+    railSyncLogError = true;
 
-    await expect(fetchCoverageFreshnessLogged()).rejects.toThrow("zelle_participants db error");
+    await expect(fetchCoverageFreshnessLogged()).rejects.toThrow("rail_participation_sync_log db error");
     expect(errorSpy).toHaveBeenCalled();
 
     errorSpy.mockRestore();

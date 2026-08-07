@@ -75,6 +75,7 @@ async function main() {
 
   let updated = 0;
   let ambiguous = 0;
+  const failures = [];
   for (const bank of banks) {
     if (!bank.is_active) continue;
 
@@ -106,6 +107,7 @@ async function main() {
       .eq("id", bank.id);
 
     if (updateError) {
+      failures.push({ name: bank.name, message: updateError.message });
       console.log(`- ${bank.name}: update failed — ${updateError.message}`);
     } else {
       updated++;
@@ -114,6 +116,29 @@ async function main() {
   }
 
   console.log(`Done. Updated ${updated}/${banks.length} bank(s). ${ambiguous} bank(s) had at least one ambiguous (unresolved) rail match.`);
+
+  // A partial-failure run must never look like a clean one — previously
+  // this script exited 0 unconditionally, even if every single update
+  // failed, since updateError above was only ever logged. Both the exit
+  // code and the sync log write now depend on failures actually being
+  // tracked, not just printed.
+  if (failures.length > 0) {
+    console.log(`${failures.length} bank update(s) failed — skipping rail_participation_sync_log (a completion record must mean zero update failures, not "mostly done").`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const { error: logError } = await supabase.from("rail_participation_sync_log").insert({
+    banks_processed: banks.length,
+    banks_updated: updated,
+    ambiguous_count: ambiguous,
+  });
+  if (logError) {
+    console.log(`Failed to write rail_participation_sync_log: ${logError.message}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log("Logged successful rail participation sync.");
 }
 
 main().catch((err) => {
