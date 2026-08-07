@@ -36,6 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/early-direct-deposit`, changeFrequency: "daily", priority: 0.6 },
     { url: `${SITE_URL}/compare`, changeFrequency: "weekly", priority: 0.5 },
     { url: `${SITE_URL}/timing`, changeFrequency: "daily", priority: 0.6 },
+    { url: `${SITE_URL}/research/instant-payments`, changeFrequency: "weekly", priority: 0.6 },
     { url: `${SITE_URL}/changelog`, changeFrequency: "daily", priority: 0.6 },
     { url: `${SITE_URL}/developers`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/methodology`, changeFrequency: "monthly", priority: 0.5 },

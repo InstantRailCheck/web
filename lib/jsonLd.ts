@@ -29,6 +29,23 @@ export function buildBankBreadcrumbJsonLd(bank: { name: string; slug: string }) 
   ]);
 }
 
+// No `distribution` (would cite a CSV download URL that doesn't exist yet)
+// and no `license` (undecided — fabricating one would violate the same
+// "don't claim what isn't true" standard applied everywhere else in this
+// codebase). `dateModified` is omitted entirely rather than fabricated when
+// the underlying freshness data isn't available yet.
+export function buildDatasetJsonLd(input: { name: string; description: string; url: string; dateModified: string | null }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    name: input.name,
+    description: input.description,
+    url: input.url,
+    ...(input.dateModified ? { dateModified: input.dateModified } : {}),
+    creator: { "@type": "Organization", name: "InstantRailCheck", url: SITE_URL },
+  };
+}
+
 export function buildFaqJsonLd(items: { question: string; answer: string }[]) {
   return {
     "@context": "https://schema.org",

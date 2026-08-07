@@ -6,6 +6,7 @@ import { getCommunityReportedBanks, getEddLeaderboardData, type CommunityRailEnt
 import { typicalValueLabel, type EddLeaderboardEntry } from "@/lib/eddLeaderboard";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { ZELLE_INCOMPLETE_CAVEAT } from "@/lib/railDisplayName";
 
 export const dynamic = "force-dynamic";
 
@@ -208,7 +209,7 @@ export default async function RailsExplorerPage() {
             banks={zelle ?? []}
             total={zelleCount ?? 0}
             viewAllHref="/banks?zelle=true"
-            footnote="Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks support, only that it isn't listed there."
+            footnote={ZELLE_INCOMPLETE_CAVEAT}
           />
         </div>
 

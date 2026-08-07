@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeJsonLdString, buildBankBreadcrumbJsonLd, buildBreadcrumbJsonLd, buildFaqJsonLd } from "./jsonLd";
+import { safeJsonLdString, buildBankBreadcrumbJsonLd, buildBreadcrumbJsonLd, buildFaqJsonLd, buildDatasetJsonLd } from "./jsonLd";
 
 describe("safeJsonLdString", () => {
   it("serializes plain data the same as JSON.stringify", () => {
@@ -78,5 +78,37 @@ describe("buildFaqJsonLd", () => {
       "@type": "FAQPage",
       mainEntity: [],
     });
+  });
+});
+
+describe("buildDatasetJsonLd", () => {
+  it("builds a Dataset with name, description, url, dateModified, and creator", () => {
+    const result = buildDatasetJsonLd({
+      name: "U.S. Instant Payments Coverage",
+      description: "Coverage of FedNow/RTP/Zelle across active U.S. banks and credit unions.",
+      url: "https://www.instantrailcheck.com/research/instant-payments",
+      dateModified: "2026-07-18T03:41:22.509Z",
+    });
+
+    expect(result).toEqual({
+      "@context": "https://schema.org",
+      "@type": "Dataset",
+      name: "U.S. Instant Payments Coverage",
+      description: "Coverage of FedNow/RTP/Zelle across active U.S. banks and credit unions.",
+      url: "https://www.instantrailcheck.com/research/instant-payments",
+      dateModified: "2026-07-18T03:41:22.509Z",
+      creator: { "@type": "Organization", name: "InstantRailCheck", url: "https://www.instantrailcheck.com" },
+    });
+  });
+
+  it("omits dateModified entirely rather than fabricating one when null", () => {
+    const result = buildDatasetJsonLd({
+      name: "U.S. Instant Payments Coverage",
+      description: "...",
+      url: "https://www.instantrailcheck.com/research/instant-payments",
+      dateModified: null,
+    });
+
+    expect(result).not.toHaveProperty("dateModified");
   });
 });

@@ -1,0 +1,191 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { headers } from "next/headers";
+import { LegalFooterLinks } from "@/components/LegalFooterLinks";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { CoverageBarChart } from "@/components/CoverageBarChart";
+import { getCachedCoverageReport, getCachedCoverageFreshness, maxDate } from "@/lib/coverageReportFreshness";
+import { buildDatasetJsonLd, safeJsonLdString } from "@/lib/jsonLd";
+import { ZELLE_INCOMPLETE_CAVEAT } from "@/lib/railDisplayName";
+import { SITE_URL } from "@/lib/siteConfig";
+import type { CoverageBreakdown } from "@/lib/coverageReport";
+
+const TITLE = "U.S. Instant Payments Coverage Report | InstantRailCheck";
+const DESCRIPTION =
+  "How many active U.S. banks and credit unions are confirmed participants on FedNow, RTP, and Zelle — broken down by institution type, asset size, and state.";
+const PAGE_URL = `${SITE_URL}/research/instant-payments`;
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: PAGE_URL },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: PAGE_URL,
+    siteName: "InstantRailCheck",
+    type: "website",
+  },
+};
+
+// timeZone: "UTC" is required, not decorative — without it this reads the
+// server process's local zone, which can roll the displayed calendar date
+// back a day for any finished_at timestamp after ~5pm PT (matches
+// lib/utils.ts's formatMonthYear, which pins UTC for the same reason).
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
+const AUTHORITY_LABELS = {
+  fdic: "FDIC-insured banks",
+  ncua: "NCUA credit unions",
+  unknown: "Type not on file",
+} as const;
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <div className="text-2xl font-bold">{value.toLocaleString()}</div>
+      <div className="mt-1 text-xs text-slate-400">{label}</div>
+    </div>
+  );
+}
+
+function BreakdownRow({ label, breakdown }: { label: string; breakdown: CoverageBreakdown }) {
+  return (
+    <tr className="border-b border-slate-900">
+      <td className="py-2 pr-4">{label}</td>
+      <td className="py-2 pr-4 text-right">{breakdown.total.toLocaleString()}</td>
+      <td className="py-2 pr-4 text-right">{breakdown.fednow.confirmed.toLocaleString()}</td>
+      <td className="py-2 pr-4 text-right">{breakdown.rtp.confirmed.toLocaleString()}</td>
+      <td className="py-2 text-right">{breakdown.zelle.confirmed.toLocaleString()}</td>
+    </tr>
+  );
+}
+
+function BreakdownTable({ rows }: { rows: { label: string; breakdown: CoverageBreakdown }[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-slate-800 text-left text-slate-400">
+          <th className="py-2 pr-4 font-medium">Institutions</th>
+          <th className="py-2 pr-4 text-right font-medium">Count</th>
+          <th className="py-2 pr-4 text-right font-medium">FedNow confirmed</th>
+          <th className="py-2 pr-4 text-right font-medium">RTP confirmed</th>
+          <th className="py-2 text-right font-medium">Zelle confirmed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <BreakdownRow key={row.label} label={row.label} breakdown={row.breakdown} />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export default async function InstantPaymentsCoveragePage() {
+  const [report, freshness] = await Promise.all([getCachedCoverageReport(), getCachedCoverageFreshness()]);
+  const nonce = (await headers()).get("x-nonce");
+
+  const datasetJsonLd = buildDatasetJsonLd({
+    name: "U.S. Instant Payments Coverage",
+    description: DESCRIPTION,
+    url: PAGE_URL,
+    dateModified: maxDate(freshness.institutionDirectoryAsOf, freshness.railSourceListsDownloadedAt),
+  });
+
+  return (
+    <main id="main-content" className="min-h-screen bg-slate-950 text-white">
+      <div className="mx-auto flex w-full max-w-4xl flex-col px-6 pt-10 pb-16">
+        <script
+          type="application/ld+json"
+          nonce={nonce ?? undefined}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdString(datasetJsonLd) }}
+        />
+        <PageBreadcrumb
+          items={[
+            { name: "Home", href: "/" },
+            { name: "U.S. Instant Payments Coverage", href: "/research/instant-payments" },
+          ]}
+        />
+        <h1 className="text-center text-3xl font-bold">U.S. Instant Payments Coverage Report</h1>
+        <p className="mt-1 text-center text-sm text-slate-400">
+          How many active U.S. banks and credit unions are confirmed participants on FedNow, RTP, and
+          Zelle. A rail marked &quot;not confirmed&quot; means the institution wasn&apos;t found on that
+          rail&apos;s official source list — not that it definitely doesn&apos;t support it.
+        </p>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold">Overview</h2>
+          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Stat label="Active institutions" value={report.totalActive} />
+            <Stat label="FDIC-insured banks" value={report.institutionTypes.fdic} />
+            <Stat label="NCUA credit unions" value={report.institutionTypes.ncua} />
+            <Stat label="Confirmed on both FedNow & RTP" value={report.bothFedNowAndRtp} />
+          </div>
+        </section>
+
+        <section className="mt-10 space-y-6">
+          <h2 className="text-lg font-semibold">Rail coverage</h2>
+          <CoverageBarChart label="FedNow" buckets={report.overall.fednow} />
+          <CoverageBarChart label="RTP" buckets={report.overall.rtp} />
+          <CoverageBarChart label="Zelle (P2P)" buckets={report.overall.zelle} />
+        </section>
+
+        <section className="mt-10 space-y-6">
+          <h2 className="text-lg font-semibold">FDIC banks vs. NCUA credit unions</h2>
+          {(Object.keys(AUTHORITY_LABELS) as (keyof typeof AUTHORITY_LABELS)[]).map((authority) => (
+            <div key={authority}>
+              <p className="text-sm font-medium text-slate-300">
+                {AUTHORITY_LABELS[authority]} ({report.byAuthority[authority].total.toLocaleString()})
+              </p>
+              <div className="mt-2 grid gap-4 sm:grid-cols-3">
+                <CoverageBarChart label="FedNow" buckets={report.byAuthority[authority].fednow} />
+                <CoverageBarChart label="RTP" buckets={report.byAuthority[authority].rtp} />
+                <CoverageBarChart label="Zelle" buckets={report.byAuthority[authority].zelle} />
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold">Coverage by asset size</h2>
+          <div className="mt-3 overflow-x-auto">
+            <BreakdownTable rows={report.byAssetTier.map(({ tier, breakdown }) => ({ label: tier, breakdown }))} />
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold">Coverage by state or territory</h2>
+          <div className="mt-3 max-h-96 overflow-y-auto overflow-x-auto">
+            <BreakdownTable rows={report.byState.map(({ state, breakdown }) => ({ label: state, breakdown }))} />
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+          <h2 className="text-sm font-semibold text-yellow-200">About Zelle coverage</h2>
+          <p className="mt-1 text-xs text-yellow-200/90">{ZELLE_INCOMPLETE_CAVEAT}</p>
+        </section>
+
+        <section className="mt-10 space-y-1 text-xs text-slate-500">
+          {freshness.institutionDirectoryAsOf && (
+            <p>Institution directory last verified {formatDate(freshness.institutionDirectoryAsOf)}.</p>
+          )}
+          {freshness.railSourceListsDownloadedAt && (
+            <p>Rail participant source lists last downloaded {formatDate(freshness.railSourceListsDownloadedAt)}.</p>
+          )}
+          <p>
+            See{" "}
+            <Link href="/methodology" className="underline hover:text-slate-300">
+              methodology
+            </Link>{" "}
+            for how rail participation is verified.
+          </p>
+        </section>
+
+        <LegalFooterLinks />
+      </div>
+    </main>
+  );
+}

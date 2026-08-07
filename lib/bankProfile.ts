@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { dedupeToNewestPerReporter, type ReportStatus } from "@/lib/routeConfidence";
 import { NON_PAYROLL_DEPOSIT_TYPES, payrollProviderLabel, type DepositType, type PayrollProvider } from "@/lib/eddContext";
 import { logError } from "@/lib/logger";
+import { ZELLE_INCOMPLETE_CAVEAT } from "@/lib/railDisplayName";
 
 const STALE_DAYS = 180;
 
@@ -303,12 +304,6 @@ const FAQ_RAILS: {
   { key: "rtp", label: "RTP", participantKey: "rtp_participant" },
   { key: "zelle", label: "Zelle", participantKey: "zelle_participant" },
 ];
-
-// Matches app/rails/page.tsx's existing wording verbatim (the same caveat
-// exists in a slightly different form on this same page's Zelle badge —
-// pre-existing drift this task doesn't attempt to consolidate).
-const ZELLE_INCOMPLETE_CAVEAT =
-  "Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks support, only that it isn't listed there.";
 
 // Always exactly 4 items (3 rails + EDD) — every bank has some real, sourced
 // answer to each, even "not confirmed," so this reliably adds substantive

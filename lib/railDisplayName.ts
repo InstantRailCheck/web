@@ -11,3 +11,8 @@
 export function railDisplayName(rail: string): string {
   return rail === "Zelle" ? "P2P - Zelle" : rail;
 }
+
+// Single source for this caveat — previously duplicated verbatim between
+// lib/bankProfile.ts and app/rails/page.tsx.
+export const ZELLE_INCOMPLETE_CAVEAT =
+  "Zelle's own directory is known to be incomplete — a missing badge doesn't confirm a bank lacks support, only that it isn't listed there.";
