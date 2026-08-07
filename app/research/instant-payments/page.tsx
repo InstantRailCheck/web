@@ -4,11 +4,11 @@ import { headers } from "next/headers";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CoverageBarChart } from "@/components/CoverageBarChart";
-import { getCachedCoverageReport, getCachedCoverageFreshness, maxDate } from "@/lib/coverageReportFreshness";
+import { getCachedCoverageReport, getCachedCoverageFreshness } from "@/lib/coverageReportFreshness";
 import { buildDatasetJsonLd, safeJsonLdString } from "@/lib/jsonLd";
 import { ZELLE_INCOMPLETE_CAVEAT } from "@/lib/railDisplayName";
 import { SITE_URL } from "@/lib/siteConfig";
-import type { CoverageBreakdown } from "@/lib/coverageReport";
+import type { CoverageBreakdown, RailBuckets } from "@/lib/coverageReport";
 
 const TITLE = "U.S. Instant Payments Coverage Report | InstantRailCheck";
 const DESCRIPTION =
@@ -51,36 +51,54 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
+// Confirmed is the primary (bold) figure since it's what most readers scan
+// for, but not-confirmed and unknown are always shown too, in the same
+// cell — a table showing only "confirmed" would quietly break this report's
+// central promise that null and false are never collapsed into one number.
+function RailCell({ buckets }: { buckets: RailBuckets }) {
+  return (
+    <td className="py-2 pr-4 text-right align-top">
+      <div>{buckets.confirmed.toLocaleString()}</div>
+      <div className="text-[10px] leading-tight text-slate-500">
+        {buckets.notConfirmed.toLocaleString()} not · {buckets.unknown.toLocaleString()} unk.
+      </div>
+    </td>
+  );
+}
+
 function BreakdownRow({ label, breakdown }: { label: string; breakdown: CoverageBreakdown }) {
   return (
     <tr className="border-b border-slate-900">
       <td className="py-2 pr-4">{label}</td>
-      <td className="py-2 pr-4 text-right">{breakdown.total.toLocaleString()}</td>
-      <td className="py-2 pr-4 text-right">{breakdown.fednow.confirmed.toLocaleString()}</td>
-      <td className="py-2 pr-4 text-right">{breakdown.rtp.confirmed.toLocaleString()}</td>
-      <td className="py-2 text-right">{breakdown.zelle.confirmed.toLocaleString()}</td>
+      <td className="py-2 pr-4 text-right align-top">{breakdown.total.toLocaleString()}</td>
+      <RailCell buckets={breakdown.fednow} />
+      <RailCell buckets={breakdown.rtp} />
+      <RailCell buckets={breakdown.zelle} />
     </tr>
   );
 }
 
 function BreakdownTable({ rows }: { rows: { label: string; breakdown: CoverageBreakdown }[] }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b border-slate-800 text-left text-slate-400">
-          <th className="py-2 pr-4 font-medium">Institutions</th>
-          <th className="py-2 pr-4 text-right font-medium">Count</th>
-          <th className="py-2 pr-4 text-right font-medium">FedNow confirmed</th>
-          <th className="py-2 pr-4 text-right font-medium">RTP confirmed</th>
-          <th className="py-2 text-right font-medium">Zelle confirmed</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <BreakdownRow key={row.label} label={row.label} breakdown={row.breakdown} />
-        ))}
-      </tbody>
-    </table>
+    <>
+      <p className="text-xs text-slate-500">Each rail column shows confirmed, then not confirmed / unknown.</p>
+      <table className="mt-2 w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-800 text-left text-slate-400">
+            <th className="py-2 pr-4 font-medium">Institutions</th>
+            <th className="py-2 pr-4 text-right font-medium">Count</th>
+            <th className="py-2 pr-4 text-right font-medium">FedNow</th>
+            <th className="py-2 pr-4 text-right font-medium">RTP</th>
+            <th className="py-2 text-right font-medium">Zelle</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <BreakdownRow key={row.label} label={row.label} breakdown={row.breakdown} />
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -88,11 +106,17 @@ export default async function InstantPaymentsCoveragePage() {
   const [report, freshness] = await Promise.all([getCachedCoverageReport(), getCachedCoverageFreshness()]);
   const nonce = (await headers()).get("x-nonce");
 
+  // dateModified is deliberately omitted (not approximated from a source-
+  // list download date) — the step that actually determines whether the
+  // rail-coverage numbers changed (backfill-rail-participation.mjs) isn't
+  // logged yet, so any single date here would overstate how precisely this
+  // dataset's freshness is known. Revisit once rail_participation_sync_log
+  // exists (see PROJECT.md v10.0.0 notes).
   const datasetJsonLd = buildDatasetJsonLd({
     name: "U.S. Instant Payments Coverage",
     description: DESCRIPTION,
     url: PAGE_URL,
-    dateModified: maxDate(freshness.institutionDirectoryAsOf, freshness.railSourceListsDownloadedAt),
+    dateModified: null,
   });
 
   return (
@@ -169,11 +193,20 @@ export default async function InstantPaymentsCoveragePage() {
         </section>
 
         <section className="mt-10 space-y-1 text-xs text-slate-500">
-          {freshness.institutionDirectoryAsOf && (
-            <p>Institution directory last verified {formatDate(freshness.institutionDirectoryAsOf)}.</p>
+          {freshness.fdicDirectoryAsOf && (
+            <p>FDIC bank directory last verified {formatDate(freshness.fdicDirectoryAsOf)}.</p>
           )}
-          {freshness.railSourceListsDownloadedAt && (
-            <p>Rail participant source lists last downloaded {formatDate(freshness.railSourceListsDownloadedAt)}.</p>
+          {freshness.ncuaDirectoryAsOf && (
+            <p>NCUA credit union directory last verified {formatDate(freshness.ncuaDirectoryAsOf)}.</p>
+          )}
+          {freshness.fednowListDownloadedAt && (
+            <p>FedNow participant list last downloaded {formatDate(freshness.fednowListDownloadedAt)}.</p>
+          )}
+          {freshness.rtpListDownloadedAt && (
+            <p>RTP participant list last downloaded {formatDate(freshness.rtpListDownloadedAt)}.</p>
+          )}
+          {freshness.zelleListDownloadedAt && (
+            <p>Zelle participant list last downloaded {formatDate(freshness.zelleListDownloadedAt)}.</p>
           )}
           <p>
             See{" "}

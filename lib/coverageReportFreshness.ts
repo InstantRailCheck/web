@@ -7,25 +7,32 @@ import { fetchAllBanks } from "@/lib/allBanks";
 import { computeCoverageReport, type CoverageBankRow, type CoverageReport } from "@/lib/coverageReport";
 
 export type CoverageFreshness = {
-  // Covers name/address/existence/state/source_authority — never the rail
-  // flags. finalize_sync_run (the migration that writes sync_runs.finished_at)
-  // never touches fednow_participant/rtp_participant/zelle_participant; that's
-  // a genuinely separate pipeline (scripts/backfill-rail-participation.mjs).
-  institutionDirectoryAsOf: string | null;
-  // Only marks when the raw FedNow/RTP/Zelle source lists were downloaded
-  // into fednow_participants/rtp_participants/zelle_participants — NOT when
+  // Kept separate rather than collapsed into one "directory" date — a fresh
+  // weekly fdic-scope run would otherwise mask NCUA data that's only ever
+  // touched by the monthly 'both'-scope run (fdicDirectoryAsOf legitimately
+  // considers both scopes, since 'both' refreshes FDIC banks too;
+  // ncuaDirectoryAsOf can only ever come from 'both').
+  fdicDirectoryAsOf: string | null;
+  ncuaDirectoryAsOf: string | null;
+  // Marks when each raw source list was downloaded into
+  // fednow_participants/rtp_participants/zelle_participants — NOT when
   // banks.fednow_participant/etc. were last backfilled from them.
   // backfill-rail-participation.mjs logs nothing to the database about its
   // own runs, so that step's completion time genuinely isn't knowable yet.
   // Deliberately not called "coverage last verified" anywhere this is
-  // displayed — see PROJECT.md v10.0.0 notes.
-  railSourceListsDownloadedAt: string | null;
+  // displayed — see PROJECT.md v10.0.0 notes. Kept as three separate dates
+  // (not one collapsed "rail" date) for the same reason as the directory
+  // split above: one freshly-downloaded rail shouldn't visually mask two
+  // stale ones.
+  fednowListDownloadedAt: string | null;
+  rtpListDownloadedAt: string | null;
+  zelleListDownloadedAt: string | null;
 };
 
 type SyncRunRow = { finished_at: string | null };
 type ParticipantRow = { updated_at: string };
 
-export function maxDate(a: string | null, b: string | null): string | null {
+function maxDate(a: string | null, b: string | null): string | null {
   if (!a) return b;
   if (!b) return a;
   return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
@@ -76,8 +83,11 @@ async function fetchCoverageFreshness(): Promise<CoverageFreshness> {
   ]);
 
   return {
-    institutionDirectoryAsOf: maxDate(fdicAppliedAt, bothAppliedAt),
-    railSourceListsDownloadedAt: [fednowAt, rtpAt, zelleAt].reduce(maxDate, null as string | null),
+    fdicDirectoryAsOf: maxDate(fdicAppliedAt, bothAppliedAt),
+    ncuaDirectoryAsOf: bothAppliedAt,
+    fednowListDownloadedAt: fednowAt,
+    rtpListDownloadedAt: rtpAt,
+    zelleListDownloadedAt: zelleAt,
   };
 }
 
@@ -102,6 +112,12 @@ export async function fetchCoverageFreshnessLogged(): Promise<CoverageFreshness>
 // submissions), this data only changes on a weekly/monthly sync cadence, and
 // nothing calls updateTag() for it, so there's no reason to revalidate more
 // eagerly than that.
+//
+// If this appears to return stale/empty data while running `npm run dev`,
+// that's a known unstable_cache + Turbopack dev-mode quirk, not a real bug —
+// confirmed by testing fetchCoverageFreshnessLogged() directly (correct
+// every time) versus this wrapped export (intermittently stale under dev).
+// A real `npm run build && npm run start` returns correct data every time.
 export const getCachedCoverageFreshness = unstable_cache(
   fetchCoverageFreshnessLogged,
   ["coverage-freshness-v1"],

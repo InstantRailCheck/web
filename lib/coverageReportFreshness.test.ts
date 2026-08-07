@@ -98,10 +98,10 @@ beforeEach(() => {
 });
 
 describe("fetchCoverageFreshnessLogged", () => {
-  it("uses finished_at from the latest applied sync_runs row", async () => {
+  it("uses finished_at from the latest applied fdic-scope sync_runs row for fdicDirectoryAsOf", async () => {
     syncRuns.fdic = [{ finished_at: "2026-07-20T00:00:00Z", status: "applied" }];
     const result = await fetchCoverageFreshnessLogged();
-    expect(result.institutionDirectoryAsOf).toBe("2026-07-20T00:00:00Z");
+    expect(result.fdicDirectoryAsOf).toBe("2026-07-20T00:00:00Z");
   });
 
   it("ignores a fresher 'staged' row in favor of an older 'applied' row", async () => {
@@ -110,32 +110,57 @@ describe("fetchCoverageFreshnessLogged", () => {
       { finished_at: "2026-07-18T00:00:00Z", status: "applied" },
     ];
     const result = await fetchCoverageFreshnessLogged();
-    expect(result.institutionDirectoryAsOf).toBe("2026-07-18T00:00:00Z");
+    expect(result.fdicDirectoryAsOf).toBe("2026-07-18T00:00:00Z");
   });
 
-  it("takes the later of the fdic-scope and both-scope applied runs for institutionDirectoryAsOf", async () => {
+  it("takes the later of the fdic-scope and both-scope applied runs for fdicDirectoryAsOf, since 'both' refreshes FDIC banks too", async () => {
     syncRuns.fdic = [{ finished_at: "2026-08-01T00:00:00Z", status: "applied" }];
     syncRuns.both = [{ finished_at: "2026-07-18T00:00:00Z", status: "applied" }];
-    expect((await fetchCoverageFreshnessLogged()).institutionDirectoryAsOf).toBe("2026-08-01T00:00:00Z");
+    expect((await fetchCoverageFreshnessLogged()).fdicDirectoryAsOf).toBe("2026-08-01T00:00:00Z");
 
     syncRuns.fdic = [{ finished_at: "2026-07-01T00:00:00Z", status: "applied" }];
     syncRuns.both = [{ finished_at: "2026-07-30T00:00:00Z", status: "applied" }];
-    expect((await fetchCoverageFreshnessLogged()).institutionDirectoryAsOf).toBe("2026-07-30T00:00:00Z");
+    expect((await fetchCoverageFreshnessLogged()).fdicDirectoryAsOf).toBe("2026-07-30T00:00:00Z");
   });
 
-  it("takes the max updated_at across all three rail-participant tables", async () => {
+  it("ncuaDirectoryAsOf only ever comes from the both-scope run, never fdic-scope alone", async () => {
+    syncRuns.fdic = [{ finished_at: "2026-08-01T00:00:00Z", status: "applied" }];
+    syncRuns.both = [{ finished_at: "2026-07-18T00:00:00Z", status: "applied" }];
+
+    const result = await fetchCoverageFreshnessLogged();
+    expect(result.ncuaDirectoryAsOf).toBe("2026-07-18T00:00:00Z");
+  });
+
+  it("keeps fdicDirectoryAsOf fresh while ncuaDirectoryAsOf stays stale, so one can't mask the other", async () => {
+    syncRuns.fdic = [{ finished_at: "2026-08-01T00:00:00Z", status: "applied" }];
+    syncRuns.both = [{ finished_at: "2026-06-01T00:00:00Z", status: "applied" }];
+
+    const result = await fetchCoverageFreshnessLogged();
+    expect(result.fdicDirectoryAsOf).toBe("2026-08-01T00:00:00Z");
+    expect(result.ncuaDirectoryAsOf).toBe("2026-06-01T00:00:00Z");
+  });
+
+  it("reports each rail's participant-list download date independently, not collapsed into one", async () => {
     participantUpdatedAt = {
       fednow_participants: "2026-07-10T00:00:00Z",
       rtp_participants: "2026-07-25T00:00:00Z",
       zelle_participants: "2026-07-15T00:00:00Z",
     };
     const result = await fetchCoverageFreshnessLogged();
-    expect(result.railSourceListsDownloadedAt).toBe("2026-07-25T00:00:00Z");
+    expect(result.fednowListDownloadedAt).toBe("2026-07-10T00:00:00Z");
+    expect(result.rtpListDownloadedAt).toBe("2026-07-25T00:00:00Z");
+    expect(result.zelleListDownloadedAt).toBe("2026-07-15T00:00:00Z");
   });
 
-  it("returns null for both fields when no applied run or participant data exists yet", async () => {
+  it("returns null for every field when no applied run or participant data exists yet", async () => {
     const result = await fetchCoverageFreshnessLogged();
-    expect(result).toEqual({ institutionDirectoryAsOf: null, railSourceListsDownloadedAt: null });
+    expect(result).toEqual({
+      fdicDirectoryAsOf: null,
+      ncuaDirectoryAsOf: null,
+      fednowListDownloadedAt: null,
+      rtpListDownloadedAt: null,
+      zelleListDownloadedAt: null,
+    });
   });
 
   it("logs and rethrows on a sync_runs failure instead of returning null", async () => {
