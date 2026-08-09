@@ -1065,6 +1065,13 @@ This release starts with a full security pass of every API route and RLS policy 
 - `buildDatasetJsonLd()` (`lib/jsonLd.ts`) gains an optional `distribution` field (schema.org `DataDownload`), pointing at the new CSV URL — the last piece explicitly deferred in the v10.0 commit for lack of a real download URL to cite
 - Visible "Download this data as CSV" link added to the page itself, not just structured data a crawler sees
 
+## Version 10.3.0 (v10.3 — shipped August 7 2026)
+
+**Citation block + press-summary stats** — the last two v10.0 deferred items that were actually ready to build (`Article` JSON-LD still isn't — the page has no editorial prose to justify that schema type)
+- New `lib/citation.ts#buildCoverageReportCitation()`: `InstantRailCheck. "U.S. Instant Payments Coverage." Data verified {Month Year}. {URL}` — reuses the exact `dateModified` value already computed on the page for the Dataset JSON-LD, so the citation date stays accurate without a second source of truth. The "Data verified" clause is dropped entirely (not shown blank) when `dateModified` is null
+- New `components/CitationBlock.tsx`: directly follows the existing `CopyLinkButton` pattern in `components/RouteSearch.tsx` (`navigator.clipboard.writeText` in a try/catch — clipboard can reject on non-HTTPS/permission-denial — with a visible "Couldn't copy" fallback state, not a silently swallowed rejection)
+- New press-summary section above "Overview": three plain counts/percentages (total active institutions, % confirmed on FedNow, count confirmed on both FedNow and RTP) — no comparative or causal framing, matching Data Principles ("Evidence describes correlation, not causation")
+
 ## Data Principles
 
 - Real-world reports only

@@ -4,11 +4,13 @@ import { headers } from "next/headers";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CoverageBarChart } from "@/components/CoverageBarChart";
+import { CitationBlock } from "@/components/CitationBlock";
 import { getCachedCoverageReport, getCachedCoverageFreshness, maxDate } from "@/lib/coverageReportFreshness";
 import { buildDatasetJsonLd, safeJsonLdString } from "@/lib/jsonLd";
+import { buildCoverageReportCitation } from "@/lib/citation";
 import { ZELLE_INCOMPLETE_CAVEAT } from "@/lib/railDisplayName";
 import { SITE_URL } from "@/lib/siteConfig";
-import type { CoverageBreakdown, RailBuckets } from "@/lib/coverageReport";
+import { pct, type CoverageBreakdown, type RailBuckets } from "@/lib/coverageReport";
 
 const TITLE = "U.S. Instant Payments Coverage Report | InstantRailCheck";
 const DESCRIPTION =
@@ -112,13 +114,16 @@ export default async function InstantPaymentsCoveragePage() {
   // three previously didn't exist as a trustworthy signal at all; see
   // PROJECT.md v10.1.0 notes).
   const csvUrl = `${PAGE_URL}/coverage.csv`;
+  const dateModified = maxDate(maxDate(freshness.fdicDirectoryAsOf, freshness.ncuaDirectoryAsOf), freshness.railParticipationVerifiedAt);
   const datasetJsonLd = buildDatasetJsonLd({
     name: "U.S. Instant Payments Coverage",
     description: DESCRIPTION,
     url: PAGE_URL,
-    dateModified: maxDate(maxDate(freshness.fdicDirectoryAsOf, freshness.ncuaDirectoryAsOf), freshness.railParticipationVerifiedAt),
+    dateModified,
     distribution: { contentUrl: csvUrl, encodingFormat: "text/csv" },
   });
+  const citationText = buildCoverageReportCitation({ dateModified, url: PAGE_URL });
+  const fedNowConfirmedPct = Math.round(pct(report.overall.fednow.confirmed, report.overall.total));
 
   return (
     <main id="main-content" className="min-h-screen bg-slate-950 text-white">
@@ -140,6 +145,21 @@ export default async function InstantPaymentsCoveragePage() {
           Zelle. A rail marked &quot;not confirmed&quot; means the institution wasn&apos;t found on that
           rail&apos;s official source list — not that it definitely doesn&apos;t support it.
         </p>
+
+        <section className="mt-6 space-y-1 rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-300">
+          <p>
+            <strong className="text-white">{report.totalActive.toLocaleString()}</strong> active U.S. banks and
+            credit unions are tracked for instant-payment rail participation.
+          </p>
+          <p>
+            Only <strong className="text-white">{fedNowConfirmedPct}%</strong>{" "}
+            are confirmed on FedNow, the Federal Reserve&apos;s instant payment rail.
+          </p>
+          <p>
+            <strong className="text-white">{report.bothFedNowAndRtp.toLocaleString()}</strong> institutions are
+            confirmed on both FedNow and RTP.
+          </p>
+        </section>
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold">Overview</h2>
@@ -214,6 +234,10 @@ export default async function InstantPaymentsCoveragePage() {
             </a>
             .
           </p>
+        </section>
+
+        <section className="mt-6">
+          <CitationBlock citationText={citationText} />
         </section>
 
         <LegalFooterLinks />
