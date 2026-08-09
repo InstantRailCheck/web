@@ -111,11 +111,13 @@ export default async function InstantPaymentsCoveragePage() {
   // are now all precise, verified completion timestamps (the last of the
   // three previously didn't exist as a trustworthy signal at all; see
   // PROJECT.md v10.1.0 notes).
+  const csvUrl = `${PAGE_URL}/coverage.csv`;
   const datasetJsonLd = buildDatasetJsonLd({
     name: "U.S. Instant Payments Coverage",
     description: DESCRIPTION,
     url: PAGE_URL,
     dateModified: maxDate(maxDate(freshness.fdicDirectoryAsOf, freshness.ncuaDirectoryAsOf), freshness.railParticipationVerifiedAt),
+    distribution: { contentUrl: csvUrl, encodingFormat: "text/csv" },
   });
 
   return (
@@ -206,7 +208,11 @@ export default async function InstantPaymentsCoveragePage() {
             <Link href="/methodology" className="underline hover:text-slate-300">
               methodology
             </Link>{" "}
-            for how rail participation is verified.
+            for how rail participation is verified.{" "}
+            <a href="/research/instant-payments/coverage.csv" download className="underline hover:text-slate-300">
+              Download this data as CSV
+            </a>
+            .
           </p>
         </section>
 

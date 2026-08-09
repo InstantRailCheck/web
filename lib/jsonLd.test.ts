@@ -111,4 +111,33 @@ describe("buildDatasetJsonLd", () => {
 
     expect(result).not.toHaveProperty("dateModified");
   });
+
+  it("includes a DataDownload distribution when provided", () => {
+    const result = buildDatasetJsonLd({
+      name: "U.S. Instant Payments Coverage",
+      description: "...",
+      url: "https://www.instantrailcheck.com/research/instant-payments",
+      dateModified: null,
+      distribution: { contentUrl: "https://www.instantrailcheck.com/research/instant-payments/coverage.csv", encodingFormat: "text/csv" },
+    });
+
+    expect(result).toMatchObject({
+      distribution: {
+        "@type": "DataDownload",
+        contentUrl: "https://www.instantrailcheck.com/research/instant-payments/coverage.csv",
+        encodingFormat: "text/csv",
+      },
+    });
+  });
+
+  it("omits distribution entirely when not provided", () => {
+    const result = buildDatasetJsonLd({
+      name: "U.S. Instant Payments Coverage",
+      description: "...",
+      url: "https://www.instantrailcheck.com/research/instant-payments",
+      dateModified: null,
+    });
+
+    expect(result).not.toHaveProperty("distribution");
+  });
 });

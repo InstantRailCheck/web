@@ -1057,6 +1057,14 @@ This release starts with a full security pass of every API route and RLS policy 
 - New `scripts/db-tests/railParticipationSyncLog.check.mjs` runs the **real** backfill script (not a simulated version of its logic) against a real local Postgres instance — unlike `sync-ncua-directory.mjs`, this script has no external network fetch of its own, so exercising it for real against seeded local data is safe and meaningfully stronger coverage than schema-only checks
 - `lib/coverageReportFreshness.ts`'s `CoverageFreshness` shrinks from 5 fields to 3: the three separate per-rail "downloaded" dates collapse into one `railParticipationVerifiedAt`, since the backfill script processes all three rails together per bank in a single run — there's no such thing as "FedNow was verified but RTP wasn't" within one run. Dataset JSON-LD's `dateModified` — omitted entirely in the v10.0 fix commit for lack of a trustworthy value — is restored as the real `max()` across all three freshness dates, now that all three are genuinely precise
 
+## Version 10.2.0 (v10.2 — shipped August 7 2026)
+
+**CSV export for the coverage report** — the first of the v10.0 deferred link-earning features (citation block, `Article` JSON-LD, and press-summary are separate product/copy decisions, deliberately not tackled here)
+- New `lib/coverageReport.ts#flattenCoverageReportToRows()`: flattens `overall`/`byAuthority`/`byAssetTier`/`byState` into one `dimension`/`category`-keyed table (rather than exporting three mismatched tables), reusing the existing `toCsv()` (`lib/csv.ts`)
+- New `/research/instant-payments/coverage.csv` route — deliberately *not* wrapped in `withApiProtection` (`lib/apiResponse.ts`), which is scoped to the documented, versioned `/api/*` surface listed on `/developers`. This is a download link off one page, not a polled integration, and it's already cheap to serve (backed by the same `unstable_cache`'d `getCachedCoverageReport()` the page itself uses)
+- `buildDatasetJsonLd()` (`lib/jsonLd.ts`) gains an optional `distribution` field (schema.org `DataDownload`), pointing at the new CSV URL — the last piece explicitly deferred in the v10.0 commit for lack of a real download URL to cite
+- Visible "Download this data as CSV" link added to the page itself, not just structured data a crawler sees
+
 ## Data Principles
 
 - Real-world reports only

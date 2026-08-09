@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { computeCoverageReport, pct, NOT_ON_FILE, type CoverageBankRow, type CoverageBreakdown } from "./coverageReport";
+import {
+  computeCoverageReport,
+  flattenCoverageReportToRows,
+  pct,
+  NOT_ON_FILE,
+  type CoverageBankRow,
+  type CoverageBreakdown,
+} from "./coverageReport";
 
 function bankRow(overrides: Partial<CoverageBankRow> = {}): CoverageBankRow {
   return {
@@ -136,5 +143,45 @@ describe("computeCoverageReport", () => {
     ]);
 
     expect(report.byState.map((row) => row.state)).toEqual(["NY", "CA", "TX"]);
+  });
+});
+
+describe("flattenCoverageReportToRows", () => {
+  it("produces one row for overall, 3 for institution type, plus one per asset tier and per state", () => {
+    const report = computeCoverageReport([
+      bankRow({ source_authority: "fdic", state: "CA", total_assets: 500_000_000 }),
+      bankRow({ source_authority: "ncua", state: "TX", total_assets: null }),
+    ]);
+    const rows = flattenCoverageReportToRows(report);
+
+    expect(rows.length).toBe(1 + 3 + report.byAssetTier.length + report.byState.length);
+  });
+
+  it("every row shares identical keys, so toCsv()'s header row stays consistent", () => {
+    const report = computeCoverageReport([bankRow()]);
+    const rows = flattenCoverageReportToRows(report);
+    const keySets = rows.map((row) => Object.keys(row).sort().join(","));
+
+    expect(new Set(keySets).size).toBe(1);
+  });
+
+  it("labels and values are correct for the overall, institution-type, asset-tier, and state rows", () => {
+    const report = computeCoverageReport([
+      bankRow({ source_authority: "fdic", state: "CA", total_assets: 50_000_000, fednow_participant: true }),
+      bankRow({ source_authority: "ncua", state: "TX", total_assets: 50_000_000, fednow_participant: false }),
+    ]);
+    const rows = flattenCoverageReportToRows(report);
+
+    const overall = rows.find((r) => r.dimension === "overall" && r.category === "all");
+    expect(overall).toMatchObject({ total: 2, fednow_confirmed: 1, fednow_not_confirmed: 1, fednow_unknown: 0 });
+
+    const fdicRow = rows.find((r) => r.dimension === "institution_type" && r.category === "fdic");
+    expect(fdicRow).toMatchObject({ total: 1, fednow_confirmed: 1 });
+
+    const tierRow = rows.find((r) => r.dimension === "asset_tier" && r.category === "Under $100M");
+    expect(tierRow).toMatchObject({ total: 2 });
+
+    const caRow = rows.find((r) => r.dimension === "state" && r.category === "CA");
+    expect(caRow).toMatchObject({ total: 1, fednow_confirmed: 1 });
   });
 });

@@ -110,3 +110,35 @@ export function computeCoverageReport(banks: CoverageBankRow[]): CoverageReport 
     bothFedNowAndRtp,
   };
 }
+
+function breakdownToRow(dimension: string, category: string, breakdown: CoverageBreakdown): Record<string, unknown> {
+  return {
+    dimension,
+    category,
+    total: breakdown.total,
+    fednow_confirmed: breakdown.fednow.confirmed,
+    fednow_not_confirmed: breakdown.fednow.notConfirmed,
+    fednow_unknown: breakdown.fednow.unknown,
+    rtp_confirmed: breakdown.rtp.confirmed,
+    rtp_not_confirmed: breakdown.rtp.notConfirmed,
+    rtp_unknown: breakdown.rtp.unknown,
+    zelle_confirmed: breakdown.zelle.confirmed,
+    zelle_not_confirmed: breakdown.zelle.notConfirmed,
+    zelle_unknown: breakdown.zelle.unknown,
+  };
+}
+
+// One flat table — every row shares the same keys, which toCsv() (lib/csv.ts)
+// requires for a sane header row. dimension/category together identify each
+// row (e.g. dimension="asset_tier", category="$100M–$1B") rather than
+// exporting byAssetTier/byState/byAuthority as separate mismatched tables.
+export function flattenCoverageReportToRows(report: CoverageReport): Record<string, unknown>[] {
+  return [
+    breakdownToRow("overall", "all", report.overall),
+    breakdownToRow("institution_type", "fdic", report.byAuthority.fdic),
+    breakdownToRow("institution_type", "ncua", report.byAuthority.ncua),
+    breakdownToRow("institution_type", "unknown", report.byAuthority.unknown),
+    ...report.byAssetTier.map(({ tier, breakdown }) => breakdownToRow("asset_tier", tier, breakdown)),
+    ...report.byState.map(({ state, breakdown }) => breakdownToRow("state", state, breakdown)),
+  ];
+}
