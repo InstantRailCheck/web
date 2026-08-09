@@ -1072,6 +1072,10 @@ This release starts with a full security pass of every API route and RLS policy 
 - New `components/CitationBlock.tsx`: directly follows the existing `CopyLinkButton` pattern in `components/RouteSearch.tsx` (`navigator.clipboard.writeText` in a try/catch — clipboard can reject on non-HTTPS/permission-denial — with a visible "Couldn't copy" fallback state, not a silently swallowed rejection)
 - New press-summary section above "Overview": three plain counts/percentages (total active institutions, % confirmed on FedNow, count confirmed on both FedNow and RTP) — no comparative or causal framing, matching Data Principles ("Evidence describes correlation, not causation")
 
+## Version 10.3.1 (v10.3.1 — shipped August 9 2026)
+
+**Fix missing `route_requests` service_role grant** — discovered while visually verifying `/contribute`'s EDD opportunities section against a fresh local Supabase replay (seeding an `edd_reports` row to see the section render, since production currently has zero banks in the near-threshold band). `lib/needsFreshReports.ts`'s read of `route_requests` failed with `permission denied for table route_requests` — production only worked on legacy dashboard-inherited default privileges that predate RLS, same class of gap `20260714030000_make_service_role_grants_replayable.sql` and `20260806000000_add_rail_participation_sync_log.sql` already fixed for seven other tables. `rlsManifest.mjs`'s `route_requests: []` entry already documented this table as admin-client-only with no RLS policy — this migration just makes the grant that fact depends on explicit instead of assumed. Verified via a full fresh `supabase db reset` migration replay plus the entire `test:db` suite (14/14 passing)
+
 ## Data Principles
 
 - Real-world reports only
