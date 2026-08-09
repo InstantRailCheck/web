@@ -157,6 +157,7 @@ async function main() {
   let unmatched = 0;
   let cleared = 0;
   let processed = 0;
+  const failures = [];
   for (const bank of banks) {
     const isCreditUnion = bank.name.toLowerCase().includes("credit union");
     const stripped = bank.name.replace(/\s+credit union$/i, "").trim();
@@ -177,7 +178,8 @@ async function main() {
       // Only write when the value actually needs to change — avoids
       // touching rows that are already correct on a re-run.
       if (bank.total_assets !== assets) {
-        await supabase.from("banks").update({ total_assets: assets }).eq("id", bank.id);
+        const { error } = await supabase.from("banks").update({ total_assets: assets }).eq("id", bank.id);
+        if (error) failures.push({ name: bank.name, message: error.message });
       }
     } else {
       unmatched++;
@@ -186,8 +188,9 @@ async function main() {
       // institution via a since-fixed matching bug, but is now correctly
       // recognized as ambiguous). Blank over wrong.
       if (bank.total_assets !== null) {
-        await supabase.from("banks").update({ total_assets: null }).eq("id", bank.id);
-        cleared++;
+        const { error } = await supabase.from("banks").update({ total_assets: null }).eq("id", bank.id);
+        if (error) failures.push({ name: bank.name, message: error.message });
+        else cleared++;
       }
     }
 
@@ -198,6 +201,29 @@ async function main() {
   }
 
   console.log(`Done. Matched ${matched}/${banks.length} banks, ${unmatched} left blank, ${cleared} stale values cleared.`);
+
+  // A partial-failure run must never look like a clean one — same fix
+  // shape as backfill-rail-participation.mjs (v10.1): previously every
+  // update() error above was only ever silently dropped by the caller,
+  // never tracked or surfaced.
+  if (failures.length > 0) {
+    console.log(`${failures.length} bank update(s) failed — skipping bank_asset_backfill_log (a completion record must mean zero update failures, not "mostly done").`);
+    for (const f of failures) console.log(`- ${f.name}: ${f.message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const { error: logError } = await supabase.from("bank_asset_backfill_log").insert({
+    banks_processed: banks.length,
+    matched,
+    cleared,
+  });
+  if (logError) {
+    console.log(`Failed to write bank_asset_backfill_log: ${logError.message}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log("Logged successful bank asset backfill.");
 }
 
 main().catch((err) => {

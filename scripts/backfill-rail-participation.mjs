@@ -71,7 +71,12 @@ async function main() {
     siblingsByNormalizedName.set(key, list);
   }
 
-  console.log(`Processing ${banks.length} bank(s).`);
+  // The loop below skips inactive banks entirely, so banks.length (every
+  // row fetchAllRows returned, active or not) would overcount what was
+  // actually processed. Counted here, not inline in the loop, so it stays
+  // exact even if the loop ever returns early.
+  const activeBankCount = banks.filter((bank) => bank.is_active).length;
+  console.log(`Processing ${activeBankCount} active bank(s) (${banks.length} total, including inactive).`);
 
   let updated = 0;
   let ambiguous = 0;
@@ -115,7 +120,7 @@ async function main() {
     }
   }
 
-  console.log(`Done. Updated ${updated}/${banks.length} bank(s). ${ambiguous} bank(s) had at least one ambiguous (unresolved) rail match.`);
+  console.log(`Done. Updated ${updated}/${activeBankCount} active bank(s). ${ambiguous} bank(s) had at least one ambiguous (unresolved) rail match.`);
 
   // A partial-failure run must never look like a clean one — previously
   // this script exited 0 unconditionally, even if every single update
@@ -129,7 +134,7 @@ async function main() {
   }
 
   const { error: logError } = await supabase.from("rail_participation_sync_log").insert({
-    banks_processed: banks.length,
+    banks_processed: activeBankCount,
     banks_updated: updated,
     ambiguous_count: ambiguous,
   });

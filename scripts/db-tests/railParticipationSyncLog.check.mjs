@@ -25,6 +25,46 @@ const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "../b
 const TEST_BANK_NAME = `DbTest Rail Bank ${Date.now()}`;
 const TEST_BANK_SLUG = `db-test-rail-bank-${Date.now()}`;
 let bankId, fednowParticipantId, logRowId;
+let otherBanksSnapshot = [];
+
+// The real backfill script (correctly) processes every active bank in the
+// table, not just the one this test seeds — so if any other banks already
+// exist when this runs (a leftover from another check.mjs, or a developer's
+// own locally-seeded data), their fednow_participant/rtp_participant/
+// zelle_participant flags would otherwise be permanently changed by a test
+// run and never restored. Snapshotting and restoring them here is what
+// keeps this test genuinely self-contained per the fixtures.mjs convention,
+// rather than silently depending on "nothing else happens to exist yet."
+async function snapshotOtherBanksRailFlags() {
+  const pageSize = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await admin
+      .from("banks")
+      .select("id, fednow_participant, rtp_participant, zelle_participant")
+      .neq("id", bankId)
+      .order("id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function restoreOtherBanksRailFlags(snapshot) {
+  for (const row of snapshot) {
+    const { error } = await admin
+      .from("banks")
+      .update({
+        fednow_participant: row.fednow_participant,
+        rtp_participant: row.rtp_participant,
+        zelle_participant: row.zelle_participant,
+      })
+      .eq("id", row.id);
+    if (error) throw error;
+  }
+}
 
 async function seed() {
   const { data: bank, error: bankError } = await admin
@@ -55,6 +95,7 @@ async function seed() {
 }
 
 async function cleanup() {
+  if (otherBanksSnapshot.length > 0) await restoreOtherBanksRailFlags(otherBanksSnapshot);
   if (bankId) await admin.from("banks").delete().eq("id", bankId);
   if (fednowParticipantId) await admin.from("fednow_participants").delete().eq("id", fednowParticipantId);
   if (logRowId) await admin.from("rail_participation_sync_log").delete().eq("id", logRowId);
@@ -64,6 +105,13 @@ async function main() {
   try {
     console.log("\nSeeding a test bank that should match a FedNow participant...");
     await seed();
+
+    otherBanksSnapshot = await snapshotOtherBanksRailFlags();
+    if (otherBanksSnapshot.length > 0) {
+      console.log(
+        `\nSnapshotted rail-participant flags for ${otherBanksSnapshot.length} other bank(s) already present — will restore after this run.`
+      );
+    }
 
     const logRowsBefore = await admin.from("rail_participation_sync_log").select("id");
     const countBefore = logRowsBefore.data?.length ?? 0;

@@ -9,6 +9,9 @@ let syncRunsError = false;
 let railSyncLogSyncedAt: string | null = null;
 let railSyncLogError = false;
 
+let assetBackfillLogSyncedAt: string | null = null;
+let assetBackfillLogError = false;
+
 type BankFixtureRow = {
   is_active: boolean;
   source_authority: "fdic" | "ncua" | null;
@@ -61,6 +64,25 @@ vi.mock("@/lib/supabase/admin", () => ({
           }),
         };
       }
+      if (table === "bank_asset_backfill_log") {
+        return {
+          select: () => ({
+            order: () => ({
+              limit: () => ({
+                maybeSingle: () => {
+                  if (assetBackfillLogError) {
+                    return Promise.resolve({ data: null, error: { message: "bank_asset_backfill_log db error" } });
+                  }
+                  return Promise.resolve({
+                    data: assetBackfillLogSyncedAt ? { synced_at: assetBackfillLogSyncedAt } : null,
+                    error: null,
+                  });
+                },
+              }),
+            }),
+          }),
+        };
+      }
       if (table === "banks") {
         return {
           select: () => ({
@@ -87,6 +109,8 @@ beforeEach(() => {
   syncRunsError = false;
   railSyncLogSyncedAt = null;
   railSyncLogError = false;
+  assetBackfillLogSyncedAt = null;
+  assetBackfillLogError = false;
   bankRows = [];
   banksError = false;
 });
@@ -140,12 +164,19 @@ describe("fetchCoverageFreshnessLogged", () => {
     expect(result.railParticipationVerifiedAt).toBe("2026-07-25T00:00:00Z");
   });
 
+  it("uses synced_at from the latest bank_asset_backfill_log row for assetDataAsOf", async () => {
+    assetBackfillLogSyncedAt = "2026-07-28T00:00:00Z";
+    const result = await fetchCoverageFreshnessLogged();
+    expect(result.assetDataAsOf).toBe("2026-07-28T00:00:00Z");
+  });
+
   it("returns null for every field when no applied run or sync log row exists yet", async () => {
     const result = await fetchCoverageFreshnessLogged();
     expect(result).toEqual({
       fdicDirectoryAsOf: null,
       ncuaDirectoryAsOf: null,
       railParticipationVerifiedAt: null,
+      assetDataAsOf: null,
     });
   });
 
@@ -164,6 +195,16 @@ describe("fetchCoverageFreshnessLogged", () => {
     railSyncLogError = true;
 
     await expect(fetchCoverageFreshnessLogged()).rejects.toThrow("rail_participation_sync_log db error");
+    expect(errorSpy).toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+  });
+
+  it("logs and rethrows on a bank_asset_backfill_log failure instead of returning null", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    assetBackfillLogError = true;
+
+    await expect(fetchCoverageFreshnessLogged()).rejects.toThrow("bank_asset_backfill_log db error");
     expect(errorSpy).toHaveBeenCalled();
 
     errorSpy.mockRestore();

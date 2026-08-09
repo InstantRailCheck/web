@@ -114,7 +114,10 @@ export default async function InstantPaymentsCoveragePage() {
   // three previously didn't exist as a trustworthy signal at all; see
   // PROJECT.md v10.1.0 notes).
   const csvUrl = `${PAGE_URL}/coverage.csv`;
-  const dateModified = maxDate(maxDate(freshness.fdicDirectoryAsOf, freshness.ncuaDirectoryAsOf), freshness.railParticipationVerifiedAt);
+  const dateModified = maxDate(
+    maxDate(maxDate(freshness.fdicDirectoryAsOf, freshness.ncuaDirectoryAsOf), freshness.railParticipationVerifiedAt),
+    freshness.assetDataAsOf
+  );
   const datasetJsonLd = buildDatasetJsonLd({
     name: "U.S. Instant Payments Coverage",
     description: DESCRIPTION,
@@ -223,6 +226,7 @@ export default async function InstantPaymentsCoveragePage() {
           {freshness.railParticipationVerifiedAt && (
             <p>Rail participation last verified {formatDate(freshness.railParticipationVerifiedAt)}.</p>
           )}
+          {freshness.assetDataAsOf && <p>Bank asset data last verified {formatDate(freshness.assetDataAsOf)}.</p>}
           <p>
             See{" "}
             <Link href="/methodology" className="underline hover:text-slate-300">

@@ -24,10 +24,20 @@ export type CoverageFreshness = {
   // rails together per bank in a single run — there's no such thing as
   // "FedNow was verified but RTP wasn't" within one run.
   railParticipationVerifiedAt: string | null;
+  // v10.4: sourced from bank_asset_backfill_log, written by
+  // scripts/backfill-bank-assets.mjs only when it completes a run with
+  // zero per-bank update failures (same "only log a clean run" contract as
+  // railParticipationVerifiedAt above). total_assets drives byAssetTier on
+  // the coverage report, so without this the report's dateModified could
+  // go stale silently — asset data can change with no timestamp anywhere
+  // reflecting it. null until the first post-migration run of the monthly
+  // sync-ncua-and-assets job (or a manually triggered one).
+  assetDataAsOf: string | null;
 };
 
 type SyncRunRow = { finished_at: string | null };
 type RailParticipationSyncLogRow = { synced_at: string };
+type BankAssetBackfillLogRow = { synced_at: string };
 
 export function maxDate(a: string | null, b: string | null): string | null {
   if (!a) return b;
@@ -69,18 +79,33 @@ async function latestRailParticipationSyncedAt(supabase: SupabaseClient): Promis
   return (data as RailParticipationSyncLogRow | null)?.synced_at ?? null;
 }
 
+// bank_asset_backfill_log has the same RLS shape as sync_runs/
+// rail_participation_sync_log (RLS enabled, service_role-only grant).
+async function latestAssetBackfillSyncedAt(supabase: SupabaseClient): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("bank_asset_backfill_log")
+    .select("synced_at")
+    .order("synced_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`bank_asset_backfill_log query failed: ${error.message}`);
+  return (data as BankAssetBackfillLogRow | null)?.synced_at ?? null;
+}
+
 async function fetchCoverageFreshness(): Promise<CoverageFreshness> {
   const supabase = createAdminClient();
-  const [fdicAppliedAt, bothAppliedAt, railParticipationVerifiedAt] = await Promise.all([
+  const [fdicAppliedAt, bothAppliedAt, railParticipationVerifiedAt, assetDataAsOf] = await Promise.all([
     latestAppliedFinishedAt(supabase, "fdic"),
     latestAppliedFinishedAt(supabase, "both"),
     latestRailParticipationSyncedAt(supabase),
+    latestAssetBackfillSyncedAt(supabase),
   ]);
 
   return {
     fdicDirectoryAsOf: maxDate(fdicAppliedAt, bothAppliedAt),
     ncuaDirectoryAsOf: bothAppliedAt,
     railParticipationVerifiedAt,
+    assetDataAsOf,
   };
 }
 

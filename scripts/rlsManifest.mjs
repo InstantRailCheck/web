@@ -44,6 +44,7 @@ export const EXPECTED_RLS_ENABLED_TABLES = [
   "webhooks",
   "zelle_participants",
   "rail_participation_sync_log",
+  "bank_asset_backfill_log",
 ];
 
 // Every expected policy, per table. A table not listed here (or listed
@@ -94,6 +95,10 @@ export const EXPECTED_POLICIES = {
   // sync_runs/ncua_reference_sync_log — only ever written by
   // scripts/backfill-rail-participation.mjs via the service-role key.
   rail_participation_sync_log: [],
+  // bank_asset_backfill_log (v10.4): server-only, same reasoning — only
+  // ever written by scripts/backfill-bank-assets.mjs via the service-role
+  // key.
+  bank_asset_backfill_log: [],
 };
 
 // Every SECURITY DEFINER function and the exact set of roles that should
