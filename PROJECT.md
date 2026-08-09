@@ -1076,6 +1076,10 @@ This release starts with a full security pass of every API route and RLS policy 
 
 **Fix missing `route_requests` service_role grant** — discovered while visually verifying `/contribute`'s EDD opportunities section against a fresh local Supabase replay (seeding an `edd_reports` row to see the section render, since production currently has zero banks in the near-threshold band). `lib/needsFreshReports.ts`'s read of `route_requests` failed with `permission denied for table route_requests` — production only worked on legacy dashboard-inherited default privileges that predate RLS, same class of gap `20260714030000_make_service_role_grants_replayable.sql` and `20260806000000_add_rail_participation_sync_log.sql` already fixed for seven other tables. `rlsManifest.mjs`'s `route_requests: []` entry already documented this table as admin-client-only with no RLS policy — this migration just makes the grant that fact depends on explicit instead of assumed. Verified via a full fresh `supabase db reset` migration replay plus the entire `test:db` suite (14/14 passing)
 
+## Version 10.3.2 (v10.3.2 — shipped August 9 2026)
+
+**Fix RLS manifest drift (code review finding)** — three real objects existed in production without being declared in `scripts/rlsManifest.mjs`, which would fail the daily `audit-rls.yml` CI check the next time it ran: `rail_participation_sync_log` (added in v10.1's migration) missing from `EXPECTED_RLS_ENABLED_TABLES`/`EXPECTED_POLICIES`, and `merge_duplicate_bank`/`list_indexes_for_table` (both pre-existing, correctly `service_role`-only) missing from `EXPECTED_SECURITY_DEFINER_EXECUTE`. Same class of gap `712919a` (v6.7.3) fixed once before. Verified by running `scripts/audit-rls-manifest.mjs` directly against real production — passed clean after the fix
+
 ## Data Principles
 
 - Real-world reports only

@@ -43,6 +43,7 @@ export const EXPECTED_RLS_ENABLED_TABLES = [
   "webhook_deliveries",
   "webhooks",
   "zelle_participants",
+  "rail_participation_sync_log",
 ];
 
 // Every expected policy, per table. A table not listed here (or listed
@@ -89,6 +90,10 @@ export const EXPECTED_POLICIES = {
   sync_runs: [],
   sync_staging_institutions: [],
   ncua_reference_sync_log: [],
+  // rail_participation_sync_log (v10.1): server-only, same reasoning as
+  // sync_runs/ncua_reference_sync_log — only ever written by
+  // scripts/backfill-rail-participation.mjs via the service-role key.
+  rail_participation_sync_log: [],
 };
 
 // Every SECURITY DEFINER function and the exact set of roles that should
@@ -176,4 +181,14 @@ export const EXPECTED_SECURITY_DEFINER_EXECUTE = {
   // enforces the field allowlist and inactive-bank rejection at the table
   // boundary itself rather than trusting the Server Action alone.
   apply_bank_correction: ["service_role"],
+  // Code review finding (post-v8.14.5): invoked via admin.rpc(...) from
+  // scripts/apply-duplicate-merge.mjs, making the old-row deactivation and
+  // the surviving row's aka_names update one atomic transaction — same
+  // fix shape as apply_bank_correction above. Never called from client code.
+  merge_duplicate_bank: ["service_role"],
+  // v8.14: pg_catalog introspection helper backing
+  // scripts/db-tests/routeReportsAndModerationIndexes.check.mjs — same
+  // reasoning as audit_rls_manifest above (PostgREST can't expose
+  // pg_catalog directly). Never called from client code.
+  list_indexes_for_table: ["service_role"],
 };
