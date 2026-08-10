@@ -1087,6 +1087,10 @@ This release starts with a full security pass of every API route and RLS policy 
 - Also fixed: `railParticipationSyncLog.check.mjs` (the db-test that runs the real backfill script against local Supabase) only cleaned up its own seeded bank/participant/log rows, but the real script it invokes touches every bank in the database — now snapshots every other bank's rail-participant flags before the run and restores them in cleanup, so the test is genuinely self-contained regardless of what else exists in the local DB
 - New `scripts/db-tests/bankAssetBackfillLog.check.mjs` — schema/query-level only (same reasoning as `ncuaReferenceSyncLog.check.mjs`: the real script does a live FDIC API fetch, not something a db-test should invoke), proves the migration's grants work on a fresh replay
 
+## Version 10.4.1 (v10.4.1 — shipped August 10 2026)
+
+**Fix bank_rail_history pollution in railParticipationSyncLog.check.mjs (code review finding)** — v10.4.0's isolation fix (snapshot/restore any "other" bank's rail flags around the real backfill run) had a second-order bug: restoring a flag the backfill actually changed is itself a real `UPDATE`, which `bank_rail_history_trigger` can't distinguish from a genuine change — it fires again and inserts a second, permanent history row for a bank outside the test's own fixtures, with `banks_set_updated_at` re-bumping `updated_at` to the restoration time on top of that. Fixed by also snapshotting each "other" bank's existing `bank_rail_history` row ids before the run, then deleting exactly the rows the test run created (both the backfill's and the restore's) in cleanup — verified for real: seeded a pollution bank, confirmed its `bank_rail_history` row count and row ids were byte-for-byte identical before and after. `updated_at` itself cannot be restored (the trigger unconditionally overwrites it with `now()` on any real column change, by design) — documented as an accepted, structurally-unavoidable limitation confined to a disposable local test database, only reachable when such "other" banks exist at all (the CI-normal case is zero)
+
 ## Data Principles
 
 - Real-world reports only
