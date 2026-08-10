@@ -18,6 +18,18 @@ vi.mock("@/lib/actions/requestRoute", () => ({
   requestRoute: vi.fn(),
 }));
 
+vi.mock("@/lib/actions/followRoute", () => ({
+  followRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/unfollowRoute", () => ({
+  unfollowRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/getRouteFollowStatus", () => ({
+  getRouteFollowStatus: vi.fn().mockResolvedValue({ following: false }),
+}));
+
 vi.mock("@/lib/actions/submitRouteReport", () => ({
   submitRouteReport: vi.fn(),
 }));

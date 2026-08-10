@@ -18,6 +18,7 @@ import { getSimilarBanks } from "@/lib/similarInstitutions";
 import { formatPhone, telHref, websiteHref } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bankIsIndexable, hasAttributableReportForBank } from "@/lib/institutionIndexability";
+import { FollowBankButton } from "@/components/FollowBankButton";
 import { SuggestCorrection } from "@/components/SuggestCorrection";
 import { SubmitRouteReport } from "@/components/SubmitRouteReport";
 import { SubmitEddReport } from "@/components/SubmitEddReport";
@@ -479,6 +480,10 @@ export default async function BankProfilePage({
         )}
 
         {profile.eddEvidence && <EddCard evidence={profile.eddEvidence} bankName={profile.bank.name} />}
+
+        <div className="mt-4 flex justify-center">
+          <FollowBankButton bankId={profile.bank.id} bankName={profile.bank.name} />
+        </div>
 
         <SuggestCorrection bankId={profile.bank.id} />
         <SubmitRouteReport bankId={profile.bank.id} bankName={profile.bank.name} />

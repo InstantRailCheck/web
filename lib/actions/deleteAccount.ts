@@ -15,8 +15,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // toward requestCount under user_id = null until it's fulfilled, same as
 // any other anonymized row. webhooks (and via its own FK,
 // webhook_deliveries) are fully deleted, since an orphaned webhook would
-// otherwise keep firing with nobody able to manage it. Supabase's own
-// auth.* tables (sessions, passkeys, OAuth links) cascade automatically.
+// otherwise keep firing with nobody able to manage it. watchlist_bank_follows/
+// watchlist_route_follows (v11.0) are fully deleted too, same reasoning as
+// webhooks — a watchlist is purely personal with no communal evidence
+// value once its owner is gone (see 20260810000000_add_watchlist_follows.sql).
+// Supabase's own auth.* tables (sessions, passkeys, OAuth links) cascade
+// automatically.
 export async function deleteAccount(): Promise<{ success: true } | { error: string }> {
   const supabase = await createClient();
   const {

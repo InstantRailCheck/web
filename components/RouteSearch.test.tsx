@@ -3,6 +3,31 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RouteSearch } from "./RouteSearch";
 
+// RouteSearch renders the real WatchRouteButton (v11.0) whenever result is
+// non-null — mock its server actions (each has its own "server-only"
+// import, which throws outside Next's real server/client module split)
+// and the client Supabase auth check it relies on.
+vi.mock("@/lib/actions/followRoute", () => ({
+  followRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/unfollowRoute", () => ({
+  unfollowRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/getRouteFollowStatus", () => ({
+  getRouteFollowStatus: vi.fn().mockResolvedValue({ following: false }),
+}));
+
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      getUser: () => Promise.resolve({ data: { user: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
+    },
+  }),
+}));
+
 const BANK_A = { id: "bank-a", slug: "bank-a", name: "Bank A" };
 const BANK_B = { id: "bank-b", slug: "bank-b", name: "Bank B" };
 

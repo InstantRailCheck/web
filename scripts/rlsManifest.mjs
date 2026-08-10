@@ -45,6 +45,8 @@ export const EXPECTED_RLS_ENABLED_TABLES = [
   "zelle_participants",
   "rail_participation_sync_log",
   "bank_asset_backfill_log",
+  "watchlist_bank_follows",
+  "watchlist_route_follows",
 ];
 
 // Every expected policy, per table. A table not listed here (or listed
@@ -99,6 +101,14 @@ export const EXPECTED_POLICIES = {
   // ever written by scripts/backfill-bank-assets.mjs via the service-role
   // key.
   bank_asset_backfill_log: [],
+  // watchlist_bank_follows / watchlist_route_follows (v11.0): the only
+  // write path is lib/actions/{follow,unfollow}{Bank,Route}.ts, and the
+  // only read path is lib/actions/getWatchlist.ts — both via the admin
+  // client, filtered to the caller's own user_id server-side, same
+  // reasoning as route_requests. No RLS policy is needed or added, so a
+  // user's watchlist is private by construction.
+  watchlist_bank_follows: [],
+  watchlist_route_follows: [],
 };
 
 // Every SECURITY DEFINER function and the exact set of roles that should

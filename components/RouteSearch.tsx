@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, Check, CircleArrowRight, Copy, Users } from "lucide-react";
 import { BankSelect, type Bank } from "@/components/BankSelect";
+import { WatchRouteButton } from "@/components/WatchRouteButton";
 import { RouteIntelligence } from "@/lib/routingEngine";
 import { EVIDENCE_LABELS, type EvidenceState } from "@/lib/routeConfidence";
 import { railDisplayName } from "@/lib/railDisplayName";
@@ -285,6 +286,7 @@ export function RouteSearch({
               >
                 Compare these banks
               </Link>
+              <WatchRouteButton fromBankId={fromBank.id} toBankId={toBank.id} />
             </div>
           </div>
 

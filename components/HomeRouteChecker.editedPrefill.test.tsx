@@ -19,9 +19,22 @@ vi.mock("next/navigation", () => ({
 // SubmitRouteReport is stubbed below, but HomeRouteChecker's contribution
 // CTA also renders the real RequestRouteButton — mock its server action
 // (which has its own "server-only" import) and the client Supabase auth
-// check it relies on, same as HomeRouteChecker.test.tsx does.
+// check it relies on, same as HomeRouteChecker.test.tsx does. RouteSearch
+// also renders the real WatchRouteButton now (v11.0) — same treatment.
 vi.mock("@/lib/actions/requestRoute", () => ({
   requestRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/followRoute", () => ({
+  followRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/unfollowRoute", () => ({
+  unfollowRoute: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/getRouteFollowStatus", () => ({
+  getRouteFollowStatus: vi.fn().mockResolvedValue({ following: false }),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
