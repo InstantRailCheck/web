@@ -30,6 +30,23 @@ export const metadata: Metadata = {
   },
 };
 
+// force-dynamic, explicitly — this page's own headers() call (below) was
+// assumed to be enough to keep Next from ever attempting to statically
+// prerender this route (see coverage.csv/route.ts's comment), but that
+// assumption was wrong in practice: getCachedCoverageReport()/
+// getCachedCoverageFreshness() run BEFORE headers() in this function body,
+// so in any environment without Supabase configured (e.g. CI's `npm run
+// build`, which has no .env.local and no reason to need real DB access
+// just to type-check and bundle), the admin client throws during
+// build-time prerendering before Next's automatic dynamic-detection ever
+// reaches the headers() call — a hard build failure instead of a graceful
+// opt-out of static generation. Confirmed by reproducing locally: renaming
+// .env.local aside and running `npx next build` fails with the exact same
+// "supabaseUrl is required." error CI has been hitting on every commit
+// since this page shipped (v10.0.0). This export sidesteps the ordering
+// problem entirely by declaring the route dynamic before any page code runs.
+export const dynamic = "force-dynamic";
+
 // timeZone: "UTC" is required, not decorative — without it this reads the
 // server process's local zone, which can roll the displayed calendar date
 // back a day for any finished_at timestamp after ~5pm PT (matches

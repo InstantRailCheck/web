@@ -1101,6 +1101,10 @@ This release starts with a full security pass of every API route and RLS policy 
 - `deleteAccount.ts` updated and a new `scripts/db-tests/watchlistAccountDeletionCascade.check.mjs` proves both watchlist tables are fully cascade-deleted on account deletion, not just anonymized
 - Privacy: watchlists are private by construction (no RLS policy grants any client-direct access) — no public follower counts or usernames anywhere
 
+## Version 11.0.1 (v11.0.1 — shipped August 11 2026)
+
+**Fix CI build failure on every commit since v10.0.0** — every Dependabot PR was failing its "test" check identically regardless of which dependency it bumped, which turned out to have nothing to do with dependencies: `main` itself had been failing `npm run build` in CI on every single commit since `/research/instant-payments` shipped (confirmed via `gh run list` — green through `05453b6`, red starting at `e48708a`, the v10.0.0 commit). `getCachedCoverageReport()`/`getCachedCoverageFreshness()` run before this page's own `headers()` call in its function body, so in any environment without Supabase configured (CI's build step has no `.env.local`), the admin client threw during build-time prerendering before Next's automatic dynamic-detection ever reached the `headers()` call that was assumed to keep this route safely dynamic — a hard build failure instead of a graceful opt-out of static generation. Reproduced locally by renaming `.env.local` aside and running `npx next build` (same exact `"supabaseUrl is required."` error), then confirmed fixed the same way. Fixed by adding an explicit `export const dynamic = "force-dynamic"` to the page itself, same as its sibling CSV route already had — that route's own comment explaining why it needed the export (assuming the page didn't) is corrected too
+
 ## Data Principles
 
 - Real-world reports only

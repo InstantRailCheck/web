@@ -12,9 +12,12 @@ import { getCachedCoverageReport } from "@/lib/coverageReportFreshness";
 // nothing beyond the shared 4h-revalidated cache.
 //
 // force-dynamic: without it, Next could statically bake in a build-time
-// snapshot instead of respecting that 4h revalidation window. The page
-// needs this for its own headers() call (CSP nonce); this route has no such
-// call, so it needs the export explicitly.
+// snapshot instead of respecting that 4h revalidation window. Originally
+// this comment assumed the page didn't need the same explicit export since
+// it has its own headers() call (CSP nonce) — that turned out to be wrong
+// (see page.tsx's own dynamic export and its comment for why), so the page
+// now declares this explicitly too. This route still needs its own copy
+// regardless, since it has no headers()/cookies() call of any kind.
 export const dynamic = "force-dynamic";
 
 export async function GET() {
