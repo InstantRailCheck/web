@@ -55,6 +55,19 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - "version-update:semver-major"
+      # eslint 10 is a real, upstream incompatibility, not something this
+      # repo can fix — eslint-config-next@16.2.12 bundles
+      # eslint-plugin-react@7.37.5 (the latest release as of 2026-08-10),
+      # whose react/display-name rule calls a rule-context method ESLint 10
+      # removed, throwing "contextOrFilename.getFilename is not a
+      # function" on every lint run. Confirmed no newer eslint-plugin-react
+      # exists yet to bump to instead. Remove this rule once
+      # eslint-config-next (or its bundled eslint-plugin-react) ships
+      # ESLint 10 support — check `npm view eslint-plugin-react versions`
+      # for a release past 7.37.5 first.
+      - dependency-name: "eslint"
+        update-types:
+          - "version-update:semver-major"
 
   # Actions are pinned to commit SHAs (see .github/workflows/*.yml) as
   # defense in depth against a compromised/republished version tag —
