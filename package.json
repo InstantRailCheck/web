@@ -24,7 +24,7 @@
     "date-fns": "^4.4.0",
     "ipaddr.js": "^2.5.0",
     "lucide-react": "^1.30.0",
-    "next": "16.2.12",
+    "next": "16.3.0",
     "radix-ui": "^1.6.7",
     "react": "19.2.8",
     "react-day-picker": "^10.0.1",
