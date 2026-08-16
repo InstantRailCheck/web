@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SiteNavLinks } from "@/components/SiteNavLinks";
+import { WatchlistActivityBadge } from "@/components/WatchlistActivityBadge";
 
 // Terms/privacy keep the traditional bottom-of-page footer (SiteFooterLinks)
 // instead of this top nav — legal pages read better without nav chrome
@@ -15,7 +16,12 @@ export function Header() {
   if (pathname === "/") return null;
 
   return (
-    <header className="flex w-full flex-col items-center gap-4 px-6 py-4">
+    <header className="relative flex w-full flex-col items-center gap-4 px-6 py-4">
+      {/* Absolutely positioned so a signed-in user with unread watchlist
+          activity doesn't shift the logo off its own centered position. */}
+      <div className="absolute right-6 top-4">
+        <WatchlistActivityBadge />
+      </div>
       <Link href="/" className="inline-flex items-center">
         <Image
           src="/logo-banner.png"

@@ -1,4 +1,5 @@
 import { PasskeyManager } from "@/components/PasskeyManager";
+import { WatchlistActivityFeed } from "@/components/WatchlistActivityFeed";
 import { WatchlistDashboard } from "@/components/WatchlistDashboard";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { LegalFooterLinks } from "@/components/LegalFooterLinks";
@@ -16,6 +17,10 @@ export default function AccountPage() {
 
         <div className="mt-6">
           <PasskeyManager />
+        </div>
+
+        <div className="mt-6">
+          <WatchlistActivityFeed />
         </div>
 
         <div className="mt-6">
