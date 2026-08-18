@@ -24,13 +24,21 @@ const MIN_CONTENT_SIGNALS = 2;
 export function bankIsIndexable(bank: BankForIndexability, hasAttributableReport: boolean): boolean {
   if (!bank.is_active) return false;
 
-  const signals = [
-    !!bank.website,
-    bank.total_assets !== null,
-    !!(bank.fednow_participant || bank.rtp_participant || bank.zelle_participant),
-    !!(bank.aka_names && bank.aka_names.length > 0),
-    hasAttributableReport,
-  ];
+  const hasRailParticipation = !!(bank.fednow_participant || bank.rtp_participant || bank.zelle_participant);
+  const hasAkaNames = !!(bank.aka_names && bank.aka_names.length > 0);
+
+  // website and total_assets are generic structured facts shared by
+  // thousands of institutions and produce no content distinguishing this
+  // bank from any other — they can help clear the count below, but on
+  // their own (both static, neither unique to this bank) they're exactly
+  // the "crawled but not indexed" thin-content profile Google penalizes at
+  // this site's scale. At least one signal must be something dynamic and
+  // specific to this bank: a real community report, a known alias, or
+  // confirmed rail participation.
+  const hasRealSignal = hasAttributableReport || hasAkaNames || hasRailParticipation;
+  if (!hasRealSignal) return false;
+
+  const signals = [!!bank.website, bank.total_assets !== null, hasRailParticipation, hasAkaNames, hasAttributableReport];
 
   return signals.filter(Boolean).length >= MIN_CONTENT_SIGNALS;
 }

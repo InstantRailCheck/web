@@ -28,8 +28,18 @@ describe("bankIsIndexable", () => {
     expect(bankIsIndexable(bank({ website: "https://example.com" }), false)).toBe(false);
   });
 
-  it("is indexable with exactly two content signals: website + total_assets", () => {
-    expect(bankIsIndexable(bank({ website: "https://example.com", total_assets: 5000 }), false)).toBe(true);
+  it("is not indexable on website + total_assets alone, even though that's two signals", () => {
+    // Both are generic structured facts, neither unique to this bank —
+    // without at least one real/dynamic signal, this is exactly the thin
+    // content Google's own crawler was found to decline indexing.
+    expect(bankIsIndexable(bank({ website: "https://example.com", total_assets: 5000 }), false)).toBe(false);
+  });
+
+  it("is indexable once a real signal joins website + total_assets", () => {
+    const base = { website: "https://example.com", total_assets: 5000 };
+    expect(bankIsIndexable(bank({ ...base, aka_names: ["Old Name"] }), false)).toBe(true);
+    expect(bankIsIndexable(bank({ ...base, fednow_participant: true }), false)).toBe(true);
+    expect(bankIsIndexable(bank(base), true)).toBe(true);
   });
 
   it("is indexable with a rail-participant flag + aka_names", () => {
