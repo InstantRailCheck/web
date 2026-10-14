@@ -114,7 +114,7 @@ jobs:
       # full. `if: always()` so a guard_blocked run's (smaller) report
       # still uploads even though the step above technically "failed"
       # (non-zero exit).
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: institution-sync-report-fdic-${{ github.run_id }}
@@ -147,7 +147,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: institution-sync-report-full-${{ github.run_id }}
@@ -189,7 +189,7 @@ jobs:
       # Real institution data — private artifact only, per ADR-0006 §12,
       # never logged/committed in full. `if: always()` so the reports still
       # upload even though a non-empty result makes the step above "fail".
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: duplicate-institutions-audit-${{ github.run_id }}
